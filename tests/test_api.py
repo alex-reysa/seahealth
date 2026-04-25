@@ -117,9 +117,9 @@ def test_facilities_list_returns_at_most_50_valid_audits():
 
 
 def test_query_endpoint_uses_heuristic_when_no_api_key(monkeypatch):
-    """When ANTHROPIC_API_KEY is unset, /query must still resolve a Patna
+    """When DATABRICKS_TOKEN is unset, /query must still resolve a Patna
     appendectomy query into a shape-correct QueryResult."""
-    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    monkeypatch.delenv("DATABRICKS_TOKEN", raising=False)
     # Force PARQUET-look-alike off so the FIXTURE shortcut is engaged but the
     # heuristic path is also exercised by the underlying agent if invoked.
     monkeypatch.delenv("DATABRICKS_SQL_HTTP_PATH", raising=False)
@@ -138,7 +138,7 @@ def test_query_endpoint_uses_heuristic_when_no_api_key(monkeypatch):
 
 def test_query_endpoint_emits_trace_header(monkeypatch):
     """The X-Query-Trace-Id response header must be non-empty."""
-    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    monkeypatch.delenv("DATABRICKS_TOKEN", raising=False)
     data_access.reset_mode_cache()
 
     resp = client.post("/query", json={"query": "appendectomy near Patna?"})
@@ -219,7 +219,7 @@ def test_summary_503_when_fixture_missing(monkeypatch, tmp_path):
 
 def test_query_endpoint_returns_query_trace_id_in_body_too(monkeypatch):
     """Trace id is exposed on both the response body and the X-Query-Trace-Id header."""
-    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    monkeypatch.delenv("DATABRICKS_TOKEN", raising=False)
     data_access.reset_mode_cache()
     resp = client.post("/query", json={"query": "appendectomy near Patna?"})
     assert resp.status_code == 200

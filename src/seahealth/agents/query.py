@@ -2,17 +2,17 @@
 
 Two execution modes:
 
-1. **Heuristic** (``use_llm=False`` or no Anthropic client available):
+1. **Heuristic** (``use_llm=False`` or no LLM client available):
    regex / keyword parser over a closed map of capability synonyms plus the
    static India city geocoder. This is the deterministic path tests rely on
-   and the fallback when ``ANTHROPIC_API_KEY`` is missing.
+   and the fallback when ``DATABRICKS_TOKEN`` is missing.
 
-2. **LLM tool-loop** (``use_llm=True``): Claude is given three tools —
-   ``geocode``, ``search_facilities``, ``get_facility_audit`` — plus a
-   final ``emit_QueryPlan`` tool that the agent must invoke once it has
-   chosen the candidates. The loop is bounded by ``max_steps`` and
-   ``retries``; on any failure we fall back to the heuristic path so the
-   demo never hard-stops mid-query.
+2. **LLM tool-loop** (``use_llm=True``): the Databricks Foundation Model is
+   given three tools — ``geocode``, ``search_facilities``,
+   ``get_facility_audit`` — plus a final ``emit_QueryPlan`` tool that the
+   agent must invoke once it has chosen the candidates. The loop is bounded
+   by ``max_steps`` and ``retries``; on any failure we fall back to the
+   heuristic path so the demo never hard-stops mid-query.
 
 Both paths emit the same ``QueryResult`` shape.
 """
@@ -39,6 +39,7 @@ from seahealth.schemas import (
 )
 
 from .geocode import geocode
+from .llm_client import DEFAULT_HEAVY_MODEL
 from .tools import (
     tool_geocode,
     tool_get_facility_audit,
@@ -47,7 +48,7 @@ from .tools import (
 
 log = logging.getLogger(__name__)
 
-DEFAULT_MODEL = "claude-sonnet-4-6"
+DEFAULT_MODEL = DEFAULT_HEAVY_MODEL
 DEFAULT_RADIUS_KM = 50.0
 MAX_RANKED_FACILITIES = 20
 
@@ -421,11 +422,11 @@ def _execute_tool_call(name: str, arguments: dict[str, Any], *, audits_path: str
 
 def _try_import_structured_call() -> Any | None:
     try:
-        from seahealth.agents import anthropic_client  # type: ignore
+        from seahealth.agents import llm_client  # type: ignore
     except Exception as exc:  # pragma: no cover - exercised in tests
-        log.warning("anthropic_client unavailable; falling back to heuristics: %s", exc)
+        log.warning("llm_client unavailable; falling back to heuristics: %s", exc)
         return None
-    return anthropic_client
+    return llm_client
 
 
 def _run_llm(
@@ -492,8 +493,8 @@ def _run_llm(
             plan = response
             break
 
-        # Otherwise treat the response as a raw Anthropic Message and walk
-        # through any tool_use blocks before looping again.
+        # Otherwise treat the response as a raw Chat Completion message and
+        # walk through any tool_call blocks before looping again.
         tool_calls = _iter_tool_calls(response)
         if not tool_calls:
             log.warning("LLM returned no tool calls and no plan; aborting.")

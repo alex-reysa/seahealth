@@ -10,7 +10,7 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 import pytest
 
-from seahealth.agents import anthropic_client, query
+from seahealth.agents import llm_client, query
 from seahealth.schemas import CapabilityType
 
 # ---------------------------------------------------------------------------
@@ -247,7 +247,7 @@ def test_llm_path_with_mocked_tool_use(
         except StopIteration as exc:  # pragma: no cover - guard
             raise AssertionError("structured_call invoked too many times") from exc
 
-    monkeypatch.setattr(anthropic_client, "structured_call", fake_structured_call)
+    monkeypatch.setattr(llm_client, "structured_call", fake_structured_call)
 
     result = query.run_query(
         "Which facilities within 50km of Patna can perform an appendectomy?",
@@ -286,7 +286,7 @@ def test_llm_path_max_steps_guard_falls_back(
             ]
         )
 
-    monkeypatch.setattr(anthropic_client, "structured_call", fake_structured_call)
+    monkeypatch.setattr(llm_client, "structured_call", fake_structured_call)
 
     result = query.run_query(
         "Which facilities within 50km of Patna can perform an appendectomy?",

@@ -6,6 +6,7 @@ Format: `YYYY-MM-DD HH:MM — <decision>. Reason: <why>. Replaces: <what it kill
 
 ---
 
+- `2026-04-26 11:00 — LLM backend = Databricks Foundation Models (OpenAI-compatible API). Heavy agents on databricks-gpt-5-5; trust-scorer reasoning on databricks-gpt-5-4-mini. Reason: workspace already provisions these endpoints, removes Anthropic dependency for the demo, single-provider auth via DATABRICKS_TOKEN. Replaces: Anthropic SDK direct.`
 - `2026-04-26 02:30 — evidence_ref_id is exactly f"{source_doc_id}:{chunk_id}"; the helper lives at seahealth.schemas.evidence_ref_id. Reason: Validator builds it inline; Trust Scorer / Audit Builder must agree on the join key with EvidenceAssessment without reinventing it. Replaces: implicit join keys constructed at each call site.`
 - `2026-04-26 02:25 — Data-access layer is PARQUET-first with DELTA preferred and FIXTURE as the demo-never-fails fallback (auto-detected, surfaced via /health/data). Reason: PARQUET runs anywhere local without Databricks creds, DELTA is the production target, FIXTURE keeps the demo green when neither is reachable. Replaces: a single hard-coded data path that broke local dev when Databricks was unreachable.`
 - `2026-04-26 02:20 — Retriever uses a FAISS-fallback chain: in-process FAISS first, vector_search SQL warehouse next, in-memory cosine over Parquet last. Reason: every step degrades gracefully without losing semantic ranking; we never hard-fail when one backend is missing. Replaces: a single retriever bound to vector_search.`
