@@ -101,6 +101,21 @@ def test_missing_equipment_present_returns_none():
     assert detect_missing_equipment(cap, facts) is None
 
 
+def test_missing_equipment_requires_every_core_item():
+    cap = _capability(CapabilityType.SURGERY_APPENDECTOMY)
+    facts = _facts(equipment=["anesthesia machine", "x-ray"])
+    result = detect_missing_equipment(cap, facts)
+    assert result is not None
+    assert result.severity == "MEDIUM"
+    assert "laparoscopy" in result.reasoning
+
+
+def test_missing_equipment_matches_case_and_punctuation_tolerantly():
+    cap = _capability(CapabilityType.ICU)
+    facts = _facts(equipment=["ICU VENTILATORS", "bedside-monitor units"])
+    assert detect_missing_equipment(cap, facts) is None
+
+
 def test_missing_equipment_icu_ventilator_present_none():
     cap = _capability(CapabilityType.ICU)
     facts = _facts(equipment=["ventilator", "patient monitor"])

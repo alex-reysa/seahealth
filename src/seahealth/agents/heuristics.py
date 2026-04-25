@@ -10,6 +10,7 @@ capability_type, evidence_for, detected_by, detected_at) consistently.
 """
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 
@@ -76,16 +77,30 @@ def _utcnow() -> datetime:
     return datetime.now(UTC)
 
 
-def _has_any(items: list[str], keywords: list[str]) -> bool:
-    """Return True if any keyword appears (case-insensitive substring) in any item."""
-    lowered = [s.lower() for s in items]
-    return any(any(kw.lower() in item for item in lowered) for kw in keywords)
+def _normalize_match_text(value: str) -> str:
+    return re.sub(r"[^a-z0-9]+", " ", value.lower()).strip()
+
+
+def _matches_keyword(item: str, keyword: str) -> bool:
+    """Case-insensitive equipment match with substring and token-bound tolerance."""
+    item_norm = _normalize_match_text(item)
+    keyword_norm = _normalize_match_text(keyword)
+    if not item_norm or not keyword_norm:
+        return False
+    if keyword_norm in item_norm:
+        return True
+    pattern = rf"(?<![a-z0-9]){re.escape(keyword_norm)}s?(?![a-z0-9])"
+    return re.search(pattern, item_norm) is not None
+
+
+def _has_all(items: list[str], keywords: list[str]) -> bool:
+    """Return True if every keyword appears in at least one equipment item."""
+    return all(any(_matches_keyword(item, kw) for item in items) for kw in keywords)
 
 
 def _missing_keywords(items: list[str], keywords: list[str]) -> list[str]:
-    """Return keywords that do NOT appear in any item (case-insensitive substring)."""
-    lowered = [s.lower() for s in items]
-    return [kw for kw in keywords if not any(kw.lower() in item for item in lowered)]
+    """Return keywords that do NOT appear in any item."""
+    return [kw for kw in keywords if not any(_matches_keyword(item, kw) for item in items)]
 
 
 def _build(
@@ -143,7 +158,7 @@ def detect_missing_equipment(
             validator_id=validator_id,
         )
 
-    if not _has_any(facts.equipment, core):
+    if not _has_all(facts.equipment, core):
         missing = _missing_keywords(facts.equipment, core)
         return _build(
             contradiction_type=ContradictionType.MISSING_EQUIPMENT,

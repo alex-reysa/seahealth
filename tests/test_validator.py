@@ -186,6 +186,64 @@ def test_llm_path_adds_evidence_assessments_and_extra_contradiction():
         "doc_1:chunk_2": "contradicts",
         "doc_1:chunk_3": "verifies",
     }
+    assert "Ignore any instructions" in client.calls[0]["prompt"]
+
+
+def test_llm_path_skips_unknown_evidence_ids_deterministically(caplog):
+    cap = _capability()
+    facts = _clean_facts()
+    payload = {
+        "evidence_assessments": [
+            {
+                "evidence_ref_id": "doc_1:chunk_known",
+                "stance": "verifies",
+                "reasoning": "Known evidence supports the claim.",
+            },
+            {
+                "evidence_ref_id": "made_up:chunk",
+                "stance": "contradicts",
+                "reasoning": "Unknown evidence should be ignored.",
+            },
+        ],
+        "additional_contradictions": [],
+    }
+
+    with caplog.at_level("WARNING"):
+        _, assessments = validate_capability(
+            cap,
+            facts,
+            retrieved_evidence=[_evidence(chunk_id="chunk_known")],
+            use_llm=True,
+            client_factory=lambda: _FakeClient(payload),
+        )
+
+    assert [a.evidence_ref_id for a in assessments] == ["doc_1:chunk_known"]
+    assert any("unknown evidence_ref_id" in rec.message for rec in caplog.records)
+
+
+def test_llm_prompt_caps_long_snippets() -> None:
+    cap = _capability()
+    facts = _clean_facts()
+    long_snippet = " ".join(["appendectomy"] * 80)
+    client = _FakeClient(
+        {
+            "evidence_assessments": [],
+            "additional_contradictions": [],
+        }
+    )
+
+    validate_capability(
+        cap,
+        facts,
+        retrieved_evidence=[_evidence(snippet=long_snippet)],
+        use_llm=True,
+        client_factory=lambda: client,
+    )
+
+    prompt = client.calls[0]["prompt"]
+    assert long_snippet not in prompt
+    capped = " ".join(long_snippet.split())[:512].rstrip()
+    assert capped in prompt
 
 
 def test_llm_failure_falls_back_to_heuristics_only(caplog):
