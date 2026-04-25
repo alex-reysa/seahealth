@@ -83,13 +83,13 @@ Source of truth for sprint task status. Resume work from the last `Merged` row.
 | AUD-04 query + tools + geocode | `cdfa9a3` | Merged GREEN | +315 / -57 (synonyms, more cities, tie-break, empty-state) |
 | AUD-05 databricks + retriever | `2c02d2d` | Merged GREEN | +465 / -43 (largest delta — DDL injection guards, idempotency, FAISS chain) |
 | AUD-06 pipelines | `cab1981` | Merged GREEN | +254 / -23 (`--limit` CLI; conflict-resolved against AUD-03) |
-| AUD-07 api + fixtures + openapi | — | Re-running | Worktree `audit-wt-07`, branch `audit/aud-07-rerun` (parallel with 08/09/10). |
-| AUD-08 tests quality | — | Re-running | Worktree `audit-wt-08`, branch `audit/aud-08-rerun`. |
-| AUD-09 docs drift + state | — | Re-running | Worktree `audit-wt-09`, branch `audit/aud-09-rerun`. Hardening targets: PHASES checkboxes, DECISIONS ADRs, README Quickstart, schema-name drift. |
-| AUD-10 security/tooling/deps | — | Re-running | Worktree `audit-wt-10`, branch `audit/aud-10-rerun`. |
+| AUD-07 api + fixtures + openapi | `4a01585` | Merged GREEN | +129 / -25; regenerated openapi.yaml after AUD-01 hardening; +9 tests (fixture validity parametrize, 503/422/404 paths, body-vs-header trace-id); CORS production TODO comment; `/facilities` `limit` validated 1–50 |
+| AUD-08 tests quality | `49004cf` | Merged GREEN | NEW `tests/conftest.py` (84 LOC, registers `slow` marker, deterministic seeds), `_helpers.py` (191 LOC, 5 factories), `README.md` (154 LOC). 8 tautology cases identified (read-only); coverage gaps: sql_warehouse 67%, validator 70%, data_access 70%, databricks_resources 76%, query 77% |
+| AUD-09 docs drift + state | `9f58093` | Merged GREEN | README Quickstart added; 6 new ADRs in DECISIONS.md; PHASES.md checkboxes synced; UX schema-name drift annotated (rich-vs-slim variant note in dashboard.md/desert_map.md) |
+| AUD-10 security/tooling/deps | `c481575` | Merged GREEN | Zero project-dep CVEs (only `pip` itself flagged); secret-scan clean across full history; `databricks bundle validate -t dev` ✓; +4 `.gitignore` entries (`.coverage`, `.coverage.*`, `htmlcov/`, `__main__.py.cache`) |
 | AUD-R consolidated reviewer | — | Not run | Optional; can be re-launched |
 
-**Merged-branch pytest after audit cherry-picks: 246 passing.**
+**Merged-branch pytest after full audit swarm integration: 255 passing.**
 
 #### Conflict resolution log
 - `src/seahealth/pipelines/build_audits.py` (AUD-03 vs AUD-06): kept AUD-03's atomic-write-with-uuid, kept BOTH `mlflow_trace_id` and `limit` params, both CLI flags, both docstring lines. Added one-line fix: `facility_ids` is now also filtered by `keep_ids` inside the `limit` block (was missed by auto-merge; surfaced by `test_build_audits_respects_limit`).
