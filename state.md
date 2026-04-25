@@ -62,13 +62,13 @@ Source of truth for sprint task status. Resume work from the last `Merged` row.
 
 **Blocker for live demo run**: `ANTHROPIC_API_KEY` not yet in `.env`. Drop in `sk-ant-...` to unblock the locked appendectomy query against real data.
 
-### Phase 4 — Real API + Eval — PENDING
+### Phase 4 — Real API + Eval — IN FLIGHT (alongside Audit Swarm)
 
-| Task | Status | Notes |
-|---|---|---|
-| K-1 Wire FastAPI to Delta | Pending | |
-| L-1 Regenerate fixtures from real data | Pending | |
-| M-1 Eval vs Naomi gold | Pending | When Naomi delivers labels |
+| Task | Status | Worktree | Branch | Notes |
+|---|---|---|---|---|
+| K-1 Wire FastAPI to Delta | **Running** | `seahealth-wt-K1` | `phase4-K1-api` | **LOCKS** `src/seahealth/api/main.py`, `src/seahealth/api/data_access.py` (NEW), `tests/test_api.py`, `tests/test_data_access.py`. AUD-07 must defer to audit-only. |
+| L-1 Regenerate fixtures from real data | Pending | — | — | After K-1 + ANTHROPIC_API_KEY in `.env`. |
+| M-1 Eval vs Naomi gold | **Running** | `seahealth-wt-M1` | `phase4-M1-eval` | **LOCKS** `src/seahealth/eval/*`, `tests/test_naomi_*.py`, `tests/fixtures/naomi/`, `docs/eval/`. No overlap with audit swarm fileScopes. |
 
 ## Budget
 
