@@ -49,10 +49,12 @@ VOLUME_NAME = "raw"
 
 DBFS_FALLBACK = "/FileStore/seahealth/raw"
 
-DEFAULT_CSV_PATH = (
+_DEFAULT_CSV_FALLBACK = (
     "/Users/alejandro/Desktop/seahealth/"
-    "VF_Hackathon_Dataset_India_Large.xlsx - VF_Hackathon_Dataset_India_Larg.csv"
+    "VF_Hackathon_Dataset_India_Large.xlsx - "
+    "VF_Hackathon_Dataset_India_Larg.csv"
 )
+DEFAULT_CSV_PATH = os.environ.get("SEAHEALTH_VF_CSV", _DEFAULT_CSV_FALLBACK)
 
 VS_ENDPOINT_NAME = "seahealth-vs"
 VS_INDEX_SUFFIX = "chunks_index"

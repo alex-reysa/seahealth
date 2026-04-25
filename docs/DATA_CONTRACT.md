@@ -403,6 +403,9 @@ class EvidenceAssessment(BaseModel):
     assessed_at: datetime
 ```
 
+> The evidence_ref_id MUST be `f"{source_doc_id}:{chunk_id}"`. See `seahealth.schemas.evidence_ref_id`.
+
+
 ### SummaryMetrics
 
 ```python

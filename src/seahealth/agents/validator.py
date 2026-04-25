@@ -28,6 +28,7 @@ from seahealth.schemas import (
     ContradictionType,
     EvidenceAssessment,
     EvidenceRef,
+    evidence_ref_id,
 )
 
 from .heuristics import FacilityFacts, run_all_heuristics
@@ -71,7 +72,8 @@ def _build_llm_prompt(
 ) -> str:
     """Assemble a compact prompt describing the claim, facts, and evidence."""
     snippets = "\n".join(
-        f"- [{i}] ({ev.source_type}) {ev.snippet}" for i, ev in enumerate(retrieved_evidence)
+        f"- [{i}] id={evidence_ref_id(ev)} ({ev.source_type}) {ev.snippet}"
+        for i, ev in enumerate(retrieved_evidence)
     ) or "(none)"
     h_lines = "\n".join(
         f"- {c.contradiction_type.value} ({c.severity}): {c.reasoning}"
@@ -85,10 +87,12 @@ def _build_llm_prompt(
         f"recency_months={facts.recency_of_page_update_months}.\n"
         f"Heuristic contradictions:\n{h_lines}\n"
         f"Retrieved evidence:\n{snippets}\n"
-        "For each retrieved evidence, return stance ∈ {verifies, contradicts, silent} "
-        "and a one-sentence reason.  You MAY return up to two additional "
-        "contradictions of type VOLUME_MISMATCH, TEMPORAL_UNVERIFIED, or "
-        "CONFLICTING_SOURCES, each with a one-sentence reasoning."
+        "For each retrieved evidence, return its evidence_ref_id (the exact "
+        "`id=...` string shown above, formatted `{source_doc_id}:{chunk_id}`), "
+        "a stance ∈ {verifies, contradicts, silent}, and a one-sentence reason. "
+        "You MAY return up to two additional contradictions of type "
+        "VOLUME_MISMATCH, TEMPORAL_UNVERIFIED, or CONFLICTING_SOURCES, each "
+        "with a one-sentence reasoning."
     )
 
 
@@ -131,7 +135,7 @@ def _normalize_llm_response(
     now = _utcnow()
     assessments: list[EvidenceAssessment] = []
     raw_assessments = payload.get("evidence_assessments") or []
-    by_ref_id = {f"{ev.source_doc_id}:{ev.chunk_id}": ev for ev in retrieved_evidence}
+    by_ref_id = {evidence_ref_id(ev): ev for ev in retrieved_evidence}
     for entry in raw_assessments:
         try:
             ref_id = entry["evidence_ref_id"]

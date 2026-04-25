@@ -195,7 +195,7 @@ def extract_capabilities(
         client=client,  # type: ignore[arg-type]
     )
 
-    extracted_at = datetime.now(UTC).replace(tzinfo=None)
+    extracted_at = datetime.now(UTC)
     return _normalize_capabilities(
         raw,
         facility_id=facility_id,
