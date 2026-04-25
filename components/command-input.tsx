@@ -25,6 +25,7 @@ export function CommandInput({
   className,
 }: CommandInputProps) {
   const inputRef = React.useRef<HTMLInputElement>(null);
+  const [isFocused, setIsFocused] = React.useState(false);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -53,8 +54,7 @@ export function CommandInput({
           <div
             className={cn(
               "absolute inset-0 rounded-[var(--radius-lg)] bg-[var(--color-accent-aura)] opacity-0 transition-opacity blur-xl -z-10",
-              (isExecuting || inputRef.current === document.activeElement) &&
-                "opacity-100"
+              (isExecuting || isFocused) && "opacity-100"
             )}
           />
           <div className="relative flex items-center">
@@ -65,6 +65,8 @@ export function CommandInput({
               value={value}
               onChange={(e) => onChange(e.target.value)}
               onKeyDown={handleKeyDown}
+              onFocus={() => setIsFocused(true)}
+              onBlur={() => setIsFocused(false)}
               placeholder={placeholder}
               disabled={isExecuting}
               className="w-full h-12 pl-11 pr-4 bg-transparent text-body text-[var(--color-content-primary)] placeholder:text-[var(--color-content-tertiary)] focus:outline-none disabled:opacity-50"
