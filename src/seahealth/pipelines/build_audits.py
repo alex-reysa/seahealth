@@ -21,6 +21,7 @@ import argparse
 import importlib
 import json
 import logging
+import uuid
 from collections import defaultdict
 from collections.abc import Iterable
 from datetime import UTC, datetime
@@ -253,10 +254,12 @@ def _audit_to_parquet_row(audit: FacilityAudit) -> dict[str, Any]:
         "capabilities_json": json.dumps(
             [c.model_dump(mode="json") for c in audit.capabilities],
             ensure_ascii=False,
+            allow_nan=False,
         ),
         "trust_scores_json": json.dumps(
             {k.value: v.model_dump(mode="json") for k, v in audit.trust_scores.items()},
             ensure_ascii=False,
+            allow_nan=False,
         ),
     }
 
@@ -280,7 +283,13 @@ def _write_parquet(rows: list[dict[str, Any]], path: Path) -> None:
         df = pd.DataFrame(columns=empty_columns)
     else:
         df = pd.DataFrame.from_records(rows)
-    pq.write_table(pa.Table.from_pandas(df, preserve_index=False), path)
+    tmp_path = path.with_name(f".{path.name}.{uuid.uuid4().hex}.tmp")
+    try:
+        pq.write_table(pa.Table.from_pandas(df, preserve_index=False), tmp_path)
+        tmp_path.replace(path)
+    finally:
+        if tmp_path.exists():
+            tmp_path.unlink()
 
 
 def _best_effort_delta_mirror(audits_path: Path) -> None:
@@ -313,6 +322,7 @@ def main(
     *,
     use_llm: bool = False,
     rng_seed: int = 42,
+    mlflow_trace_id: str | None = None,
 ) -> dict[str, int]:
     """Build FacilityAudit rows from parquet inputs.
 
@@ -323,6 +333,7 @@ def main(
             present in capabilities.parquet.
         use_llm: Forwarded to ``score_capability``.
         rng_seed: Forwarded to ``score_capability``.
+        mlflow_trace_id: Optional trace id attached to every emitted audit.
 
     Returns:
         ``{"facility_count", "capability_count", "contradiction_count",
@@ -379,11 +390,16 @@ def main(
     capabilities_by_facility = _group_by_facility(capabilities)
     contradictions_by_facility = _group_by_facility(contradictions)
     assessments_by_facility = _group_by_facility(assessments)
+    facility_ids = list(facilities_index.keys())
+    facility_ids.extend(fid for fid in capabilities_by_facility if fid not in facilities_index)
+    if allowed_ids is not None:
+        facility_ids = [fid for fid in facility_ids if fid in allowed_ids]
 
     validator_module = _maybe_validator()
 
     audits: list[FacilityAudit] = []
-    for facility_id, caps in capabilities_by_facility.items():
+    for facility_id in facility_ids:
+        caps = capabilities_by_facility.get(facility_id, [])
         idx_entry = facilities_index.get(facility_id)
         name = idx_entry["name"] if idx_entry else facility_id
         location = _location_from_index(idx_entry)
@@ -439,6 +455,7 @@ def main(
             contradictions=facility_contradictions,
             evidence_assessments=facility_assessments,
             trust_scores=trust_scores,
+            mlflow_trace_id=mlflow_trace_id,
         )
         audits.append(audit)
 
@@ -448,7 +465,7 @@ def main(
     _best_effort_delta_mirror(audits_path)
 
     summary = {
-        "facility_count": len(capabilities_by_facility),
+        "facility_count": len(facility_ids),
         "capability_count": len(capabilities),
         "contradiction_count": len(contradictions),
         "audit_count": len(audits),
@@ -494,6 +511,12 @@ def _build_parser() -> argparse.ArgumentParser:
         default=42,
         help="Seed for bootstrap CI determinism.",
     )
+    p.add_argument(
+        "--mlflow-trace-id",
+        type=str,
+        default=None,
+        help="Optional MLflow trace id to attach to every emitted audit.",
+    )
     return p
 
 
@@ -504,6 +527,7 @@ def _cli(argv: list[str] | None = None) -> None:
         subset=args.subset if args.subset != "all" else None,
         use_llm=args.use_llm,
         rng_seed=args.rng_seed,
+        mlflow_trace_id=args.mlflow_trace_id,
     )
 
 

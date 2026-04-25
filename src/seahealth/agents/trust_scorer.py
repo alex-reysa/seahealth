@@ -3,7 +3,9 @@
 The scorer composes:
 
 1. A deterministic ``confidence`` recipe driven by evidence breadth (distinct
-   ``source_type`` count) and depth (number of evidence refs).
+   ``source_type`` count) and depth (number of evidence refs). Claims with zero
+   evidence are pinned to the minimum confidence because there is no defensible
+   support to score from.
 2. The contract-locked penalty formula
    ``score = clamp(round(confidence * 100) - Σseverity_weights, 0, 100)``
    with ``LOW=5, MEDIUM=15, HIGH=30``.
@@ -62,6 +64,8 @@ def _clamp(value: float, lo: float, hi: float) -> float:
 
 def _compute_confidence(cap: Capability) -> float:
     """Deterministic recipe producing ``confidence`` ∈ [0.05, 0.95]."""
+    if not cap.evidence_refs:
+        return _CONFIDENCE_MIN
     distinct_types = {ev.source_type for ev in cap.evidence_refs}
     type_bonus = _PER_SOURCE_TYPE_BONUS * min(len(distinct_types), _SOURCE_TYPE_CAP)
     depth_bonus = _PER_EVIDENCE_BONUS * min(len(cap.evidence_refs), _EVIDENCE_CAP)
@@ -94,9 +98,9 @@ def _bootstrap_ci(
     rng = random.Random(rng_seed)
     n = len(contradictions)
     if n == 0:
-        # No perturbation → CI collapses to the deterministic score.
-        s = _score_from(confidence, contradictions) / 100.0
-        return _clamp(s, 0.0, 1.0), _clamp(s, 0.0, 1.0)
+        # No perturbation -> CI collapses to the deterministic confidence.
+        c = _clamp(confidence, 0.0, 1.0)
+        return c, c
 
     scores: list[int] = []
     for _ in range(_BOOTSTRAP_ITERS):
@@ -115,10 +119,25 @@ def _bootstrap_ci(
     return _clamp(lo, 0.0, 1.0), _clamp(hi, 0.0, 1.0)
 
 
-def _templated_reasoning(score: int, n_evidence: int, n_contradictions: int) -> str:
+def _contradiction_type_names(contradictions: list[Contradiction]) -> list[str]:
+    return sorted({c.contradiction_type.name for c in contradictions})
+
+
+def _templated_reasoning(
+    score: int,
+    n_evidence: int,
+    contradictions: list[Contradiction],
+) -> str:
+    n_contradictions = len(contradictions)
+    if n_contradictions:
+        names = ", ".join(_contradiction_type_names(contradictions))
+        return (
+            f"Score {score} based on {n_evidence} evidence sources and "
+            f"{n_contradictions} contradictions: {names}."
+        )
     return (
         f"Score {score} based on {n_evidence} evidence sources and "
-        f"{n_contradictions} contradictions."
+        "no contradictions."
     )
 
 
@@ -160,7 +179,8 @@ def _llm_reasoning(
         f"Capability {cap.capability_type.value} (claimed={cap.claimed}) at "
         f"facility {cap.facility_id}. Score={score} with "
         f"{len(cap.evidence_refs)} evidence sources and "
-        f"{len(contradictions)} contradictions. "
+        f"{len(contradictions)} contradictions"
+        f" ({', '.join(_contradiction_type_names(contradictions)) or 'none'}). "
         "Return ONE sentence summarizing why this trust score is appropriate."
     )
     try:
@@ -225,7 +245,7 @@ def score_capability(
             client_factory=client_factory,
         )
     if reasoning is None:
-        reasoning = _templated_reasoning(score, len(cap.evidence_refs), len(contradictions))
+        reasoning = _templated_reasoning(score, len(cap.evidence_refs), contradictions)
 
     return TrustScore(
         capability_type=cap.capability_type,

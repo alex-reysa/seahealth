@@ -231,3 +231,68 @@ def test_build_audits_subset_demo_filters_facilities(tmp_path: Path):
     assert summary["audit_count"] == 1
     df = pq.read_table(tables_dir / build_audits.AUDITS_FILE).to_pandas()
     assert df["facility_id"].tolist() == ["vf_00042_janta_hospital_patna"]
+
+
+def test_build_audits_includes_zero_capability_facility_once(tmp_path: Path):
+    tables_dir = tmp_path / "tables"
+    tables_dir.mkdir()
+
+    _write_facilities_index(
+        tables_dir / build_audits.FACILITIES_INDEX_FILE,
+        [
+            {
+                "facility_id": "vf_00077_index_only",
+                "name": "Index Only Hospital",
+                "latitude": 18.52,
+                "longitude": 73.86,
+                "pin_code": "411001",
+            },
+            {
+                "facility_id": "vf_00077_index_only",
+                "name": "Index Only Hospital Duplicate",
+                "latitude": 18.53,
+                "longitude": 73.87,
+                "pin_code": "411001",
+            },
+        ],
+    )
+
+    summary = build_audits.main(tables_dir=tables_dir)
+    df = pq.read_table(tables_dir / build_audits.AUDITS_FILE).to_pandas()
+
+    assert summary["facility_count"] == 1
+    assert summary["audit_count"] == 1
+    assert df["facility_id"].tolist() == ["vf_00077_index_only"]
+    assert json.loads(df.iloc[0]["capabilities_json"]) == []
+    assert json.loads(df.iloc[0]["trust_scores_json"]) == {}
+
+
+def test_build_audits_threads_trace_and_json_roundtrips(tmp_path: Path):
+    tables_dir = tmp_path / "tables"
+    tables_dir.mkdir()
+
+    caps = [_capability("vf_00042_janta_hospital_patna", CapabilityType.LAB)]
+    _write_capabilities(tables_dir / build_audits.CAPABILITIES_FILE, caps)
+    _write_facilities_index(
+        tables_dir / build_audits.FACILITIES_INDEX_FILE,
+        [
+            {
+                "facility_id": "vf_00042_janta_hospital_patna",
+                "name": "Janta Hospital, Patna",
+                "latitude": 25.61,
+                "longitude": 85.14,
+                "pin_code": "800001",
+            }
+        ],
+    )
+
+    build_audits.main(tables_dir=tables_dir, mlflow_trace_id="trace-xyz")
+    df = pq.read_table(tables_dir / build_audits.AUDITS_FILE).to_pandas()
+    row = df.iloc[0]
+
+    assert row["mlflow_trace_id"] == "trace-xyz"
+    assert not list(tables_dir.glob(f".{build_audits.AUDITS_FILE}.*.tmp"))
+    assert Capability.model_validate(json.loads(row["capabilities_json"])[0])
+    trust_scores = json.loads(row["trust_scores_json"])
+    assert trust_scores["LAB"]["capability_type"] == "LAB"
+    assert trust_scores["LAB"]["computed_at"]

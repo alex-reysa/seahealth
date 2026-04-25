@@ -18,6 +18,7 @@ from seahealth.schemas import (
     Capability,
     CapabilityType,
     Contradiction,
+    ContradictionType,
     EvidenceRef,
     TrustScore,
 )
@@ -87,11 +88,12 @@ def _capability(
     )
 
 
-def _contradiction(severity: str = "HIGH") -> Contradiction:
-    from seahealth.schemas import ContradictionType
-
+def _contradiction(
+    severity: str = "HIGH",
+    contradiction_type: ContradictionType | None = None,
+) -> Contradiction:
     return Contradiction(
-        contradiction_type=ContradictionType.MISSING_STAFF,
+        contradiction_type=contradiction_type or ContradictionType.MISSING_STAFF,
         capability_type=CapabilityType.SURGERY_APPENDECTOMY,
         facility_id="vf_00042_janta_hospital_patna",
         evidence_for=[],
@@ -118,6 +120,28 @@ def test_deterministic_score_formula_matches_contract():
     assert ts.score == 50
     assert ts.confidence == pytest.approx(0.95)
     assert isinstance(ts, TrustScore)
+
+
+def test_zero_evidence_claim_has_minimum_confidence_and_collapsed_ci():
+    cap = _capability(n_evidence=0, distinct_types=1)
+    ts = score_capability(cap, [], use_llm=False)
+
+    assert ts.confidence == pytest.approx(0.05)
+    assert ts.score == 5
+    assert ts.confidence_interval == (ts.confidence, ts.confidence)
+    assert "no contradictions" in ts.reasoning
+
+
+def test_templated_reasoning_names_contradiction_types():
+    cap = _capability(n_evidence=1, distinct_types=1)
+    contradictions = [
+        _contradiction("LOW", ContradictionType.STALE_DATA),
+        _contradiction("HIGH", ContradictionType.MISSING_EQUIPMENT),
+    ]
+    ts = score_capability(cap, contradictions, use_llm=False)
+
+    assert "MISSING_EQUIPMENT" in ts.reasoning
+    assert "STALE_DATA" in ts.reasoning
 
 
 def test_rng_seed_yields_reproducible_confidence_interval():

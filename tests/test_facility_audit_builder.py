@@ -149,6 +149,25 @@ def test_filters_contradictions_for_other_facilities():
     assert audit.total_contradictions == 1
 
 
+def test_total_contradictions_prefers_scored_contradictions():
+    cap = _capability()
+    scored = _contradiction(severity="LOW")
+    unscored = _contradiction(CapabilityType.ICU, severity="HIGH")
+    ts = _trust_score(cap.capability_type, [scored])
+
+    audit = build_facility_audit(
+        facility_id=FACILITY_ID,
+        name="Janta Hospital",
+        location=GeoPoint(lat=25.61, lng=85.14),
+        capabilities=[cap],
+        contradictions=[scored, unscored],
+        evidence_assessments=[],
+        trust_scores={cap.capability_type: ts},
+    )
+
+    assert audit.total_contradictions == 1
+
+
 def test_last_audited_at_honors_max_trust_score_computed_at():
     cap_a = _capability(CapabilityType.SURGERY_APPENDECTOMY)
     cap_b = _capability(CapabilityType.ICU)

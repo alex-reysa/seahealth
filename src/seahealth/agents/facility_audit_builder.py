@@ -66,6 +66,7 @@ def build_facility_audit(
     _ = evidence_assessments
 
     filtered_contradictions = [c for c in contradictions if c.facility_id == facility_id]
+    scored_contradiction_count = sum(len(ts.contradictions) for ts in trust_scores.values())
 
     if trust_scores:
         last_audited_at = max(ts.computed_at for ts in trust_scores.values())
@@ -78,7 +79,9 @@ def build_facility_audit(
         location=location,
         capabilities=list(capabilities),
         trust_scores=dict(trust_scores),
-        total_contradictions=len(filtered_contradictions),
+        total_contradictions=(
+            scored_contradiction_count if trust_scores else len(filtered_contradictions)
+        ),
         last_audited_at=last_audited_at,
         mlflow_trace_id=mlflow_trace_id,
     )
