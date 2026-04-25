@@ -268,6 +268,22 @@ Tailwind + shadcn. Color tokens → CSS custom properties on `:root`, consumed v
 
 Use shadcn primitives (Card, Button, Input, Dialog) re-skinned via tokens — don't rebuild. **Build velocity > customization.**
 
+Map implementation stack:
+
+- `maplibre-gl` for the WebGL map renderer.
+- `@vis.gl/react-maplibre` for React-controlled map state.
+- `@turf/turf` for bounds, centroids, distances, and geospatial helpers.
+- `supercluster` or MapLibre GeoJSON clustering for facility clusters.
+- `topojson-client` for loading TopoJSON boundaries.
+- `d3-scale` and `d3-scale-chromatic` for choropleth color ramps.
+- Optional `deck.gl`, `@deck.gl/react`, `@deck.gl/layers`, and `@deck.gl/geo-layers` for high-volume or animated overlays.
+
+Preferred India boundaries for v1:
+
+- Start with `udit-001/india-maps-data` for ready-to-use GeoJSON/TopoJSON district maps.
+- Use DataMeet maps when we need a stronger India boundary source and have time to convert/simplify shapefiles.
+- Preserve source attribution in the repo and submission materials.
+
 ---
 
 ## 10. Open questions for v2

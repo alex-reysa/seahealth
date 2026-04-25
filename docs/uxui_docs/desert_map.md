@@ -61,18 +61,31 @@ Bottom metric strip:
 
 ## Implementation recommendation
 
-Recommended map stack for the hackathon build:
+Recommended frontend map stack for the hackathon build:
 
-- Map renderer: MapLibre GL JS.
-- React wrapper/state: `react-map-gl/maplibre` in controlled mode.
-- Optional overlay layer: deck.gl for high-volume facility points, arcs, halos, or animated layers.
-- Boundary data: DataMeet India shapefiles converted to GeoJSON/TopoJSON, or a web-ready India GeoJSON/TopoJSON repo such as `udit-001/india-maps-data` after license and boundary fit review.
-- Preprocessing: simplify boundaries and join them to `MapRegionAggregate.region_id` before runtime.
+| Need | Package / framework | Use |
+|---|---|---|
+| Base interactive map | `maplibre-gl` | WebGL map renderer, vector/GeoJSON sources, camera methods like `flyTo`, `fitBounds`, and layer filters. |
+| React integration | `@vis.gl/react-maplibre` | React wrapper around MapLibre with controlled view state. Use this as the default React map package. |
+| Heavy overlays, optional | `deck.gl`, `@deck.gl/react`, `@deck.gl/layers`, `@deck.gl/geo-layers` | Facility clusters, point clouds, halos, arcs, animated layers, or large overlay datasets if MapLibre layers become limiting. |
+| Geometry helpers | `@turf/turf` | Bounds, centroids, distances, point-in-polygon checks, and radius helpers. |
+| Clustering | `supercluster` | Fast client-side clustering for facility markers if not using MapLibre's built-in GeoJSON clustering. |
+| TopoJSON conversion | `topojson-client` | Convert TopoJSON boundaries to GeoJSON features in the browser or build step. |
+| Color ramps | `d3-scale`, `d3-scale-chromatic` | Choropleth/heatmap color scales for `gap_population` and `coverage_ratio`. |
+
+Install target for a React/Next frontend:
+
+```bash
+npm install maplibre-gl @vis.gl/react-maplibre @turf/turf supercluster topojson-client d3-scale d3-scale-chromatic
+npm install @deck.gl/react @deck.gl/layers @deck.gl/geo-layers
+```
+
+Only install deck.gl packages when we actually need heavier overlays. The first version can ship with MapLibre layers, GeoJSON sources, and MapLibre/`supercluster` clustering.
 
 Why:
 
 - MapLibre exposes imperative camera and layer APIs such as `flyTo`, `fitBounds`, and `setFilter`, which are straightforward to wrap as agent commands.
-- `react-map-gl` supports controlled view state, which lets user gestures, typed commands, voice transcripts, and agent actions all update the same camera/filter state.
+- `@vis.gl/react-maplibre` supports controlled view state, which lets user gestures, typed commands, voice transcripts, and agent actions all update the same camera/filter state.
 - deck.gl is useful when we need data-heavy overlays beyond a simple choropleth, but it is not required for the first choropleth.
 
 Avoid for v1:
@@ -88,12 +101,55 @@ Optional agent geospatial services:
 
 Reference docs:
 
+- MapLibre GL JS package: https://www.npmjs.com/package/maplibre-gl
 - MapLibre GL JS API: https://maplibre.org/maplibre-gl-js/docs/API/classes/Map/
-- react-map-gl controlled state: https://visgl.github.io/react-map-gl/docs/get-started/state-management
+- React MapLibre package: https://www.npmjs.com/package/@vis.gl/react-maplibre
+- react-map-gl / vis.gl docs: https://visgl.github.io/react-map-gl/
 - deck.gl views and view state: https://deck.gl/docs/developer-guide/views
-- DataMeet maps: https://github.com/datameet/maps
-- India maps data: https://github.com/udit-001/india-maps-data
 - Mapbox MCP Server: https://github.com/mapbox/mcp-server
+
+## India map data sources
+
+Use web-ready GeoJSON/TopoJSON when speed matters; use shapefiles when we need more authoritative boundaries and can preprocess them.
+
+Recommended order:
+
+1. `udit-001/india-maps-data` — https://github.com/udit-001/india-maps-data
+   - Best for fast frontend prototyping.
+   - Provides whole-country and per-state India maps in GeoJSON and TopoJSON.
+   - Includes district-level boundaries and direct CDN-style links in the repo docs.
+   - Use this first for the dashboard choropleth if license/boundary fit is acceptable.
+
+2. DataMeet maps — https://github.com/datameet/maps
+   - Best for a community-maintained India geospatial source.
+   - Provides Indian boundary data primarily as shapefiles.
+   - The repo notes conversion to GeoJSON/KML/vector formats through `ogr2ogr` or Mapshaper.
+   - DataMeet India boundaries are listed as CC BY 4.0; preserve attribution.
+
+3. `mickeykedia/India-Maps` — https://github.com/mickeykedia/India-Maps
+   - Useful fallback collection of India shapefiles and GeoJSON files.
+   - Review freshness, boundary source, and license before use.
+
+4. Natural Earth — https://www.naturalearthdata.com/
+   - Good for country/neighbor context and a coarse India outline.
+   - Not sufficient for district/PIN-level healthcare planning.
+
+Preprocessing workflow:
+
+```bash
+# Shapefile -> GeoJSON
+ogr2ogr -f GeoJSON india_districts.geojson input_districts.shp
+
+# Simplify and export web-ready GeoJSON/TopoJSON
+npx mapshaper india_districts.geojson -simplify 10% keep-shapes -o format=topojson india_districts.topojson
+```
+
+Runtime data contract:
+
+- Boundary feature id must join to `MapRegionAggregate.region_id`.
+- Boundary feature name must be normalized to `MapRegionAggregate.region_name`.
+- PIN-level navigation needs a lookup from six-digit `pin_code` to centroid or region id.
+- Facility points use `FacilityAudit.location.lat`, `FacilityAudit.location.lng`, and `FacilityAudit.location.pin_code`.
 
 ## Agent and voice control
 
