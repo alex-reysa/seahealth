@@ -1,6 +1,6 @@
 """Read-only smoke test: confirms PAT + host reach the workspace."""
 
-from databricks_client import get_workspace
+from seahealth.db.databricks_client import get_workspace
 
 
 def main() -> None:

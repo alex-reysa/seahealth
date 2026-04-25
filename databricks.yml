@@ -1,0 +1,53 @@
+# Databricks Asset Bundle for SeaHealth
+# Validated locally via `databricks bundle validate -t dev`. Do not deploy yet.
+bundle:
+  name: seahealth
+
+variables:
+  catalog:
+    description: Unity Catalog name. Detected at deploy time and may be overridden.
+    default: main
+  bronze_schema:
+    description: Bronze (raw) schema name.
+    default: seahealth_bronze
+  silver_schema:
+    description: Silver (curated) schema name.
+    default: seahealth_silver
+  gold_schema:
+    description: Gold (serving) schema name.
+    default: seahealth_gold
+  vs_endpoint:
+    description: Vector Search endpoint name (created via SDK in Phase 2, not declared here).
+    default: seahealth-vs
+  experiment_path:
+    description: MLflow experiment path under /Shared.
+    default: /Shared/seahealth/extraction-runs
+
+# Vector Search endpoint created via SDK in Phase 2 (databricks_resources.py).
+resources:
+  experiments:
+    extraction_runs:
+      name: ${var.experiment_path}
+
+  jobs:
+    extract-pipeline:
+      name: extract-pipeline
+      tasks:
+        - task_key: run_extraction
+          python_wheel_task:
+            package_name: seahealth
+            entry_point: seahealth.pipelines.extract:main
+          environment_key: default
+      environments:
+        - environment_key: default
+          spec:
+            client: '2'
+
+targets:
+  dev:
+    mode: development
+    default: true
+    # workspace.host is intentionally NOT pinned here — it is read from the
+    # DATABRICKS_HOST env var (loaded from .env). The bundles spec rejects
+    # ${VAR} interpolation on workspace.host, and env-var auth is preferred
+    # so the same bundle works across machines without committing the host.

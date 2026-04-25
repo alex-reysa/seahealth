@@ -11,7 +11,7 @@ from pathlib import Path
 from databricks.sdk import WorkspaceClient
 from dotenv import load_dotenv
 
-_REPO_ROOT = Path(__file__).resolve().parents[2]
+_REPO_ROOT = Path(__file__).resolve().parents[3]
 load_dotenv(_REPO_ROOT / ".env")
 
 
