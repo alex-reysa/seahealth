@@ -7,12 +7,36 @@ Reuses the WorkspaceClient from `databricks_client.py`. Idempotent — safe to c
 from __future__ import annotations
 
 import os
+import re
 import time
 from typing import Any
 
-from databricks.sdk.service.sql import StatementState
-
 from .databricks_client import get_workspace
+
+_BEARER_RE = re.compile(r"(?i)\bbearer\s+[A-Za-z0-9._~+/=-]+")
+
+
+def _redact_secrets(value: object) -> str:
+    """Return a log/error-safe string with bearer tokens removed."""
+    return _BEARER_RE.sub("Bearer [REDACTED]", str(value))
+
+
+def _state_value(state: Any) -> str:
+    """Normalize SDK enum/string state values for comparisons and errors."""
+    return getattr(state, "value", state) or "UNKNOWN"
+
+
+def _rows_to_dicts(columns: list[str], data_array: list[list[Any]]) -> list[dict[str, Any]]:
+    """Map Databricks result arrays to stable dict rows keyed by every column."""
+    rows: list[dict[str, Any]] = []
+    for row in data_array:
+        rows.append(
+            {
+                column: row[idx] if idx < len(row) else None
+                for idx, column in enumerate(columns)
+            }
+        )
+    return rows
 
 
 def get_warehouse_id() -> str:
@@ -116,7 +140,7 @@ def execute_sql(
     w = get_workspace()
 
     # API requires wait_timeout to be 0s OR between 5s and 50s inclusive.
-    wt = max(5, min(50, wait_timeout_s))
+    wt = 0 if wait_timeout_s <= 0 else max(5, min(50, wait_timeout_s))
     resp = w.statement_execution.execute_statement(
         statement=sql,
         warehouse_id=wid,
@@ -126,24 +150,24 @@ def execute_sql(
     )
 
     statement_id = resp.statement_id
+    if not statement_id:
+        raise RuntimeError("statement execution did not return a statement_id")
     status = resp.status
 
     # Poll until terminal state.
-    while status is not None and status.state in {
-        StatementState.PENDING,
-        StatementState.RUNNING,
-    }:
+    while status is not None and _state_value(status.state) in {"PENDING", "RUNNING"}:
         time.sleep(1)
         resp = w.statement_execution.get_statement(statement_id)
         status = resp.status
 
-    if status is None or status.state != StatementState.SUCCEEDED:
+    if status is None or _state_value(status.state) != "SUCCEEDED":
         err = ""
         if status is not None and status.error is not None:
-            err = f"{status.error.error_code}: {status.error.message}"
-        state_str = status.state if status else "UNKNOWN"
+            err = _redact_secrets(f"{status.error.error_code}: {status.error.message}")
+        state_str = _state_value(status.state) if status else "UNKNOWN"
         raise RuntimeError(
-            f"statement failed (state={state_str}): {err}\nSQL: {sql[:200]}"
+            f"statement failed (state={state_str}): {err}\n"
+            f"SQL: {_redact_secrets(sql)[:200]}"
         )
 
     # No result manifest → DDL or no-result statement.
@@ -155,18 +179,19 @@ def execute_sql(
     columns = [c.name for c in (manifest.schema.columns or [])]
     rows: list[dict[str, Any]] = []
 
-    data_array = result.data_array or []
-    for row in data_array:
-        rows.append({col: val for col, val in zip(columns, row, strict=False)})
+    rows.extend(_rows_to_dicts(columns, result.data_array or []))
 
     # Fetch additional chunks if any.
     next_chunk_idx = result.next_chunk_index
+    seen_chunks: set[int] = set()
     while next_chunk_idx is not None:
+        if next_chunk_idx in seen_chunks:
+            raise RuntimeError(f"statement result chunk loop detected at {next_chunk_idx}")
+        seen_chunks.add(next_chunk_idx)
         chunk = w.statement_execution.get_statement_result_chunk_n(
             statement_id, next_chunk_idx
         )
-        for row in chunk.data_array or []:
-            rows.append({col: val for col, val in zip(columns, row, strict=False)})
+        rows.extend(_rows_to_dicts(columns, chunk.data_array or []))
         next_chunk_idx = chunk.next_chunk_index
 
     return rows

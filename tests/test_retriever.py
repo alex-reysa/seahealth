@@ -7,10 +7,19 @@ minimal install.
 
 from __future__ import annotations
 
+import builtins
+import json
+from unittest.mock import MagicMock
+
 import pandas as pd
 import pytest
 
-from seahealth.db.retriever import FaissRetriever, _load_chunks_dataframe, get_retriever
+from seahealth.db.retriever import (
+    FaissRetriever,
+    VectorSearchRetriever,
+    _load_chunks_dataframe,
+    get_retriever,
+)
 
 
 @pytest.fixture
@@ -97,6 +106,32 @@ def test_empty_dataframe_returns_empty_list():
     assert retriever.search("anything", k=5) == []
 
 
+def test_zero_text_tf_fallback_is_safe(monkeypatch):
+    """Missing/null text must not crash or become a literal 'None' token."""
+    real_import = builtins.__import__
+
+    def _block_optional_imports(name, *args, **kwargs):
+        if name in {"faiss", "rank_bm25", "sentence_transformers"}:
+            raise ImportError(name)
+        return real_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", _block_optional_imports)
+    df = pd.DataFrame(
+        [
+            {"chunk_id": "c1", "facility_id": "f1", "text": ""},
+            {"chunk_id": "c2", "facility_id": "f2", "text": None},
+            {"chunk_id": "c3", "facility_id": "f3"},
+        ]
+    )
+    retriever = FaissRetriever(df=df)
+
+    assert retriever.backend == "tf"
+    assert retriever.search("", k=2) == []
+    results = retriever.search("icu", k=3)
+    assert len(results) == 3
+    assert all(result.text == "" for result in results)
+
+
 def test_returned_indexed_doc_has_correct_shape(sample_chunks):
     """Returned IndexedDoc must satisfy the 1024-d embedding length contract."""
     from seahealth.schemas import EMBEDDING_DIM
@@ -135,3 +170,41 @@ def test_load_chunks_dataframe_returns_empty_when_missing(tmp_path):
     # Schema columns should still be present so downstream code can rely on them.
     assert "chunk_id" in df.columns
     assert "text" in df.columns
+
+
+def test_vector_search_rejects_unsafe_index_name():
+    with pytest.raises(ValueError, match="invalid vector search index"):
+        VectorSearchRetriever(
+            endpoint_name="seahealth-vs",
+            index_name="workspace.seahealth_bronze.chunks_index;DROP",
+        )
+
+
+def test_vector_search_filter_is_json_encoded():
+    retriever = object.__new__(VectorSearchRetriever)
+    retriever.endpoint_name = "seahealth-vs"
+    retriever.index_name = "workspace.seahealth_bronze.chunks_index"
+    retriever._client = MagicMock()
+    index = MagicMock()
+    retriever._client.get_index.return_value = index
+    index.similarity_search.return_value = {
+        "manifest": {
+            "columns": [
+                {"name": "chunk_id"},
+                {"name": "facility_id"},
+                {"name": "source_type"},
+                {"name": "text"},
+            ]
+        },
+        "result": {
+            "data_array": [["c1", 'f"1', "facility_note", "icu"]],
+            "row_count": 1,
+        },
+    }
+
+    results = retriever.search("icu", k=1, facility_id='f"1')
+
+    kwargs = index.similarity_search.call_args.kwargs
+    assert json.loads(kwargs["filters_json"]) == {"facility_id": 'f"1'}
+    assert kwargs["columns"] == ["chunk_id", "facility_id", "source_type", "text"]
+    assert results[0].doc_id == "c1"

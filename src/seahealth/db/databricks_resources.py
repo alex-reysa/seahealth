@@ -26,6 +26,7 @@ from __future__ import annotations
 import io
 import logging
 import os
+import re
 from pathlib import Path
 from typing import Any
 
@@ -61,11 +62,60 @@ VS_INDEX_SUFFIX = "chunks_index"
 
 MLFLOW_EXPERIMENT_PATH = "/Shared/seahealth/extraction-runs"
 
+_IDENTIFIER_RE = re.compile(r"^[A-Za-z0-9_]+$")
+_BEARER_RE = re.compile(r"(?i)\bbearer\s+[A-Za-z0-9._~+/=-]+")
+
+
+def _redact_secrets(value: object) -> str:
+    """Return a log-safe string with bearer tokens removed."""
+    return _BEARER_RE.sub("Bearer [REDACTED]", str(value))
+
 
 def _log(msg: str) -> None:
     """Write one line to stdout AND to the module logger."""
+    msg = _redact_secrets(msg)
     print(msg, flush=True)
     logger.info(msg)
+
+
+def _validate_identifier(identifier: str, *, kind: str = "identifier") -> str:
+    """Validate a Databricks SQL identifier before interpolating it into DDL."""
+    if not _IDENTIFIER_RE.fullmatch(identifier):
+        raise ValueError(
+            f"invalid {kind} {identifier!r}; expected pattern [A-Za-z0-9_]+"
+        )
+    return identifier
+
+
+def _validate_fq_schema(value: str, *, kind: str = "schema") -> str:
+    """Validate ``catalog.schema`` strings used in generated SQL."""
+    parts = value.split(".")
+    if len(parts) != 2:
+        raise ValueError(f"invalid {kind} {value!r}; expected catalog.schema")
+    catalog, schema = parts
+    _validate_identifier(catalog, kind=f"{kind} catalog")
+    _validate_identifier(schema, kind=f"{kind} name")
+    return value
+
+
+def _remote_content_length(w: Any, remote_path: str) -> tuple[bool, int | None]:
+    """Return ``(exists, content_length)`` for a workspace file path."""
+    try:
+        meta = w.files.get_metadata(remote_path)
+    except NotFound:
+        return False, None
+    size = getattr(meta, "content_length", None)
+    return True, int(size) if size is not None else None
+
+
+def _delete_remote_file_if_present(w: Any, remote_path: str) -> None:
+    """Best-effort delete used to clean up stale or partial uploads."""
+    try:
+        w.files.delete(remote_path)
+    except NotFound:
+        return
+    except Exception as exc:
+        _log(f"upload_csv_to_volume: cleanup skipped for {remote_path} ({exc!r})")
 
 
 # --------------------------------------------------------------------------- #
@@ -96,7 +146,7 @@ def detect_catalog() -> str:
     # Any non-system catalog.
     for c in catalogs:
         ctype = c.catalog_type.value if c.catalog_type is not None else ""
-        if "SYSTEM" not in ctype:
+        if "SYSTEM" not in ctype and _IDENTIFIER_RE.fullmatch(c.name or ""):
             _log(f"detect_catalog: using catalog {c.name!r} (type={ctype})")
             return c.name
 
@@ -113,6 +163,7 @@ def ensure_schemas(catalog: str) -> dict[str, str]:
     Returns:
         Mapping of layer → fully-qualified schema name (``catalog.schema``).
     """
+    catalog = _validate_identifier(catalog, kind="catalog")
     ensure_running()
     out: dict[str, str] = {}
     for layer, schema in (
@@ -142,6 +193,7 @@ def ensure_volume(catalog: str) -> str:
     on the cluster filesystem. When UC is not available (catalog is
     ``hive_metastore``), we return the DBFS fallback path :data:`DBFS_FALLBACK`.
     """
+    catalog = _validate_identifier(catalog, kind="catalog")
     if catalog == "hive_metastore":
         _log(f"ensure_volume: UC unavailable, using DBFS path {DBFS_FALLBACK}")
         return DBFS_FALLBACK
@@ -193,20 +245,47 @@ def upload_csv_to_volume(volume_path: str, local_csv_path: str = DEFAULT_CSV_PAT
 
     # Idempotency: skip if a same-size object is already present.
     try:
-        meta = w.files.get_metadata(remote_path)
-        remote_size = getattr(meta, "content_length", None)
-        if remote_size is not None and int(remote_size) == local_size:
+        remote_exists, remote_size = _remote_content_length(w, remote_path)
+        if remote_size == local_size:
             _log(f"ensured: csv {remote_path} (already present, {local_size} bytes)")
             return remote_path
-    except NotFound:
-        pass
+        if remote_exists:
+            _log(
+                "upload_csv_to_volume: replacing stale csv "
+                f"{remote_path} (remote={remote_size}, local={local_size})"
+            )
+            _delete_remote_file_if_present(w, remote_path)
     except Exception:
         # Bucket: any other read error → just re-upload.
         pass
 
-    with src.open("rb") as fh:
-        # `files.upload` works for both /Volumes paths and DBFS-style paths.
-        w.files.upload(file_path=remote_path, contents=fh, overwrite=True)
+    try:
+        with src.open("rb") as fh:
+            # `files.upload` works for both /Volumes paths and DBFS-style paths.
+            w.files.upload(file_path=remote_path, contents=fh, overwrite=True)
+    except Exception:
+        try:
+            remote_exists, remote_size = _remote_content_length(w, remote_path)
+        except Exception:
+            remote_exists, remote_size = False, None
+        if remote_size == local_size:
+            _log(f"ensured: csv {remote_path} (uploaded {local_size} bytes)")
+            return remote_path
+        if remote_exists:
+            _delete_remote_file_if_present(w, remote_path)
+        raise
+
+    try:
+        _, remote_size = _remote_content_length(w, remote_path)
+    except Exception:
+        remote_size = None
+    if remote_size is not None and remote_size != local_size:
+        _delete_remote_file_if_present(w, remote_path)
+        raise RuntimeError(
+            f"uploaded csv size mismatch for {remote_path}: "
+            f"remote={remote_size}, local={local_size}"
+        )
+
     _log(f"ensured: csv {remote_path} (uploaded {local_size} bytes)")
     return remote_path
 
@@ -378,6 +457,9 @@ def ensure_delta_tables(bronze: str, silver: str, gold: str) -> list[str]:
     Returns:
         Fully-qualified table names in creation order.
     """
+    bronze = _validate_fq_schema(bronze, kind="bronze schema")
+    silver = _validate_fq_schema(silver, kind="silver schema")
+    gold = _validate_fq_schema(gold, kind="gold schema")
     ensure_running()
     facilities_columns = _facilities_raw_columns()
 
@@ -491,6 +573,13 @@ def ensure_vector_search(bronze: str | None = None) -> dict[str, str]:
             When omitted we don't even attempt to create the index, only the
             endpoint, since the index requires a source table.
     """
+    if bronze is not None:
+        bronze = _validate_fq_schema(bronze, kind="bronze schema")
+        _validate_identifier(VS_INDEX_SUFFIX, kind="vector search index")
+        _validate_identifier("chunks", kind="vector search source table")
+        _validate_identifier("chunk_id", kind="vector search primary key")
+        _validate_identifier("text", kind="vector search embedding source column")
+
     w = get_workspace()
     try:
         from databricks.sdk.service.vectorsearch import (
@@ -518,8 +607,15 @@ def ensure_vector_search(bronze: str | None = None) -> dict[str, str]:
             )
             _log(f"ensured: vs endpoint {VS_ENDPOINT_NAME} (created)")
     except Exception as exc:
-        _log(f"vector_search: endpoint provisioning failed ({exc!r}); fallback=faiss")
-        return {"status": "unavailable", "fallback": "faiss", "error": str(exc)[:200]}
+        _log(
+            "vector_search: endpoint provisioning failed "
+            f"({_redact_secrets(repr(exc))}); fallback=faiss"
+        )
+        return {
+            "status": "unavailable",
+            "fallback": "faiss",
+            "error": _redact_secrets(exc)[:200],
+        }
 
     # 2. Index — requires bronze.chunks to exist.
     if bronze is None:
@@ -543,6 +639,7 @@ def ensure_vector_search(bronze: str | None = None) -> dict[str, str]:
                 index_type=VectorIndexType.DELTA_SYNC,
                 delta_sync_index_spec=DeltaSyncVectorIndexSpecRequest(
                     source_table=f"{bronze}.chunks",
+                    columns_to_sync=["chunk_id", "facility_id", "source_type", "text"],
                     pipeline_type=PipelineType.TRIGGERED,
                     embedding_source_columns=[
                         EmbeddingSourceColumn(
@@ -557,12 +654,15 @@ def ensure_vector_search(bronze: str | None = None) -> dict[str, str]:
             )
             _log(f"ensured: vs index {index_name} (created)")
     except Exception as exc:
-        _log(f"vector_search: index provisioning failed ({exc!r}); fallback=faiss")
+        _log(
+            "vector_search: index provisioning failed "
+            f"({_redact_secrets(repr(exc))}); fallback=faiss"
+        )
         return {
             "status": "unavailable",
             "fallback": "faiss",
             "endpoint": VS_ENDPOINT_NAME,
-            "error": str(exc)[:200],
+            "error": _redact_secrets(exc)[:200],
         }
 
     return {"status": "ready", "endpoint": VS_ENDPOINT_NAME, "index": index_name}

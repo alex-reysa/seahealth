@@ -20,7 +20,9 @@ Or directly:
 ```
 
 The script reads `DATABRICKS_HOST` and `DATABRICKS_TOKEN` from `.env` at the
-worktree root (the same file the existing `databricks_client.py` uses).
+worktree root (the same file the existing `databricks_client.py` uses). The
+token is passed only to the Databricks SDK; provisioning logs redact bearer
+tokens from surfaced errors.
 
 ## What gets created
 
@@ -71,9 +73,26 @@ log traces here.
 
 - Endpoint: `seahealth-vs` (STANDARD).
 - Index: `workspace.seahealth_bronze.chunks_index` (DELTA_SYNC,
-  TRIGGERED, primary key `chunk_id`, embedding source column `text`,
+  TRIGGERED, primary key `chunk_id`, synced columns `chunk_id`,
+  `facility_id`, `source_type`, `text`, embedding source column `text`,
   embedding model `databricks-bge-large-en` — overridable via
   `SEAHEALTH_VS_EMBEDDING_ENDPOINT` env var).
+
+## Cold-start expectations
+
+First runs can spend most of their time waiting on Databricks control-plane
+startup rather than local code:
+
+- SQL warehouse start: `ensure_running()` waits up to 180 seconds by default.
+- First SQL statement execution: `execute_sql()` requests synchronous waiting
+  for up to 50 seconds, then polls the statement until a terminal state.
+- Vector Search endpoint/index creation: best-effort and workspace dependent;
+  if entitlement, model serving, or Vector Search is unavailable, provisioning
+  returns `vector_search.status = unavailable` and the retriever falls back to
+  local FAISS/BM25/TF mode.
+- Local fallback retriever: FAISS plus sentence-transformers may cold-load a
+  model on first use. If optional packages are absent, BM25 or dependency-free
+  TF/cosine is used.
 
 ## Tear-down
 
@@ -144,12 +163,19 @@ Every helper is idempotent:
 - Schemas: `CREATE SCHEMA IF NOT EXISTS`.
 - Volume: pre-checked with `volumes.read`; created only on `NotFound`.
 - CSV: pre-checked with `files.get_metadata`; skipped if the remote object
-  has the same byte size.
+  has the same byte size. If a previous run left a partial/stale remote file,
+  the script deletes it before replacement and verifies the uploaded size when
+  metadata is available.
 - Tables: `CREATE TABLE IF NOT EXISTS` on every DDL.
 - MLflow: `experiments.get_by_name` first, then `create_experiment` on
   `NotFound`.
 - Vector Search: pre-checked with `get_endpoint` / `get_index`; created only
   on `NotFound`.
+
+Catalog, schema, table, and Vector Search index identifiers are validated
+against `[A-Za-z0-9_]+` before they are interpolated into SQL or SDK resource
+names. Endpoint and model-serving endpoint names are not SQL identifiers and
+may contain Databricks-supported hyphens.
 
 A second run logs lines like `ensured: volume workspace.seahealth_bronze.raw
 (already existed)` for every previously-created resource, with no API

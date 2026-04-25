@@ -20,6 +20,7 @@ project rule that the production embedding model is BAAI/bge-large-en-v1.5
 
 from __future__ import annotations
 
+import json
 import logging
 import math
 import os
@@ -36,6 +37,9 @@ import pandas as pd
 from seahealth.schemas import EMBEDDING_DIM, IndexedDoc
 
 logger = logging.getLogger(__name__)
+
+_IDENTIFIER_RE = re.compile(r"^[A-Za-z0-9_]+$")
+_BEARER_RE = re.compile(r"(?i)\bbearer\s+[A-Za-z0-9._~+/=-]+")
 
 
 # --------------------------------------------------------------------------- #
@@ -66,6 +70,27 @@ class Retriever(Protocol):
 _TOKEN_RE = re.compile(r"[A-Za-z0-9]+")
 
 
+def _redact_secrets(value: object) -> str:
+    return _BEARER_RE.sub("Bearer [REDACTED]", str(value))
+
+
+def _validate_identifier(identifier: str, *, kind: str = "identifier") -> str:
+    if not _IDENTIFIER_RE.fullmatch(identifier):
+        raise ValueError(
+            f"invalid {kind} {identifier!r}; expected pattern [A-Za-z0-9_]+"
+        )
+    return identifier
+
+
+def _validate_fq_table(value: str, *, kind: str = "table") -> str:
+    parts = value.split(".")
+    if len(parts) != 3:
+        raise ValueError(f"invalid {kind} {value!r}; expected catalog.schema.table")
+    for label, part in zip(("catalog", "schema", "table"), parts, strict=True):
+        _validate_identifier(part, kind=f"{kind} {label}")
+    return value
+
+
 def _tokenize(text: str) -> list[str]:
     return [t.lower() for t in _TOKEN_RE.findall(text or "")]
 
@@ -73,6 +98,25 @@ def _tokenize(text: str) -> list[str]:
 def _zero_embedding() -> list[float]:
     """Placeholder embedding for fallback retrievers (real model = bge-1024d)."""
     return [0.0] * EMBEDDING_DIM
+
+
+def _text_values(df: pd.DataFrame) -> list[str]:
+    """Return text values without turning missing/null text into the token 'None'."""
+    if "text" not in df.columns:
+        return [""] * len(df)
+    return df["text"].fillna("").astype(str).tolist()
+
+
+def _clean_text(value: Any) -> str:
+    """Normalize nullable dataframe text values for IndexedDoc output."""
+    if value is None:
+        return ""
+    try:
+        if pd.isna(value):
+            return ""
+    except TypeError:
+        pass
+    return str(value)
 
 
 def _row_to_indexed_doc(row: dict[str, Any]) -> IndexedDoc:
@@ -100,7 +144,7 @@ def _row_to_indexed_doc(row: dict[str, Any]) -> IndexedDoc:
     return IndexedDoc(
         doc_id=str(row.get("chunk_id") or row.get("doc_id") or ""),
         facility_id=row.get("facility_id"),
-        text=str(row.get("text") or ""),
+        text=_clean_text(row.get("text")),
         embedding=_zero_embedding(),
         chunk_index=int(row.get("row_index") or row.get("chunk_index") or 0),
         source_type=row.get("source_type") or "facility_note",  # type: ignore[arg-type]
@@ -140,6 +184,7 @@ class FaissRetriever:
             self._doc_vectors = []
             self._doc_norms = []
             return
+        texts = _text_values(self.df)
 
         # Try dense retrieval first.
         try:
@@ -148,7 +193,7 @@ class FaissRetriever:
 
             self._model = SentenceTransformer("all-MiniLM-L6-v2")
             embs = self._model.encode(
-                self.df["text"].astype(str).tolist(),
+                texts,
                 show_progress_bar=False,
                 normalize_embeddings=True,
             )
@@ -163,17 +208,18 @@ class FaissRetriever:
         try:
             from rank_bm25 import BM25Okapi  # type: ignore
 
-            tokenized = [_tokenize(t) for t in self.df["text"].astype(str).tolist()]
-            self._bm25 = BM25Okapi(tokenized)
-            self.backend = "bm25"
-            return
+            tokenized = [_tokenize(t) for t in texts]
+            if any(tokenized):
+                self._bm25 = BM25Okapi(tokenized)
+                self.backend = "bm25"
+                return
         except Exception:
             pass
 
         # Default: dependency-free TF / cosine.
         vectors: list[Counter] = []
         norms: list[float] = []
-        for text in self.df["text"].astype(str).tolist():
+        for text in texts:
             counts = Counter(_tokenize(text))
             vectors.append(counts)
             norms.append(math.sqrt(sum(c * c for c in counts.values())) or 1.0)
@@ -186,7 +232,7 @@ class FaissRetriever:
     def search(
         self, query: str, k: int, facility_id: str | None = None
     ) -> list[IndexedDoc]:
-        if self.df.empty or k <= 0:
+        if self.df.empty or k <= 0 or not _tokenize(query):
             return []
 
         scores: list[float]
@@ -260,6 +306,9 @@ class VectorSearchRetriever:
     _client: Any = None
 
     def __post_init__(self) -> None:  # pragma: no cover - exercised live only
+        if not self.endpoint_name:
+            raise ValueError("endpoint_name is required")
+        _validate_fq_table(self.index_name, kind="vector search index")
         try:
             from databricks.vector_search.client import VectorSearchClient  # type: ignore
         except Exception as exc:
@@ -271,6 +320,8 @@ class VectorSearchRetriever:
     def search(
         self, query: str, k: int, facility_id: str | None = None
     ) -> list[IndexedDoc]:  # pragma: no cover - live only
+        if k <= 0 or not _tokenize(query):
+            return []
         idx = self._client.get_index(
             endpoint_name=self.endpoint_name, index_name=self.index_name
         )
@@ -280,7 +331,7 @@ class VectorSearchRetriever:
             columns=["chunk_id", "facility_id", "source_type", "text"],
         )
         if facility_id is not None:
-            kwargs["filters_json"] = f'{{"facility_id": "{facility_id}"}}'
+            kwargs["filters_json"] = json.dumps({"facility_id": facility_id})
         result = idx.similarity_search(**kwargs)
 
         # Result shape:
@@ -362,7 +413,8 @@ def get_retriever(
             return VectorSearchRetriever(endpoint_name=ep, index_name=idx)
         except Exception as exc:
             logger.warning(
-                "retriever: VectorSearch unavailable (%s); falling back to FAISS", exc
+                "retriever: VectorSearch unavailable (%s); falling back to FAISS",
+                _redact_secrets(exc),
             )
 
     df = _load_chunks_dataframe(chunks_parquet_path)
