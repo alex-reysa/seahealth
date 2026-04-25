@@ -32,14 +32,16 @@ Source of truth for sprint task status. Resume work from the last `Merged` row.
 | D-1 Normalize (Codex) | Merged | `4e02522` | normalize.py + 7 tests |
 | E-1 FastAPI + OpenAPI | Merged | `00f54af` | 6 endpoints, 12 tests, fixtures |
 
-### Phase 2 — Databricks Foundation + Agent Code — IN FLIGHT
+### Phase 2 — Databricks Foundation + Agent Code — IN FLIGHT (Reviewer pending)
 
-| Task | Status | Worktree | Branch | Audit | Notes |
-|---|---|---|---|---|---|
-| F-1 Databricks foundation | Pending | `seahealth-wt-F1` | `phase2-F1-databricks` | — | UC + Delta + MLflow + VS (or FAISS fallback) |
-| G-1 Extractor agent code | Pending | `seahealth-wt-G1` | `phase2-G1-extractor` | — | Code + mocked tests; live run after ANTHROPIC_API_KEY in place |
-| H-1 Validator agent code | Pending | `seahealth-wt-H1` | `phase2-H1-validator` | — | Heuristic + mocked LLM path |
-| R-2 Reviewer pass | Pending | — | — | — | End-of-phase independent diff audit |
+| Task | Status | Commit | Audit | Notes |
+|---|---|---|---|---|
+| F-1 Databricks foundation | Merged | `5568362` | pytest 64 ✓, ruff ✓, fileScope ✓ | UC catalog `workspace`, 3 schemas, volume + 10MB CSV, 7 Delta tables, MLflow exp 405251052688464, VS endpoint READY (chunks_index DELTA_SYNC) |
+| G-1 Extractor agent code | Merged | `260e2cf` | pytest 57 ✓, ruff ✓, fileScope ✓ | Mocked tests pass without ANTHROPIC_API_KEY |
+| H-1 Validator agent code | Merged | `da3f692` | pytest 82 ✓, ruff ✓, fileScope ✓ | Heuristics + mocked LLM path |
+| R-2 Reviewer pass | Pending | — | — | End-of-phase independent diff audit |
+
+**Merged-branch pytest: 107 passing.**
 
 ### Phase 3 — Trust + Query — PENDING
 
