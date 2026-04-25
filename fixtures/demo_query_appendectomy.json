@@ -1,0 +1,280 @@
+{
+  "query": "Which facilities within 50km of Patna can perform an appendectomy?",
+  "parsed_intent": {
+    "capability_type": "SURGERY_APPENDECTOMY",
+    "location": {
+      "lat": 25.61,
+      "lng": 85.14,
+      "pin_code": "800001"
+    },
+    "radius_km": 50.0
+  },
+  "ranked_facilities": [
+    {
+      "facility_id": "vf_00042_patna_general_hospi",
+      "name": "Patna General Hospital",
+      "location": {
+        "lat": 25.6121,
+        "lng": 85.1418,
+        "pin_code": "800001"
+      },
+      "distance_km": 1.2,
+      "trust_score": {
+        "capability_type": "SURGERY_APPENDECTOMY",
+        "claimed": true,
+        "evidence": [
+          {
+            "source_doc_id": "doc_pgh_facility_note_2025",
+            "facility_id": "vf_00042_patna_general_hospi",
+            "chunk_id": "chunk_3",
+            "row_id": null,
+            "span": [0, 96],
+            "snippet": "Patna General Hospital advertises 24/7 emergency appendectomy services on its public website.",
+            "source_type": "facility_note",
+            "source_observed_at": "2025-09-12T10:00:00Z",
+            "retrieved_at": "2026-04-25T18:00:00Z"
+          },
+          {
+            "source_doc_id": "doc_pgh_volume_q4_2025",
+            "facility_id": "vf_00042_patna_general_hospi",
+            "chunk_id": "chunk_1",
+            "row_id": "row_17",
+            "span": [12, 84],
+            "snippet": "Q4 2025: 38 appendectomy procedures performed (avg 13/month).",
+            "source_type": "volume_report",
+            "source_observed_at": "2026-01-08T00:00:00Z",
+            "retrieved_at": "2026-04-25T18:00:00Z"
+          }
+        ],
+        "contradictions": [
+          {
+            "contradiction_type": "MISSING_STAFF",
+            "capability_type": "SURGERY_APPENDECTOMY",
+            "facility_id": "vf_00042_patna_general_hospi",
+            "evidence_for": [
+              {
+                "source_doc_id": "doc_pgh_facility_note_2025",
+                "facility_id": "vf_00042_patna_general_hospi",
+                "chunk_id": "chunk_3",
+                "row_id": null,
+                "span": [0, 96],
+                "snippet": "Patna General Hospital advertises 24/7 emergency appendectomy services on its public website.",
+                "source_type": "facility_note",
+                "source_observed_at": "2025-09-12T10:00:00Z",
+                "retrieved_at": "2026-04-25T18:00:00Z"
+              }
+            ],
+            "evidence_against": [
+              {
+                "source_doc_id": "doc_pgh_staff_roster_2026q1",
+                "facility_id": "vf_00042_patna_general_hospi",
+                "chunk_id": "chunk_2",
+                "row_id": "row_4",
+                "span": [10, 120],
+                "snippet": "Q1 2026 staff roster lists no anesthesiologist on payroll; only one surgical resident is on the schedule.",
+                "source_type": "staff_roster",
+                "source_observed_at": "2026-03-30T00:00:00Z",
+                "retrieved_at": "2026-04-25T18:00:00Z"
+              }
+            ],
+            "severity": "HIGH",
+            "reasoning": "Facility claims 24/7 appendectomy capability, but the Q1 2026 staff roster lists no anesthesiologist on payroll, which is required for safe surgical anesthesia.",
+            "detected_by": "validator.staff_v1",
+            "detected_at": "2026-04-25T18:00:00Z"
+          }
+        ],
+        "confidence": 0.95,
+        "confidence_interval": [0.9, 0.98],
+        "score": 65,
+        "reasoning": "Public-facing claim and procedure volume support the capability, but a critical anesthesia staffing gap reduces confidence.",
+        "computed_at": "2026-04-25T18:00:00Z"
+      },
+      "contradictions_flagged": 1,
+      "evidence_count": 2,
+      "rank": 1
+    },
+    {
+      "facility_id": "vf_00077_aiims_patna",
+      "name": "AIIMS Patna",
+      "location": {
+        "lat": 25.5705,
+        "lng": 85.0875,
+        "pin_code": "801505"
+      },
+      "distance_km": 7.4,
+      "trust_score": {
+        "capability_type": "SURGERY_APPENDECTOMY",
+        "claimed": true,
+        "evidence": [
+          {
+            "source_doc_id": "doc_aiims_capabilities_2026",
+            "facility_id": "vf_00077_aiims_patna",
+            "chunk_id": "chunk_1",
+            "row_id": null,
+            "span": [0, 64],
+            "snippet": "AIIMS Patna runs a full general surgery department with on-call anesthesia.",
+            "source_type": "facility_note",
+            "source_observed_at": "2026-02-01T00:00:00Z",
+            "retrieved_at": "2026-04-25T18:00:00Z"
+          }
+        ],
+        "contradictions": [],
+        "confidence": 0.97,
+        "confidence_interval": [0.94, 0.99],
+        "score": 97,
+        "reasoning": "Tertiary teaching hospital with corroborated surgery and anesthesia staffing.",
+        "computed_at": "2026-04-25T18:00:00Z"
+      },
+      "contradictions_flagged": 0,
+      "evidence_count": 1,
+      "rank": 2
+    },
+    {
+      "facility_id": "vf_00103_paras_hmri_patna",
+      "name": "Paras HMRI Hospital",
+      "location": {
+        "lat": 25.5985,
+        "lng": 85.1376,
+        "pin_code": "800014"
+      },
+      "distance_km": 3.1,
+      "trust_score": {
+        "capability_type": "SURGERY_APPENDECTOMY",
+        "claimed": true,
+        "evidence": [
+          {
+            "source_doc_id": "doc_paras_inventory_2026",
+            "facility_id": "vf_00103_paras_hmri_patna",
+            "chunk_id": "chunk_2",
+            "row_id": "row_8",
+            "span": [4, 88],
+            "snippet": "Operating theatre 2 stocked with laparoscopic appendectomy kit; anesthesia tower verified.",
+            "source_type": "equipment_inventory",
+            "source_observed_at": "2026-03-15T00:00:00Z",
+            "retrieved_at": "2026-04-25T18:00:00Z"
+          }
+        ],
+        "contradictions": [],
+        "confidence": 0.9,
+        "confidence_interval": [0.86, 0.93],
+        "score": 90,
+        "reasoning": "Equipment inventory directly supports the capability with no conflicting evidence.",
+        "computed_at": "2026-04-25T18:00:00Z"
+      },
+      "contradictions_flagged": 0,
+      "evidence_count": 1,
+      "rank": 3
+    },
+    {
+      "facility_id": "vf_00128_ruban_memorial_pat",
+      "name": "Ruban Memorial Hospital",
+      "location": {
+        "lat": 25.6204,
+        "lng": 85.1305,
+        "pin_code": "800013"
+      },
+      "distance_km": 2.0,
+      "trust_score": {
+        "capability_type": "SURGERY_APPENDECTOMY",
+        "claimed": true,
+        "evidence": [
+          {
+            "source_doc_id": "doc_ruban_volume_2025",
+            "facility_id": "vf_00128_ruban_memorial_pat",
+            "chunk_id": "chunk_1",
+            "row_id": "row_3",
+            "span": [0, 60],
+            "snippet": "21 appendectomy cases logged in calendar year 2025.",
+            "source_type": "volume_report",
+            "source_observed_at": "2026-01-15T00:00:00Z",
+            "retrieved_at": "2026-04-25T18:00:00Z"
+          }
+        ],
+        "contradictions": [],
+        "confidence": 0.82,
+        "confidence_interval": [0.76, 0.88],
+        "score": 82,
+        "reasoning": "Volume report confirms regular appendectomy throughput.",
+        "computed_at": "2026-04-25T18:00:00Z"
+      },
+      "contradictions_flagged": 0,
+      "evidence_count": 1,
+      "rank": 4
+    },
+    {
+      "facility_id": "vf_00154_bihta_district_hos",
+      "name": "Bihta District Hospital",
+      "location": {
+        "lat": 25.5639,
+        "lng": 84.8651,
+        "pin_code": "801103"
+      },
+      "distance_km": 28.6,
+      "trust_score": {
+        "capability_type": "SURGERY_APPENDECTOMY",
+        "claimed": true,
+        "evidence": [
+          {
+            "source_doc_id": "doc_bihta_facility_note_2024",
+            "facility_id": "vf_00154_bihta_district_hos",
+            "chunk_id": "chunk_4",
+            "row_id": null,
+            "span": [0, 70],
+            "snippet": "District hospital lists general surgery on its services brochure.",
+            "source_type": "facility_note",
+            "source_observed_at": "2024-08-22T00:00:00Z",
+            "retrieved_at": "2026-04-25T18:00:00Z"
+          }
+        ],
+        "contradictions": [],
+        "confidence": 0.7,
+        "confidence_interval": [0.6, 0.78],
+        "score": 70,
+        "reasoning": "Older but uncontested facility note asserts the capability.",
+        "computed_at": "2026-04-25T18:00:00Z"
+      },
+      "contradictions_flagged": 0,
+      "evidence_count": 1,
+      "rank": 5
+    },
+    {
+      "facility_id": "vf_00181_fatuha_chc",
+      "name": "Fatuha Community Health Centre",
+      "location": {
+        "lat": 25.5117,
+        "lng": 85.3098,
+        "pin_code": "803201"
+      },
+      "distance_km": 19.4,
+      "trust_score": {
+        "capability_type": "SURGERY_APPENDECTOMY",
+        "claimed": true,
+        "evidence": [
+          {
+            "source_doc_id": "doc_fatuha_chc_brochure_2025",
+            "facility_id": "vf_00181_fatuha_chc",
+            "chunk_id": "chunk_1",
+            "row_id": null,
+            "span": [0, 50],
+            "snippet": "CHC Fatuha brochure mentions minor surgery referrals.",
+            "source_type": "facility_note",
+            "source_observed_at": "2025-06-10T00:00:00Z",
+            "retrieved_at": "2026-04-25T18:00:00Z"
+          }
+        ],
+        "contradictions": [],
+        "confidence": 0.55,
+        "confidence_interval": [0.4, 0.65],
+        "score": 55,
+        "reasoning": "Brochure language is ambiguous about whether appendectomy is performed on-site.",
+        "computed_at": "2026-04-25T18:00:00Z"
+      },
+      "contradictions_flagged": 0,
+      "evidence_count": 1,
+      "rank": 6
+    }
+  ],
+  "total_candidates": 23,
+  "query_trace_id": "trace_query_appendectomy_2026_04_25_001",
+  "generated_at": "2026-04-25T18:00:00Z"
+}
