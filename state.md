@@ -71,7 +71,29 @@ Source of truth for sprint task status. Resume work from the last `Merged` row.
 | Hotfix `.gitignore` for test fixtures | Merged | `f4d5bde` | pytest 190 ✓ | `*.csv` was excluding the synthetic Naomi sample; added `!tests/fixtures/**/*.csv` exception |
 | L-1 Regenerate fixtures from real data | Pending | — | — | After ANTHROPIC_API_KEY in `.env` and a live extract+validate+score+build run. |
 
-**Merged-branch pytest: 190 passing.**
+**Merged-branch pytest after Phase 4 K-1+M-1: 190 passing.**
+
+### Audit Swarm — 2026-04-26 (cherry-picked into integrate/ship-12h)
+
+| Task | Commit | Verdict | Notes |
+|---|---|---|---|
+| AUD-01 schemas & contract | `b93b400` | Merged GREEN | +287 / -71; new `_datetime.py` helper, hardened invariants |
+| AUD-02 extractor/validator/heuristics | `7b7182c` | Merged GREEN | +284 / -16 hardening (prompt injection guards, span normalization, threshold fixes) |
+| AUD-03 trust + audit builder | `e932076` | Merged GREEN | +171 / -16 (atomic parquet write w/ uuid + cleanup, `mlflow_trace_id` param, edge-case tests) |
+| AUD-04 query + tools + geocode | `cdfa9a3` | Merged GREEN | +315 / -57 (synonyms, more cities, tie-break, empty-state) |
+| AUD-05 databricks + retriever | `2c02d2d` | Merged GREEN | +465 / -43 (largest delta — DDL injection guards, idempotency, FAISS chain) |
+| AUD-06 pipelines | `cab1981` | Merged GREEN | +254 / -23 (`--limit` CLI; conflict-resolved against AUD-03) |
+| AUD-07 api + fixtures + openapi | — | Skipped clean | Audit-only per K-1 lock; no code changes proposed |
+| AUD-08 tests quality | — | Skipped clean | No code changes proposed |
+| AUD-09 docs drift + state | — | Skipped clean | No code changes proposed |
+| AUD-10 security/tooling/deps | — | Skipped clean | No code changes proposed |
+| AUD-R consolidated reviewer | — | Not run | Optional; can be re-launched |
+
+**Merged-branch pytest after audit cherry-picks: 246 passing.**
+
+#### Conflict resolution log
+- `src/seahealth/pipelines/build_audits.py` (AUD-03 vs AUD-06): kept AUD-03's atomic-write-with-uuid, kept BOTH `mlflow_trace_id` and `limit` params, both CLI flags, both docstring lines. Added one-line fix: `facility_ids` is now also filtered by `keep_ids` inside the `limit` block (was missed by auto-merge; surfaced by `test_build_audits_respects_limit`).
+- `tests/test_build_audits.py`: kept all three new tests (`test_build_audits_includes_zero_capability_facility_once`, `test_build_audits_threads_trace_and_json_roundtrips`, `test_build_audits_respects_limit`).
 
 ## Budget
 
