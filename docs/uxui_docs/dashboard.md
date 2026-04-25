@@ -135,9 +135,9 @@ Dashboard depends on:
 - `MapRegionAggregate.region_id`
 - `MapRegionAggregate.region_name`
 - `MapRegionAggregate.gap_population`
-- `MapRegionAggregate.coverage_ratio`
-- `MapRegionAggregate.capability_count_ci`
-- `PopulationReference.population_count`
+- `MapRegionAggregate.coverage_ratio` (derived display value; not in the slim Phase-1 export — see `docs/DATA_CONTRACT.md` rich variant)
+- `MapRegionAggregate.capability_count_ci` (derived display value; rich-variant only)
+- `PopulationReference.population_total` (the slim export; rich variant uses `population_count`)
 - `FacilityAudit.facility_id`
 - `FacilityAudit.name`
 - `FacilityAudit.location`

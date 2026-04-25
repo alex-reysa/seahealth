@@ -251,28 +251,26 @@ The copy "nearest verified facility: 94km" is allowed only as a derived display 
 
 ## Data dependencies
 
-Map aggregates:
+Map aggregates (slim Phase-1 export from `seahealth.schemas` — what `/map/aggregates` actually returns):
 
 - `MapRegionAggregate.region_id`
 - `MapRegionAggregate.region_name`
+- `MapRegionAggregate.state`
 - `MapRegionAggregate.capability_type`
 - `MapRegionAggregate.centroid`
 - `MapRegionAggregate.population`
-- `MapRegionAggregate.radius_km`
-- `MapRegionAggregate.verified_capability_count`
-- `MapRegionAggregate.capability_count_ci`
-- `MapRegionAggregate.covered_population`
+- `MapRegionAggregate.verified_facilities_count`
+- `MapRegionAggregate.flagged_facilities_count`
 - `MapRegionAggregate.gap_population`
-- `MapRegionAggregate.coverage_ratio`
-- `MapRegionAggregate.generated_at`
 
-Population:
+Rich-variant fields used as derived display values (UI-only, not in the Phase-1 export — see the rich `MapRegionAggregate` block in `docs/DATA_CONTRACT.md`): `radius_km`, `verified_capability_count`, `capability_count_ci`, `covered_population`, `coverage_ratio`, `generated_at`.
+
+Population (slim Phase-1 export):
 
 - `PopulationReference.region_id`
-- `PopulationReference.region_name`
-- `PopulationReference.centroid`
-- `PopulationReference.population_count`
-- `PopulationReference.source_observed_at`
+- `PopulationReference.population_total`
+
+Rich-variant `PopulationReference` fields (`region_name`, `centroid`, `population_count`, `source_observed_at`) live in the rich variant in `docs/DATA_CONTRACT.md` and are NOT in the Phase-1 export.
 
 Facility rows:
 

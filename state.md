@@ -83,10 +83,10 @@ Source of truth for sprint task status. Resume work from the last `Merged` row.
 | AUD-04 query + tools + geocode | `cdfa9a3` | Merged GREEN | +315 / -57 (synonyms, more cities, tie-break, empty-state) |
 | AUD-05 databricks + retriever | `2c02d2d` | Merged GREEN | +465 / -43 (largest delta — DDL injection guards, idempotency, FAISS chain) |
 | AUD-06 pipelines | `cab1981` | Merged GREEN | +254 / -23 (`--limit` CLI; conflict-resolved against AUD-03) |
-| AUD-07 api + fixtures + openapi | — | Skipped clean | Audit-only per K-1 lock; no code changes proposed |
-| AUD-08 tests quality | — | Skipped clean | No code changes proposed |
-| AUD-09 docs drift + state | — | Skipped clean | No code changes proposed |
-| AUD-10 security/tooling/deps | — | Skipped clean | No code changes proposed |
+| AUD-07 api + fixtures + openapi | — | Re-running | Worktree `audit-wt-07`, branch `audit/aud-07-rerun` (parallel with 08/09/10). |
+| AUD-08 tests quality | — | Re-running | Worktree `audit-wt-08`, branch `audit/aud-08-rerun`. |
+| AUD-09 docs drift + state | — | Re-running | Worktree `audit-wt-09`, branch `audit/aud-09-rerun`. Hardening targets: PHASES checkboxes, DECISIONS ADRs, README Quickstart, schema-name drift. |
+| AUD-10 security/tooling/deps | — | Re-running | Worktree `audit-wt-10`, branch `audit/aud-10-rerun`. |
 | AUD-R consolidated reviewer | — | Not run | Optional; can be re-launched |
 
 **Merged-branch pytest after audit cherry-picks: 246 passing.**
