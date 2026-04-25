@@ -1,16 +1,21 @@
 import React from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Map } from '@vis.gl/react-maplibre';
-import { Activity, AlertCircle, CheckCircle2, MapPin, Search, ShieldAlert, Sparkles } from 'lucide-react';
 import 'maplibre-gl/dist/maplibre-gl.css';
+import {
+  Activity,
+  AlertCircle,
+  AlertTriangle,
+  CheckCircle2,
+  Command,
+  MapPin,
+  ShieldAlert,
+  ShieldCheck,
+} from 'lucide-react';
 
-import { Card } from '@/src/components/ui/Card';
-import { Input } from '@/src/components/ui/Input';
-import { Button } from '@/src/components/ui/Button';
 import { Badge } from '@/src/components/ui/Badge';
 import {
   APPENDECTOMY_QUERY_RESULT,
-  CAPABILITIES,
   DEMO_QUERY,
   type CapabilityType,
   formatNumber,
@@ -55,58 +60,27 @@ function getMapStyle(selectedRegionId: string) {
           'fill-color': [
             'case',
             ['boolean', ['feature-state', 'hover'], false],
-            '#105B58',
+            '#176D6A',
             selectedRegionId === 'BR_MADHUBANI',
             '#F0B8A8',
-            '#DDEFEF',
+            '#A9DBD7',
           ],
-          'fill-opacity': 0.9,
+          'fill-opacity': [
+            'case',
+            ['boolean', ['feature-state', 'hover'], false],
+            0.6,
+            0.4,
+          ],
         },
       },
       {
         id: 'india-lines',
         type: 'line',
         source: 'india-districts',
-        paint: { 'line-color': '#176D6A', 'line-opacity': 0.2, 'line-width': 1 },
+        paint: { 'line-color': '#176D6A', 'line-opacity': 0.3, 'line-width': 1 },
       },
     ],
   } as any;
-}
-
-function SummaryStrip({ capability }: { capability: CapabilityType }) {
-  const facilities = getFacilityRowsForRegion('BR_PATNA', capability);
-  const verified = facilities.filter((facility) => (getCapabilityAudit(facility, capability)?.score ?? 0) >= 80).length;
-  const flagged = facilities.filter((facility) => facility.totalContradictions > 0).length;
-
-  return (
-    <Card variant="glass" className="flex items-center gap-6 px-6 py-3 pointer-events-auto">
-      <div className="flex flex-col">
-        <span className="text-display text-content-primary">2,145</span>
-        <span className="text-caption text-content-secondary uppercase tracking-wider">Audited Facilities</span>
-      </div>
-      <div className="w-px h-10 bg-border-default" />
-      <div className="flex flex-col">
-        <div className="flex items-center gap-2">
-          <span className="text-heading-l text-semantic-verified">{verified}</span>
-          <CheckCircle2 className="w-4 h-4 text-semantic-verified" />
-        </div>
-        <span className="text-caption text-content-secondary uppercase tracking-wider">Verified {getCapabilityLabel(capability)}</span>
-      </div>
-      <div className="w-px h-10 bg-border-default" />
-      <div className="flex flex-col">
-        <div className="flex items-center gap-2">
-          <span className="text-heading-l text-semantic-flagged">{flagged}</span>
-          <AlertCircle className="w-4 h-4 text-semantic-flagged" />
-        </div>
-        <span className="text-caption text-content-secondary uppercase tracking-wider">Flagged</span>
-      </div>
-      <div className="w-px h-10 bg-border-default" />
-      <div className="flex flex-col text-right ml-auto pl-8">
-        <span className="text-caption text-content-tertiary">Last Audit Build</span>
-        <span className="text-mono-s text-content-secondary">14:41 UTC · query trace ready</span>
-      </div>
-    </Card>
-  );
 }
 
 export function Dashboard() {
@@ -122,12 +96,20 @@ export function Dashboard() {
   const aggregate = getRegionAggregate(regionId, capability);
   const facilities = getFacilityRowsForRegion(regionId, capability);
 
+  const auditedCount = 2145;
+  const verifiedCount = facilities.filter(
+    (f) => (getCapabilityAudit(f, capability)?.score ?? 0) >= 80,
+  ).length;
+  const flaggedCount = facilities.filter((f) => f.totalContradictions > 0).length;
+
   const [command, setCommand] = React.useState(searchParams.get('q') || 'Focus Patna, appendectomy, 50 km');
-  const [status, setStatus] = React.useState('Ready: appendectomy demo context loaded');
+  const [status, setStatus] = React.useState<'ready' | 'pending'>('ready');
+  const [statusLabel, setStatusLabel] = React.useState(`Ready: ${getCapabilityLabel(capability)} · ${radiusKm}km`);
 
   const updateContext = (nextCommand: string) => {
     const parsed = parseDemoCommand(nextCommand);
-    setStatus(`Ready: ${getCapabilityLabel(parsed.capability)} around ${parsed.location}, ${parsed.radiusKm}km`);
+    setStatus('ready');
+    setStatusLabel(`Ready: ${getCapabilityLabel(parsed.capability)} · ${parsed.location} · ${parsed.radiusKm}km`);
     setSearchParams({
       capability: parsed.capability,
       radius_km: String(parsed.radiusKm),
@@ -148,7 +130,8 @@ export function Dashboard() {
 
   const onCommandSubmit = (event: React.FormEvent) => {
     event.preventDefault();
-    setStatus('Geocoding and applying command...');
+    setStatus('pending');
+    setStatusLabel('Geocoding…');
     window.setTimeout(() => updateContext(command), 250);
   };
 
@@ -167,10 +150,15 @@ export function Dashboard() {
   const onMouseLeave = (event: any) => {
     event.target.getCanvas().style.cursor = '';
     if (hoveredFeatureId.current !== null) {
-      event.target.setFeatureState({ source: 'india-districts', id: hoveredFeatureId.current }, { hover: false });
+      event.target.setFeatureState(
+        { source: 'india-districts', id: hoveredFeatureId.current },
+        { hover: false },
+      );
       hoveredFeatureId.current = null;
     }
   };
+
+  const topFacilityId = APPENDECTOMY_QUERY_RESULT.rankedFacilities[0];
 
   return (
     <div className="relative w-full h-full">
@@ -189,117 +177,217 @@ export function Dashboard() {
         onMouseLeave={onMouseLeave}
       />
 
-      <div className="absolute inset-0 pointer-events-none p-6 flex flex-col justify-between">
-        <div className="flex justify-between items-start">
-          <Card variant="glass-control" className="w-[520px] p-4 flex flex-col gap-4 pointer-events-auto">
-            <div className="flex items-center justify-between gap-3">
-              <div className="flex items-center gap-2">
-                <Sparkles className="w-5 h-5 text-accent-primary" />
-                <span className="text-heading-s">Agent Planner</span>
-              </div>
-              <Badge variant="subtle">{status}</Badge>
-            </div>
-            <form onSubmit={onCommandSubmit} className="relative">
-              <label htmlFor="dashboard-command" className="sr-only">
-                Command the map or planner
-              </label>
-              <Input
-                id="dashboard-command"
-                value={command}
-                onChange={(event) => setCommand(event.target.value)}
-                placeholder="Focus Patna, appendectomy, 50 km"
-                className="pl-10 pr-4 py-6 text-body-l shadow-inner bg-white/70 focus:bg-white transition-all border-border-strong rounded-lg"
-              />
-              <Search className="w-5 h-5 text-content-tertiary absolute left-3 top-1/2 -translate-y-1/2" />
-            </form>
-            <div className="flex flex-wrap gap-2">
-              <Button variant="primary" size="sm" onClick={runPlanner}>
-                Run Planner Query
-              </Button>
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={() => navigate(`/desert-map?capability=${capability}&radius_km=${radiusKm}&region_id=${regionId}`)}
-              >
-                Open Desert Map
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => navigate(`/facilities/${APPENDECTOMY_QUERY_RESULT.rankedFacilities[0]}?capability=${capability}&from=dashboard`)}
-              >
-                Open Top Audit
-              </Button>
-            </div>
-            <div className="flex gap-2 text-caption text-content-secondary px-1">
-              <span>Current:</span>
-              <span className="font-mono text-content-primary">{capability}</span>
-              <span>·</span>
-              <span className="font-mono text-content-primary">{radiusKm}km</span>
-              <span>·</span>
-              <span className="font-mono text-content-primary">PIN {pinCode}</span>
-            </div>
-          </Card>
-
-          <Card variant="glass" className="w-[360px] max-h-fit flex flex-col pointer-events-auto">
-            <div className="p-4 border-b border-border-subtle bg-white/40">
-              <div className="text-caption text-content-secondary mb-1 uppercase tracking-wider">Selected Region</div>
-              <div className="text-heading-m mb-1">{aggregate.name}</div>
-              <p className="text-caption text-content-secondary">
-                {formatNumber(aggregate.gapPopulation)} people uncovered · nearest verified facility {aggregate.nearestVerifiedKm}km
-              </p>
-              <div className="grid grid-cols-2 gap-4 mt-4">
-                <div>
-                  <div className="text-heading-m">{Math.round(aggregate.coverageRatio * 100)}%</div>
-                  <div className="text-caption text-content-secondary">Coverage</div>
-                </div>
-                <div>
-                  <div className="text-heading-m text-semantic-critical">{formatNumber(aggregate.gapPopulation)}</div>
-                  <div className="text-caption text-content-secondary">Gap Pop.</div>
-                </div>
-              </div>
-            </div>
-            <div className="p-4 flex flex-col gap-3">
-              <div className="text-caption text-content-secondary uppercase tracking-wider">Top Facilities</div>
-              {facilities.slice(0, 4).map((facility) => {
-                const audit = getCapabilityAudit(facility, capability);
-                if (!audit) return null;
-                return (
-                  <button
-                    key={facility.id}
-                    type="button"
-                    onClick={() => navigate(`/facilities/${facility.id}?capability=${capability}&from=dashboard`)}
-                    className="text-left flex flex-col gap-1 p-2 rounded hover:bg-white/50 border border-transparent hover:border-border-subtle transition-colors"
-                  >
-                    <div className="flex justify-between items-start gap-2">
-                      <span className="text-body font-medium">{facility.name}</span>
-                      <Badge variant={audit.score >= 80 ? 'verified' : audit.score >= 50 ? 'flagged' : 'critical'}>{audit.score}</Badge>
-                    </div>
-                    <div className="flex items-center gap-3 text-caption text-content-secondary">
-                      <span className="flex items-center gap-1">
-                        <MapPin className="w-3 h-3" /> {facility.distanceKm}km
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <Activity className="w-3 h-3" /> {audit.evidenceCount} evidence
-                      </span>
-                    </div>
-                    {audit.contradictionCount > 0 && (
-                      <div className="text-caption text-semantic-critical flex items-center gap-1 mt-1">
-                        <ShieldAlert className="w-3 h-3" /> {audit.contradictionCount} contradictions
-                      </div>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-          </Card>
+      {/* TOP-LEFT SUMMARY PILLS */}
+      <div className="absolute top-6 left-6 right-6 z-10 flex gap-3 pointer-events-none flex-wrap">
+        <div className="pointer-events-auto flex items-center gap-2 px-4 py-2 glass-standard rounded-xl">
+          <span className="text-content-secondary text-caption">Audited Facilities</span>
+          <span className="font-mono font-medium text-content-primary">
+            {auditedCount.toLocaleString()}
+          </span>
         </div>
-
-        <div className="flex justify-center items-end">
-          <SummaryStrip capability={capability} />
+        <div className="pointer-events-auto flex items-center gap-2 px-4 py-2 glass-standard rounded-xl border-l-[3px] border-semantic-verified">
+          <ShieldCheck className="w-4 h-4 text-semantic-verified" />
+          <span className="text-content-secondary text-caption">Verified</span>
+          <span className="font-mono font-medium text-content-primary">{verifiedCount}</span>
+        </div>
+        <div className="pointer-events-auto flex items-center gap-2 px-4 py-2 glass-standard rounded-xl border-l-[3px] border-semantic-flagged">
+          <AlertTriangle className="w-4 h-4 text-semantic-flagged" />
+          <span className="text-content-secondary text-caption">Flagged</span>
+          <span className="font-mono font-medium text-content-primary">{flaggedCount}</span>
+        </div>
+        <div className="pointer-events-auto flex items-center gap-2 px-4 py-2 glass-standard rounded-xl">
+          <span className="text-content-secondary text-caption">Capability:</span>
+          <span className="text-content-primary text-caption font-medium font-mono">{capability}</span>
+        </div>
+        <div className="pointer-events-auto flex items-center gap-2 px-4 py-2 glass-standard rounded-xl">
+          <span className="text-content-secondary text-caption">PIN</span>
+          <span className="text-content-primary text-caption font-medium font-mono">{pinCode}</span>
+          <span className="text-content-tertiary text-caption">·</span>
+          <span className="text-content-secondary text-caption">{radiusKm}km</span>
         </div>
       </div>
 
+      {/* RIGHT TELEMETRY PANEL */}
+      <div className="absolute top-24 right-6 bottom-24 w-[360px] z-10 pointer-events-auto">
+        <div className="glass-elevated rounded-xl flex flex-col h-full overflow-hidden">
+          <div className="p-5 border-b border-border-subtle bg-white/40 shrink-0">
+            <div className="text-caption text-content-secondary uppercase tracking-wider">
+              Selected Region
+            </div>
+            <div className="text-heading-m text-content-primary mt-0.5">{aggregate.name}</div>
+            <p className="text-caption text-content-secondary mt-2">
+              {formatNumber(aggregate.gapPopulation)} uncovered · nearest verified facility{' '}
+              {aggregate.nearestVerifiedKm}km
+            </p>
+
+            <div className="grid grid-cols-2 gap-x-4 gap-y-4 mt-5">
+              <div>
+                <div className="text-heading-m text-semantic-critical">
+                  {formatNumber(aggregate.gapPopulation)}
+                </div>
+                <div className="text-caption text-content-secondary">Gap Population</div>
+              </div>
+              <div>
+                <div className="text-heading-m text-semantic-verified">
+                  {formatNumber(aggregate.coveredPopulation)}
+                </div>
+                <div className="text-caption text-content-secondary">Covered Pop.</div>
+              </div>
+              <div>
+                <div className="text-heading-m text-semantic-verified">
+                  {Math.round(aggregate.coverageRatio * 100)}%
+                </div>
+                <div className="text-caption text-content-secondary">Coverage Ratio</div>
+              </div>
+              <div>
+                <div className="flex items-baseline gap-1.5">
+                  <span className="text-heading-m text-content-primary">
+                    {aggregate.verifiedFacilitiesCount}
+                  </span>
+                  <span className="text-mono-s text-content-secondary">
+                    CI {aggregate.capabilityCountCi[0]}–{aggregate.capabilityCountCi[1]}
+                  </span>
+                </div>
+                <div className="text-caption text-content-secondary">Verified Count</div>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex-1 overflow-auto">
+            <div className="p-5">
+              <div className="text-caption text-content-secondary uppercase tracking-wider font-semibold mb-3">
+                Top Facilities
+              </div>
+
+              {facilities.length === 0 ? (
+                <div className="flex flex-col items-center justify-center p-6 text-center text-content-secondary border border-dashed border-border-default rounded-md bg-surface-sunken/50">
+                  <span className="text-body font-medium mb-1 text-content-primary">No matches</span>
+                  <span className="text-caption">
+                    No audited facilities for this capability in this region.
+                  </span>
+                </div>
+              ) : (
+                <div className="flex flex-col gap-2">
+                  {facilities.slice(0, 4).map((facility) => {
+                    const audit = getCapabilityAudit(facility, capability);
+                    if (!audit) return null;
+                    return (
+                      <button
+                        key={facility.id}
+                        type="button"
+                        onClick={() =>
+                          navigate(
+                            `/facilities/${facility.id}?capability=${capability}&from=dashboard`,
+                          )
+                        }
+                        className="text-left flex flex-col gap-1.5 p-3 rounded-lg bg-white/70 border border-border-subtle hover:border-accent-primary-soft hover:bg-white cursor-pointer transition-all group"
+                      >
+                        <div className="flex justify-between items-start gap-2">
+                          <span className="text-body font-medium text-content-primary group-hover:text-accent-primary transition-colors">
+                            {facility.name}
+                          </span>
+                          <Badge
+                            variant={
+                              audit.score >= 80
+                                ? 'verified'
+                                : audit.score >= 50
+                                  ? 'flagged'
+                                  : 'critical'
+                            }
+                          >
+                            {audit.score}
+                          </Badge>
+                        </div>
+                        <div className="flex items-center gap-3 text-caption text-content-secondary">
+                          <span className="flex items-center gap-1">
+                            <MapPin className="w-3 h-3" /> {facility.distanceKm}km
+                          </span>
+                          <span className="flex items-center gap-1">
+                            <Activity className="w-3 h-3" /> {audit.evidenceCount} evidence
+                          </span>
+                        </div>
+                        {audit.contradictionCount > 0 && (
+                          <div className="text-caption text-semantic-critical flex items-center gap-1 mt-0.5">
+                            <ShieldAlert className="w-3 h-3" /> {audit.contradictionCount}{' '}
+                            contradictions
+                          </div>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* BOTTOM-CENTER QUICK ACTIONS + COMMAND BAR */}
+      <div className="absolute bottom-12 left-1/2 -translate-x-1/2 w-full max-w-2xl px-6 z-20 flex flex-col items-center gap-2">
+        <div className="flex gap-2 pointer-events-auto">
+          <button
+            type="button"
+            onClick={runPlanner}
+            className="px-3 py-1.5 text-caption font-medium glass-standard rounded-full text-content-primary hover:text-accent-primary transition-colors"
+          >
+            Run Planner
+          </button>
+          <button
+            type="button"
+            onClick={() =>
+              navigate(
+                `/desert-map?capability=${capability}&radius_km=${radiusKm}&region_id=${regionId}`,
+              )
+            }
+            className="px-3 py-1.5 text-caption font-medium glass-standard rounded-full text-content-primary hover:text-accent-primary transition-colors"
+          >
+            Open Desert Map
+          </button>
+          <button
+            type="button"
+            onClick={() =>
+              navigate(`/facilities/${topFacilityId}?capability=${capability}&from=dashboard`)
+            }
+            className="px-3 py-1.5 text-caption font-medium glass-standard rounded-full text-content-primary hover:text-accent-primary transition-colors"
+          >
+            Open Top Audit
+          </button>
+        </div>
+
+        <form onSubmit={onCommandSubmit} className="w-full">
+          <div className="glass-control rounded-2xl p-3 flex items-center gap-3">
+            <div className="w-8 h-8 rounded-full bg-accent-primary-subtle flex items-center justify-center shrink-0">
+              <Command className="w-4 h-4 text-accent-primary" />
+            </div>
+            <input
+              type="text"
+              value={command}
+              onChange={(event) => setCommand(event.target.value)}
+              placeholder="Focus Patna, appendectomy, 50 km"
+              className="flex-1 bg-transparent border-none outline-none text-body-l placeholder:text-content-tertiary text-content-primary"
+            />
+            <div
+              className={`shrink-0 flex items-center gap-2 text-caption px-3 ${
+                status === 'ready' ? 'text-semantic-verified' : 'text-semantic-flagged'
+              }`}
+            >
+              <span className="relative flex h-2 w-2">
+                {status === 'ready' && (
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-semantic-verified opacity-75" />
+                )}
+                <span
+                  className={`relative inline-flex rounded-full h-2 w-2 ${
+                    status === 'ready' ? 'bg-semantic-verified' : 'bg-semantic-flagged'
+                  }`}
+                />
+              </span>
+              <span className="whitespace-nowrap">{statusLabel}</span>
+            </div>
+          </div>
+        </form>
+      </div>
+
+      {/* BOTTOM STATUS BAND */}
       <div className="absolute bottom-0 inset-x-0 h-8 bg-surface-raised border-t border-border-default flex items-center px-4 text-mono-s text-content-tertiary gap-4 z-10 pointer-events-auto">
         <span className="flex items-center gap-1">
           <CheckCircle2 className="w-3 h-3" /> Mock gold audit data loaded
