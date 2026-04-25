@@ -1,0 +1,20 @@
+{
+  "_README": "Synthetic extractor + validator output paired with sample_labels.csv. The expected metrics — given the mapping in src/seahealth/eval/naomi_mapping.py — are: capability precision=0.5, recall=0.75, F1=0.6 (TP=3, FP=3, FN=1); contradiction precision~=0.667, recall~=0.667, F1~=0.667 (TP=2, FP=1, FN=1, TN=0). Row 5 (cardiology) is excluded from both metrics because cardiology has no clean CapabilityType target.",
+  "capabilities": [
+    {"facility_id": "vf_00042_janta_hospital_patna",   "capability_type": "SURGERY_GENERAL", "claimed": true},
+    {"facility_id": "vf_00042_janta_hospital_patna",   "capability_type": "DIALYSIS",        "claimed": true},
+    {"facility_id": "vf_00103_apollo_clinic_delhi",    "capability_type": "ICU",             "claimed": true},
+    {"facility_id": "vf_00217_renal_care_mumbai",      "capability_type": "DIALYSIS",        "claimed": true},
+    {"facility_id": "vf_00318_city_general_lucknow",   "capability_type": "ICU",             "claimed": true},
+    {"facility_id": "vf_00501_heart_centre_chennai",   "capability_type": "SURGERY_GENERAL", "claimed": true}
+  ],
+  "audits": [
+    {"facility_id": "vf_00042_janta_hospital_patna",   "capability_type": "SURGERY_GENERAL", "contradictions": ["MISSING_STAFF"]},
+    {"facility_id": "vf_00042_janta_hospital_patna",   "capability_type": "DIALYSIS",        "contradictions": []},
+    {"facility_id": "vf_00103_apollo_clinic_delhi",    "capability_type": "ICU",             "contradictions": ["MISSING_STAFF"]},
+    {"facility_id": "vf_00217_renal_care_mumbai",      "capability_type": "DIALYSIS",        "contradictions": []},
+    {"facility_id": "vf_00318_city_general_lucknow",   "capability_type": "SURGERY_GENERAL", "contradictions": ["VOLUME_MISMATCH"]},
+    {"facility_id": "vf_00318_city_general_lucknow",   "capability_type": "ICU",             "contradictions": []},
+    {"facility_id": "vf_00501_heart_centre_chennai",   "capability_type": "SURGERY_GENERAL", "contradictions": ["MISSING_EQUIPMENT"]}
+  ]
+}
