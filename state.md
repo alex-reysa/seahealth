@@ -39,16 +39,24 @@ Source of truth for sprint task status. Resume work from the last `Merged` row.
 | F-1 Databricks foundation | Merged | `5568362` | pytest 64 ✓, ruff ✓, fileScope ✓ | UC catalog `workspace`, 3 schemas, volume + 10MB CSV, 7 Delta tables, MLflow exp 405251052688464, VS endpoint READY (chunks_index DELTA_SYNC) |
 | G-1 Extractor agent code | Merged | `260e2cf` | pytest 57 ✓, ruff ✓, fileScope ✓ | Mocked tests pass without ANTHROPIC_API_KEY |
 | H-1 Validator agent code | Merged | `da3f692` | pytest 82 ✓, ruff ✓, fileScope ✓ | Heuristics + mocked LLM path |
-| R-2 Reviewer pass | Pending | — | — | End-of-phase independent diff audit |
+| R-2 Reviewer pass | Done | — | YELLOW verdict | Phase 3 not blocked. 3 cleanup items tracked below. |
 
 **Merged-branch pytest: 107 passing.**
 
-### Phase 3 — Trust + Query — PENDING
+#### R-2 cleanup backlog (handled by Cleanup-2 sub-agent in parallel with Phase 3)
 
-| Task | Status | Notes |
-|---|---|---|
-| I-1 Trust Scorer + Audit Builder | Pending | After H-1 |
-| J-1 Query Agent + locked demo run | Pending | After I-1 + ANTHROPIC_API_KEY |
+1. **`evidence_ref_id` format**: validator builds `f"{source_doc_id}:{chunk_id}"` but the schema doesn't document this contract. Risk: Phase 3 Trust Scorer / Audit Builder may reinvent the join key. Fix: add a one-line note under `EvidenceAssessment` in `DATA_CONTRACT.md` and expose a helper `evidence_ref_id(ref)` in `seahealth.schemas`.
+2. **Absolute laptop paths** in `db/retriever.py:303-306` (`DEFAULT_CHUNKS_PARQUET_PATHS`) and `db/databricks_resources.py:52-55` (`DEFAULT_CSV_PATH`). Fix: env-var first (`SEAHEALTH_CHUNKS_PARQUET`, `SEAHEALTH_VF_CSV`), absolute path becomes last fallback.
+3. **Mixed tz datetimes**: `extractor.py:198` strips tz, validator/heuristics keep tz-aware UTC. Fix: keep `tzinfo=UTC` in extractor.
+
+### Phase 3 — Trust + Query — IN FLIGHT
+
+| Task | Status | Worktree | Branch | Notes |
+|---|---|---|---|---|
+| Cleanup-2 (R-2 backlog) | Pending | `seahealth-wt-CL2` | `phase3-cleanup2` | 3 small fixes from R-2 review |
+| I-1 Trust Scorer + Audit Builder | Pending | `seahealth-wt-I1` | `phase3-I1-trust` | Deterministic + 1 mocked Haiku call for reasoning |
+| J-1 Query Agent code | Pending | `seahealth-wt-J1` | `phase3-J1-query` | Code + mocked tests; live run blocked on ANTHROPIC_API_KEY |
+| R-3 Phase 3 Reviewer pass | Pending | — | — | End-of-phase audit |
 
 ### Phase 4 — Real API + Eval — PENDING
 
