@@ -49,14 +49,18 @@ Source of truth for sprint task status. Resume work from the last `Merged` row.
 2. **Absolute laptop paths** in `db/retriever.py:303-306` (`DEFAULT_CHUNKS_PARQUET_PATHS`) and `db/databricks_resources.py:52-55` (`DEFAULT_CSV_PATH`). Fix: env-var first (`SEAHEALTH_CHUNKS_PARQUET`, `SEAHEALTH_VF_CSV`), absolute path becomes last fallback.
 3. **Mixed tz datetimes**: `extractor.py:198` strips tz, validator/heuristics keep tz-aware UTC. Fix: keep `tzinfo=UTC` in extractor.
 
-### Phase 3 — Trust + Query — IN FLIGHT
+### Phase 3 — Trust + Query — MERGED (live run pending API key)
 
-| Task | Status | Worktree | Branch | Notes |
+| Task | Status | Commit | Audit | Notes |
 |---|---|---|---|---|
-| Cleanup-2 (R-2 backlog) | Pending | `seahealth-wt-CL2` | `phase3-cleanup2` | 3 small fixes from R-2 review |
-| I-1 Trust Scorer + Audit Builder | Pending | `seahealth-wt-I1` | `phase3-I1-trust` | Deterministic + 1 mocked Haiku call for reasoning |
-| J-1 Query Agent code | Pending | `seahealth-wt-J1` | `phase3-J1-query` | Code + mocked tests; live run blocked on ANTHROPIC_API_KEY |
+| Cleanup-2 (R-2 backlog) | Merged | (post 87a8ac0) | pytest 109 ✓, ruff ✓, fileScope ✓ | evidence_ref_id helper + DATA_CONTRACT note + env paths + tz fix |
+| I-1 Trust Scorer + Audit Builder | Merged | (post 87a8ac0) | pytest 123 ✓, ruff ✓, fileScope ✓ | Deterministic scores: clean=95, flagged=35, mixed=60 |
+| J-1 Query Agent code | Merged | (post 87a8ac0) | pytest 124 ✓, ruff ✓, fileScope ✓ | Mocked tests pass without ANTHROPIC_API_KEY |
 | R-3 Phase 3 Reviewer pass | Pending | — | — | End-of-phase audit |
+
+**Merged-branch pytest: 142 passing.**
+
+**Blocker for live demo run**: `ANTHROPIC_API_KEY` not yet in `.env`. Drop in `sk-ant-...` to unblock the locked appendectomy query against real data.
 
 ### Phase 4 — Real API + Eval — PENDING
 
