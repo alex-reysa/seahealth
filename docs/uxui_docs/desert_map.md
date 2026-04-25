@@ -19,7 +19,14 @@ For the locked end-to-end demo:
 - Region context: Patna/Bihar when geocoding is available
 - Color metric: `gap_population`
 
-For standalone map exploration, default to Bihar, radius `60km`, and the last selected capability if present. If no prior context exists, use `NEONATAL` as a strong visual example.
+For standalone map exploration, start with whole India visible, radius `60km`, and the last selected capability if present. If no prior context exists, use `NEONATAL` as a strong visual example.
+
+When no route parameters are present:
+
+- Fit to whole India bounds.
+- Show aggregate heatmap/choropleth only.
+- Hide facility markers and labels.
+- No region is selected.
 
 ## Layout
 
@@ -32,9 +39,10 @@ Top filter bar:
 
 Main canvas:
 
-- India or state-level choropleth by region.
+- Whole India map by default, with state/district/PIN choropleth by region.
 - Color encodes `gap_population`: darker red means more people uncovered for the selected capability and radius.
 - Selected region uses a distinct outline and remains selected until another region is clicked or filters reset.
+- Facility clusters and markers appear only after sufficient zoom.
 
 Right rail:
 
@@ -99,7 +107,7 @@ Initial command set:
 - `select_region`: select one `MapRegionAggregate.region_id`.
 - `highlight_facilities`: highlight ranked facilities matching current filters.
 - `open_facility`: route to Facility Audit View.
-- `reset_map`: return to default India/Bihar view.
+- `reset_map`: return to whole India view.
 
 Example command:
 
@@ -140,15 +148,48 @@ Tooltip content:
 
 Do not rely on color alone. Tooltip and right-rail labels must explain the metric.
 
+## Zoom-Level Rendering
+
+Country zoom:
+
+- Show whole India.
+- Render state/district/PIN aggregate heatmap or choropleth.
+- Hide individual facility markers.
+
+Region zoom:
+
+- Show district/PIN boundaries.
+- Highlight selected region.
+- Show aggregate tooltip and right rail.
+
+Local zoom:
+
+- Show clustered facility markers.
+- Cluster style communicates count and Trust Score band summary.
+
+Facility zoom:
+
+- Show individual facility markers and labels when space allows.
+- Marker preview includes Trust Score, contradictions, evidence count, and audit action.
+
+## Fast Navigation
+
+- Region click focuses that region with `fitBounds`.
+- Search supports state, district, city, facility name, and six-digit PIN code.
+- PIN search validates exactly six digits and focuses the matching `GeoPoint.pin_code` region or centroid.
+- `reset_map` returns to whole India and hides facility markers.
+
 ## Interaction flow
 
 1. User selects capability and radius.
 2. Map updates aggregate colors.
 3. User hovers a region to inspect tooltip metrics.
-4. User clicks a region.
-5. Right rail opens ranked facilities for that region.
-6. User clicks a facility row.
-7. App opens `/facilities/:facility_id?capability=<selected capability>&from=desert-map`.
+4. User clicks a region or searches a PIN code.
+5. Map focuses the selected geography.
+6. User zooms until facility clusters or markers appear.
+7. Right rail ranks facilities for that region.
+8. User clicks a facility row or marker.
+9. App opens `/facilities/:facility_id?capability=<selected capability>&from=desert-map`.
 
 The copy "nearest verified facility: 94km" is allowed only as a derived display value from facility geodata and ranking results. It is not part of `MapRegionAggregate`.
 
@@ -182,6 +223,7 @@ Facility rows:
 - `FacilityAudit.facility_id`
 - `FacilityAudit.name`
 - `FacilityAudit.location`
+- `FacilityAudit.location.pin_code`
 - `FacilityAudit.trust_scores[selected capability]`
 - `FacilityAudit.total_contradictions`
 
@@ -191,6 +233,7 @@ Loading:
 
 - Show stable map container and right-rail skeleton.
 - Keep filters visible but disabled while aggregates load.
+- Default camera still reserves whole-India framing.
 
 No data:
 
@@ -210,10 +253,19 @@ Map render failure:
 
 - Show a table fallback with region, gap population, coverage ratio, verified count CI, and audit action.
 
+PIN not found:
+
+- Keep prior map state.
+- Show "PIN code not found in loaded region data."
+
 ## Acceptance criteria
 
 - User can select capability and radius.
+- Default state shows whole India.
 - Map color is driven by `gap_population`.
+- Individual facilities are hidden when fully zoomed out.
+- Facility clusters and markers appear only after sufficient zoom.
+- Search supports region, facility, and six-digit PIN navigation.
 - Region click opens a right rail with ranked facilities.
 - Facility row opens Facility Audit View with selected capability preserved.
 - Confidence intervals and generated timestamps appear in detailed region copy.

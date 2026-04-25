@@ -17,18 +17,72 @@ The default action should still support the Planner Query Console because `docs/
 
 ## Default view
 
-The home route `/` should feel like a live control panel, not a marketing homepage. The India choropleth is visible immediately and fills most of the workspace.
+The home route `/` should feel like a live control panel, not a marketing homepage. The whole India map is visible immediately and fills most of the workspace.
 
 Recommended layout:
 
 - Left app rail: SeaHealth, Dashboard, Planner Query, Desert Map.
-- Main canvas: India choropleth driven by `MapRegionAggregate.gap_population`.
+- Main canvas: whole India map, fit to India bounds, with heatmap/choropleth color driven by `MapRegionAggregate.gap_population`.
 - Floating command panel: typed command input, voice transcript hook, current capability, radius, and execution status.
 - Floating summary strip: audited facilities, verified facilities, flagged facilities, last audited timestamp.
 - Right-side telemetry panel: selected region, coverage ratio, gap population, verified count CI, top facilities.
 - Bottom trace/status band: data loaded, query trace available, facility trace available, CSV export available.
 
 Keep the content dense and functional. Avoid hero copy, large illustration areas, testimonials, or broad product-positioning sections. Visual drama should come from the map, glass panels, and command response.
+
+## Initial Map State
+
+When no route parameters are present:
+
+- Viewport fits the whole India boundary.
+- No region, facility, or cluster is selected.
+- Individual facilities are hidden.
+- Map color communicates aggregate capability gap by region.
+- Default capability is `SURGERY_APPENDECTOMY` for the demo.
+- Default radius is `50km` for the appendectomy demo.
+
+This state is for national pattern recognition. It should be easy to see where gaps are concentrated before drilling into Bihar, Patna, a district, or a PIN code.
+
+## Zoom-Level Rendering
+
+Country zoom:
+
+- Show heatmap/choropleth by state, district, or PIN-region aggregate.
+- Hide individual facility markers and facility labels.
+- Hover/click exposes aggregate metrics: population, `gap_population`, `coverage_ratio`, and `capability_count_ci`.
+
+Region zoom:
+
+- Show clearer boundaries and selected-region outline.
+- Right telemetry panel appears with ranked top facilities for the current capability/radius.
+- Still prefer aggregate color over individual points unless the geography is small enough.
+
+Local zoom:
+
+- Show clustered facility markers.
+- Cluster marker displays facility count and summary Trust Score band.
+- Clicking a cluster zooms closer or opens the regional ranked list.
+
+Facility zoom:
+
+- Show individual facility markers.
+- Marker preview displays facility name, Trust Score, contradiction count, evidence count, and "Open audit".
+- Marker click can route to Facility Audit View.
+
+## Fast Navigation
+
+Manual navigation:
+
+- Pan and zoom.
+- Click a region to focus it.
+- Search by state, district, city, facility name, or six-digit PIN code.
+- Reset to whole India.
+
+PIN navigation:
+
+- PIN input validates exactly six digits before dispatch.
+- PIN search should focus the region or centroid linked to `GeoPoint.pin_code`.
+- Preserve active capability and radius unless the user changes them.
 
 ## Control-panel behavior
 
@@ -38,6 +92,7 @@ Command examples:
 
 - "Focus Patna, appendectomy, 50 km"
 - "Show neonatal deserts in Bihar"
+- "Zoom to PIN 800001"
 - "Highlight facilities with high contradictions"
 - "Open the top facility audit"
 
@@ -86,12 +141,14 @@ Dashboard depends on:
 - `FacilityAudit.facility_id`
 - `FacilityAudit.name`
 - `FacilityAudit.location`
+- `FacilityAudit.location.pin_code`
 - `FacilityAudit.trust_scores`
 - `FacilityAudit.total_contradictions`
 - `FacilityAudit.last_audited_at`
 - `FacilityAudit.mlflow_trace_id`
 - Summary aggregates derived from `FacilityAudit`
 - Current `MapCommand` state: capability, radius, location focus, selected region, selected facility
+- Current map view state: bounds, center, zoom, visible layer mode
 
 Do not define dashboard-only data models unless they are clearly derived display values.
 
@@ -100,8 +157,9 @@ Do not define dashboard-only data models unless they are clearly derived display
 Ready:
 
 - Summary strip has real counts.
-- India choropleth is visible and color-coded by gap population.
+- Whole India map is visible and color-coded by aggregate gap population.
 - Command panel can set capability, radius, and location focus.
+- Facility markers remain hidden until sufficient zoom.
 - Demo query action is enabled.
 - Surface shortcuts route correctly.
 
@@ -135,6 +193,8 @@ Error:
 - `/` clearly routes to the appendectomy Planner Query path.
 - `/` directly shows the India choropleth as the main control surface.
 - The command panel can apply the appendectomy/Patna/50km state to the map.
+- Search can jump to a named region or six-digit PIN code.
+- Zooming in reveals facility clusters and then individual facilities.
 - Summary metrics are real or visibly unavailable; no fake counts.
 - The shell uses the same names as the rest of the docs: Desert Map, Planner Query Console, Facility Audit View, Trust Score, Evidence, Contradictions.
 - The shell uses the vertical left rail from `docs/design_system.md`, not a top navigation bar.

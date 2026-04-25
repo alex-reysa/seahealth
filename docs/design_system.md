@@ -154,6 +154,25 @@ The map is a primary workspace, not a card.
 - Subtle halos for facilities/regions, not saturated pins.
 - For readability over the map: increase panel opacity before increasing text weight.
 
+**Initial state**
+- Dashboard and Desert Map open with the whole India map visible.
+- Fit the viewport to India bounds.
+- No region is selected by default.
+- Individual facility markers are hidden at this zoom level.
+- The visible layer is a heatmap/choropleth by aggregate geography: state, district, or PIN region depending on data availability.
+
+**Zoom-level disclosure**
+- Country zoom: heatmap/choropleth only; no individual facility markers.
+- Region zoom: state/district/PIN boundaries, hover tooltips, selected-region outline, and aggregate telemetry.
+- Local zoom: clustered facility markers appear, with cluster count and Trust Score band summary.
+- Facility zoom: individual facility markers, short labels where space allows, and facility preview on click.
+
+**Fast navigation**
+- Search supports state, district, city, facility name, and six-digit Indian PIN code.
+- PIN code entry validates six digits before dispatch.
+- Region click uses `fitBounds` to focus that region.
+- Named-location or PIN search preserves the current capability and radius unless the command explicitly changes them.
+
 ---
 
 ## 3. Domain-Specific Patterns

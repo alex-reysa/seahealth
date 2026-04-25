@@ -54,6 +54,10 @@ Default to a data-dense dashboard style:
 - Primary navigation is a vertical left rail, not a top bar.
 - The Dashboard should present the India choropleth directly as the main canvas.
 - Glass control panels may float over maps; do not wrap the map itself in a decorative card.
+- Dashboard and Desert Map open at whole-India zoom when no region, facility, or PIN parameter is present.
+- At country zoom, show only aggregate heatmap/choropleth layers.
+- As the user zooms in, reveal region boundaries, then facility clusters, then individual facility markers.
+- Search must support fast navigation to regions, named locations, facilities, and six-digit Indian PIN codes.
 - Use Lucide icons for buttons and utility actions when icons are needed.
 - Do not use emoji as status icons.
 - Use cards only for repeated items, evidence snippets, contradiction banners, and modal/drawer content. Do not nest cards inside cards.

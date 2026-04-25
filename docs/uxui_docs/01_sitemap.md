@@ -34,6 +34,7 @@ Rail behavior:
 Use query parameters to preserve demo context:
 
 - `/desert-map?capability=SURGERY_APPENDECTOMY&radius_km=50&region_id=BR_PATNA`
+- `/?pin_code=800001&capability=SURGERY_APPENDECTOMY&radius_km=50`
 - `/planner-query?q=Which%20facilities%20within%2050km%20of%20Patna%20can%20perform%20an%20appendectomy%3F`
 - `/facilities/:facility_id?capability=SURGERY_APPENDECTOMY&from=planner-query`
 
@@ -51,10 +52,11 @@ Primary demo journey:
 
 Map-first journey:
 
-1. Desert Map opens with a capability and radius selected.
-2. Planner clicks a high-gap region.
-3. Right rail ranks facilities relevant to that region.
-4. Facility row opens Facility Audit View.
+1. Dashboard or Desert Map opens with whole India visible.
+2. Planner clicks a high-gap region, searches a PIN code, or issues a focus command.
+3. Map zooms into the requested geography and shows aggregate telemetry.
+4. Facility clusters appear when the user zooms close enough.
+5. Facility markers open previews and Facility Audit View.
 
 Audit-first journey:
 
@@ -87,6 +89,7 @@ Command control:
 - Typed command, voice transcript, and agent action all dispatch to the same internal command model.
 - Supported commands should include `focus_location`, `set_capability`, `set_radius`, `select_region`, `highlight_facilities`, `open_facility`, and `reset_map`.
 - Commands update route/query parameters when they change shareable state.
+- `reset_map` returns to whole India bounds and hides individual facility markers.
 
 ## Out-of-scope routes
 
