@@ -152,6 +152,7 @@ def test_build_audits_writes_parquet(tmp_path: Path):
     assert summary["capability_count"] == 3
     assert summary["audit_count"] == 2
     assert len(df) == 2
+    assert not list(tables_dir.glob("*.tmp"))
 
     janta = df[df["facility_id"] == "vf_00042_janta_hospital_patna"].iloc[0]
     assert janta["name"] == "Janta Hospital, Patna"
@@ -296,3 +297,40 @@ def test_build_audits_threads_trace_and_json_roundtrips(tmp_path: Path):
     trust_scores = json.loads(row["trust_scores_json"])
     assert trust_scores["LAB"]["capability_type"] == "LAB"
     assert trust_scores["LAB"]["computed_at"]
+
+
+def test_build_audits_respects_limit(tmp_path: Path):
+    tables_dir = tmp_path / "tables"
+    tables_dir.mkdir()
+
+    caps = [
+        _capability("vf_00042_janta_hospital_patna", CapabilityType.SURGERY_APPENDECTOMY),
+        _capability("vf_00099_other_clinic", CapabilityType.LAB),
+    ]
+    _write_capabilities(tables_dir / build_audits.CAPABILITIES_FILE, caps)
+    _write_facilities_index(
+        tables_dir / build_audits.FACILITIES_INDEX_FILE,
+        [
+            {
+                "facility_id": "vf_00042_janta_hospital_patna",
+                "name": "Janta Hospital, Patna",
+                "latitude": 25.61,
+                "longitude": 85.14,
+                "pin_code": "800001",
+            },
+            {
+                "facility_id": "vf_00099_other_clinic",
+                "name": "Other Clinic",
+                "latitude": 12.97,
+                "longitude": 77.59,
+                "pin_code": None,
+            },
+        ],
+    )
+
+    summary = build_audits.main(tables_dir=tables_dir, limit=1)
+    assert summary["facility_count"] == 1
+    assert summary["capability_count"] == 1
+    assert summary["audit_count"] == 1
+    df = pq.read_table(tables_dir / build_audits.AUDITS_FILE).to_pandas()
+    assert df["facility_id"].tolist() == ["vf_00042_janta_hospital_patna"]

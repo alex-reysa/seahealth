@@ -19,7 +19,6 @@ import pytest
 
 from seahealth.pipelines import normalize
 
-
 # ---------------------------------------------------------------------------
 # Fixture CSV
 # ---------------------------------------------------------------------------
@@ -120,7 +119,9 @@ def fixture_csv(tmp_path: Path) -> Path:
             city="Patna",
             state="Bihar",
             pin="800001",
-            description="A general surgery hospital offering appendectomy and laparoscopic procedures.",
+            description=(
+                "A general surgery hospital offering appendectomy and laparoscopic procedures."
+            ),
             specialties='["generalSurgery","gastroenterology"]',
             procedure='["Performs appendectomy","Performs laparoscopic surgery"]',
             equipment='["Anesthesia machine","Operating table","Laparoscope"]',
@@ -218,15 +219,18 @@ def test_pipeline_writes_chunks_facilities_and_demo(
     assert summary["chunk_count"] == 20
     assert summary["facility_count"] == 5
 
-    # Stable facility_id pattern.
-    expected_prefixes = [f"vf_{i:05d}_" for i in range(5)]
+    # Stable facility_id pattern: source-field hash + readable slug, not row index.
     facility_ids = facilities["facility_id"].tolist()
-    for fid, prefix in zip(facility_ids, expected_prefixes):
-        assert fid.startswith(prefix), fid
+    for fid in facility_ids:
+        prefix, digest, slug = fid.split("_", 2)
+        assert prefix == "vf"
+        assert len(digest) == 12
+        assert slug
 
     # CSV sha is included in the demo metadata.
     assert demo["_meta"]["csv_sha256"] == summary["csv_sha256"]
     assert len(demo["_meta"]["csv_sha256"]) == 64
+    assert not list(output_dir.glob("*.tmp"))
 
 
 def test_chunk_text_prefixes_and_ordering(fixture_csv: Path, tmp_path: Path) -> None:
@@ -246,10 +250,15 @@ def test_chunk_text_prefixes_and_ordering(fixture_csv: Path, tmp_path: Path) -> 
         for text in subset["text"]:
             assert text.startswith(prefix), text[:40]
 
-    # span_end matches len(text).
+    # span offsets are Python character offsets, not UTF-8 byte offsets.
     for _, row in chunks.iterrows():
         assert row["span_start"] == 0
         assert row["span_end"] == len(row["text"])
+
+    unicode_chunk = chunks[
+        (chunks["row_index"] == 4) & (chunks["source_type"] == "facility_note")
+    ].iloc[0]
+    assert len(unicode_chunk["text"].encode("utf-8")) > unicode_chunk["span_end"]
 
 
 def test_empty_equipment_renders_none_listed(fixture_csv: Path, tmp_path: Path) -> None:
@@ -311,6 +320,41 @@ def test_demo_subset_membership(fixture_csv: Path, tmp_path: Path) -> None:
     assert by_row[4] in selected
     # Chennai outpatient -> NEITHER, must be excluded.
     assert by_row[3] not in selected
+
+
+def test_facility_ids_are_stable_when_csv_order_changes(
+    fixture_csv: Path, tmp_path: Path
+) -> None:
+    original_dir = tmp_path / "original"
+    reordered_dir = tmp_path / "reordered"
+    reordered_csv = tmp_path / "reordered.csv"
+
+    df = pd.read_csv(fixture_csv, dtype=str, keep_default_na=False)
+    reordered = pd.concat([df.iloc[[2]], df.drop(index=2)], ignore_index=True)
+    reordered.to_csv(reordered_csv, index=False)
+
+    normalize.main(csv_path=fixture_csv, output_dir=original_dir)
+    normalize.main(csv_path=reordered_csv, output_dir=reordered_dir)
+
+    original = _read_parquet(original_dir / "facilities_index.parquet")
+    shuffled = _read_parquet(reordered_dir / "facilities_index.parquet")
+
+    original_ids = dict(zip(original["name"], original["facility_id"], strict=True))
+    shuffled_ids = dict(zip(shuffled["name"], shuffled["facility_id"], strict=True))
+    assert shuffled_ids == original_ids
+
+
+def test_chunk_text_is_trimmed_utf8_and_spans_use_python_chars() -> None:
+    text = normalize._normalize_chunk_text(" \x00Cafe\u0301\n")
+    assert text == "Café"
+    assert normalize._python_char_span(text) == (0, 4)
+    assert len(text.encode("utf-8")) == 5
+
+
+def test_demo_subset_surgery_keyword_boundary_variants() -> None:
+    assert normalize._matches_surgery_keyword("dedicated operation theatre")
+    assert normalize._matches_surgery_keyword("dedicated operating theater")
+    assert normalize._matches_surgery_keyword("operative procedures suite")
 
 
 def test_facility_index_dtypes_and_pin_filtering(

@@ -7,6 +7,7 @@ Verifies it reads the demo subset + chunks parquet correctly, writes
 
 from __future__ import annotations
 
+import builtins
 import json
 from datetime import datetime
 from pathlib import Path
@@ -128,6 +129,7 @@ def test_pipeline_writes_capabilities_parquet(
     df = pq.read_table(out_path).to_pandas()
     assert set(df["facility_id"]) == {"vf_a", "vf_b"}
     assert set(df["capability_type"]) == {"SURGERY_GENERAL", "DIALYSIS"}
+    assert not list(tmp_path.glob("*.tmp"))
     # Evidence refs round-trip through JSON.
     sample = json.loads(df.iloc[0]["evidence_refs_json"])
     assert sample[0]["chunk_id"].endswith("::facility_note")
@@ -198,6 +200,7 @@ def test_pipeline_skips_mlflow_when_unconfigured(
     assert summary["capability_count"] == 0
     # Even with zero rows we still wrote a parquet file (with the canonical schema).
     assert out_path.exists()
+    assert not list(tmp_path.glob("*.tmp"))
     df = pq.read_table(out_path).to_pandas()
     assert list(df.columns) == [
         "facility_id",
@@ -208,3 +211,70 @@ def test_pipeline_skips_mlflow_when_unconfigured(
         "extracted_at",
         "evidence_refs_json",
     ]
+
+
+def test_pipeline_skips_facilities_with_zero_chunks(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    chunks_path = _build_chunks_parquet(tmp_path)
+    subset_path = _build_subset_json(tmp_path, ["vf_a", "vf_missing"])
+    out_path = tmp_path / "capabilities.parquet"
+
+    monkeypatch.delenv("MLFLOW_TRACKING_URI", raising=False)
+    monkeypatch.delenv("DATABRICKS_HOST", raising=False)
+
+    seen: list[str] = []
+
+    def fake_extract(facility_id: str, chunks: list[dict], *, model: str) -> ExtractedCapabilities:
+        seen.append(facility_id)
+        assert chunks
+        return ExtractedCapabilities(
+            facility_id=facility_id,
+            capabilities=[_make_capability(facility_id, CapabilityType.LAB)],
+        )
+
+    summary = extract_pipeline.main(
+        subset="demo",
+        subset_path=subset_path,
+        chunks_path=chunks_path,
+        out_path=out_path,
+        extract_fn=fake_extract,
+    )
+
+    assert seen == ["vf_a"]
+    assert summary["facility_count"] == 1
+    assert summary["skipped_zero_chunk_count"] == 1
+
+
+def test_pipeline_tolerates_missing_mlflow_package_when_configured(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    chunks_path = _build_chunks_parquet(tmp_path)
+    subset_path = _build_subset_json(tmp_path, ["vf_a"])
+    out_path = tmp_path / "capabilities.parquet"
+
+    monkeypatch.setenv("MLFLOW_TRACKING_URI", "file:///tmp/no-mlflow")
+    monkeypatch.delenv("DATABRICKS_HOST", raising=False)
+
+    real_import = builtins.__import__
+
+    def fake_import(name, *args, **kwargs):
+        if name == "mlflow":
+            raise ImportError("mlflow unavailable")
+        return real_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", fake_import)
+
+    def fake_extract(facility_id: str, chunks: list[dict], *, model: str) -> ExtractedCapabilities:
+        return ExtractedCapabilities(facility_id=facility_id, capabilities=[])
+
+    summary = extract_pipeline.main(
+        subset="demo",
+        subset_path=subset_path,
+        chunks_path=chunks_path,
+        out_path=out_path,
+        extract_fn=fake_extract,
+    )
+
+    assert summary["facility_count"] == 1
+    assert summary["capability_count"] == 0

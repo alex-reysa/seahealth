@@ -323,6 +323,7 @@ def main(
     use_llm: bool = False,
     rng_seed: int = 42,
     mlflow_trace_id: str | None = None,
+    limit: int | None = None,
 ) -> dict[str, int]:
     """Build FacilityAudit rows from parquet inputs.
 
@@ -334,6 +335,7 @@ def main(
         use_llm: Forwarded to ``score_capability``.
         rng_seed: Forwarded to ``score_capability``.
         mlflow_trace_id: Optional trace id attached to every emitted audit.
+        limit: Cap the number of facilities audited after subset filtering.
 
     Returns:
         ``{"facility_count", "capability_count", "contradiction_count",
@@ -394,6 +396,22 @@ def main(
     facility_ids.extend(fid for fid in capabilities_by_facility if fid not in facilities_index)
     if allowed_ids is not None:
         facility_ids = [fid for fid in facility_ids if fid in allowed_ids]
+
+    if limit is not None:
+        keep_ids = set(list(capabilities_by_facility)[:limit])
+        capabilities_by_facility = {
+            fid: caps for fid, caps in capabilities_by_facility.items() if fid in keep_ids
+        }
+        contradictions_by_facility = {
+            fid: items for fid, items in contradictions_by_facility.items() if fid in keep_ids
+        }
+        assessments_by_facility = {
+            fid: items for fid, items in assessments_by_facility.items() if fid in keep_ids
+        }
+        capabilities = [c for c in capabilities if c.facility_id in keep_ids]
+        contradictions = [c for c in contradictions if c.facility_id in keep_ids]
+        assessments = [a for a in assessments if a.facility_id in keep_ids]
+        facility_ids = [fid for fid in facility_ids if fid in keep_ids]
 
     validator_module = _maybe_validator()
 
@@ -517,6 +535,12 @@ def _build_parser() -> argparse.ArgumentParser:
         default=None,
         help="Optional MLflow trace id to attach to every emitted audit.",
     )
+    p.add_argument(
+        "--limit",
+        type=int,
+        default=None,
+        help="Audit only the first N facilities after subset filtering.",
+    )
     return p
 
 
@@ -528,6 +552,7 @@ def _cli(argv: list[str] | None = None) -> None:
         use_llm=args.use_llm,
         rng_seed=args.rng_seed,
         mlflow_trace_id=args.mlflow_trace_id,
+        limit=args.limit,
     )
 
 

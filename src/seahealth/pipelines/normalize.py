@@ -19,9 +19,10 @@ import hashlib
 import json
 import math
 import re
-from datetime import datetime, timezone
+import unicodedata
+from collections.abc import Iterable, Sequence
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Iterable, Sequence
 
 import pandas as pd
 import pyarrow as pa
@@ -62,8 +63,12 @@ SURGERY_KEYWORDS: tuple[str, ...] = (
     "laparoscop",
     "anesthesia",
     "anaesthesia",
+    "operation theatre",
+    "operating theater",
     "operating theatre",
     "operation theater",
+    "operative procedure",
+    "operative procedures",
     "OT",
 )
 # ``OT`` is short and case-sensitive on purpose to avoid matching every
@@ -94,7 +99,7 @@ SLUG_RE = re.compile(r"[^a-z0-9]+")
 def _slugify(name: str) -> str:
     """Slug used inside ``facility_id``: lowercase, ``[^a-z0-9]+`` → ``-``, capped 24."""
     slug = SLUG_RE.sub("-", (name or "").lower()).strip("-")
-    return slug[:24]
+    return slug[:24] or "facility"
 
 
 def _is_blank(value: str | None) -> bool:
@@ -109,7 +114,36 @@ def _is_blank(value: str | None) -> bool:
 
 def _coerce_text(value: str | None) -> str:
     """Render a single field for chunk text — collapses blanks to empty."""
-    return "" if _is_blank(value) else value.strip()
+    if _is_blank(value):
+        return ""
+    return unicodedata.normalize("NFC", str(value)).replace("\x00", "").strip()
+
+
+def _stable_facility_id(row: dict[str, str]) -> str:
+    """Build a row-order-independent facility id from stable source fields."""
+    name = _coerce_text(row.get("name"))
+    key_fields = (
+        name.casefold(),
+        _coerce_text(row.get("officialWebsite")).casefold(),
+        _coerce_text(row.get("officialPhone")).casefold(),
+        _coerce_text(row.get("address_line1")).casefold(),
+        _coerce_text(row.get("address_city")).casefold(),
+        _coerce_text(row.get("address_stateOrRegion")).casefold(),
+        _coerce_text(row.get("address_zipOrPostcode")).casefold(),
+    )
+    digest = hashlib.sha256("\x1f".join(key_fields).encode("utf-8")).hexdigest()[:12]
+    return f"vf_{digest}_{_slugify(name)}"
+
+
+def _normalize_chunk_text(text: str) -> str:
+    """Normalize chunk text to NFC UTF-8-compatible Python ``str`` and trim edges."""
+    normalized = unicodedata.normalize("NFC", str(text)).replace("\x00", "")
+    return normalized.encode("utf-8", errors="replace").decode("utf-8").strip()
+
+
+def _python_char_span(text: str) -> tuple[int, int]:
+    """Return span offsets as Python character offsets, not UTF-8 byte offsets."""
+    return (0, len(text))
 
 
 def _parse_list_field(raw: str | None) -> list[str]:
@@ -257,10 +291,10 @@ def _read_csv(path: Path, limit: int | None = None) -> pd.DataFrame:
 def _build_chunks(df: pd.DataFrame, indexed_at: str) -> pd.DataFrame:
     rows: list[dict[str, object]] = []
     for row_index, row in enumerate(df.to_dict(orient="records")):
-        name = _coerce_text(row.get("name"))
-        facility_id = f"vf_{row_index:05d}_{_slugify(name)}"
+        facility_id = _stable_facility_id(row)
         for source_type in SOURCE_TYPES:
-            text = _format_chunk(source_type, row)
+            text = _normalize_chunk_text(_format_chunk(source_type, row))
+            span_start, span_end = _python_char_span(text)
             rows.append(
                 {
                     "chunk_id": f"{facility_id}::{source_type}",
@@ -269,8 +303,8 @@ def _build_chunks(df: pd.DataFrame, indexed_at: str) -> pd.DataFrame:
                     "source_type": source_type,
                     "source_doc_id": facility_id,
                     "text": text,
-                    "span_start": 0,
-                    "span_end": len(text),
+                    "span_start": span_start,
+                    "span_end": span_end,
                     "indexed_at": indexed_at,
                 }
             )
@@ -295,7 +329,7 @@ def _build_facilities_index(df: pd.DataFrame) -> pd.DataFrame:
     records: list[dict[str, object]] = []
     for row_index, row in enumerate(df.to_dict(orient="records")):
         name = _coerce_text(row.get("name"))
-        facility_id = f"vf_{row_index:05d}_{_slugify(name)}"
+        facility_id = _stable_facility_id(row)
         pin_raw = _coerce_text(row.get("address_zipOrPostcode"))
         pin_code = pin_raw if PIN_CODE_RE.match(pin_raw) else None
         records.append(
@@ -359,7 +393,7 @@ def _build_demo_subset(
             "patna_radius_km": PATNA_RADIUS_KM,
             "surgery_keywords": list(SURGERY_KEYWORDS),
             "csv_sha256": csv_sha,
-            "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+            "generated_at": datetime.now(UTC).isoformat(timespec="seconds"),
             "selected_count": len(selected),
             "candidate_count": len(candidates),
         },
@@ -369,7 +403,16 @@ def _build_demo_subset(
 
 def _write_parquet(table: pd.DataFrame, path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    pq.write_table(pa.Table.from_pandas(table, preserve_index=False), path)
+    tmp_path = path.with_suffix(path.suffix + ".tmp")
+    pq.write_table(pa.Table.from_pandas(table, preserve_index=False), tmp_path)
+    tmp_path.replace(path)
+
+
+def _write_json_atomic(payload: dict[str, object], path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp_path = path.with_suffix(path.suffix + ".tmp")
+    tmp_path.write_text(json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8")
+    tmp_path.replace(path)
 
 
 def main(
@@ -389,7 +432,7 @@ def main(
 
     csv_sha = _csv_sha256(csv_p)
     df = _read_csv(csv_p, limit=limit)
-    indexed_at = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    indexed_at = datetime.now(UTC).isoformat(timespec="seconds")
 
     facilities = _build_facilities_index(df)
     chunks = _build_chunks(df, indexed_at=indexed_at)
@@ -409,7 +452,7 @@ def main(
 
     _write_parquet(chunks, chunks_path)
     _write_parquet(facilities, facilities_path)
-    demo_path.write_text(json.dumps(demo, indent=2, ensure_ascii=False), encoding="utf-8")
+    _write_json_atomic(demo, demo_path)
 
     summary = {
         "csv_path": str(csv_p),

@@ -137,10 +137,15 @@ def _write_parquet(rows: list[dict[str, Any]], out_path: Path) -> None:
                 "evidence_refs_json",
             ]
         )
-        pq.write_table(pa.Table.from_pandas(empty, preserve_index=False), out_path)
+        table = pa.Table.from_pandas(empty, preserve_index=False)
+        tmp_path = out_path.with_suffix(out_path.suffix + ".tmp")
+        pq.write_table(table, tmp_path)
+        tmp_path.replace(out_path)
         return
     df = pd.DataFrame(rows)
-    pq.write_table(pa.Table.from_pandas(df, preserve_index=False), out_path)
+    tmp_path = out_path.with_suffix(out_path.suffix + ".tmp")
+    pq.write_table(pa.Table.from_pandas(df, preserve_index=False), tmp_path)
+    tmp_path.replace(out_path)
 
 
 def _maybe_write_delta(rows: list[dict[str, Any]]) -> bool:
@@ -214,8 +219,13 @@ def main(
     all_rows: list[dict[str, Any]] = []
     facility_count = 0
     capability_count = 0
+    skipped_zero_chunk_count = 0
     for facility_id in facility_ids:
         chunks = _chunks_for_facility(chunks_df, facility_id)
+        if not chunks:
+            skipped_zero_chunk_count += 1
+            logger.warning("skipping %s: no chunks found", facility_id)
+            continue
         with _maybe_mlflow_span(
             "extract_capabilities",
             attributes={"facility_id": facility_id, "chunk_count": len(chunks)},
@@ -239,6 +249,7 @@ def main(
         "subset": subset,
         "facility_count": facility_count,
         "capability_count": capability_count,
+        "skipped_zero_chunk_count": skipped_zero_chunk_count,
         "out_path": str(out_p),
         "delta_written": delta_written,
     }
