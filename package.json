@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "description": "SeaHealth - Healthcare Facility Audit and Verification System",
   "private": true,
+  "type": "module",
   "scripts": {
     "dev": "next dev --turbopack",
     "build": "next build",
