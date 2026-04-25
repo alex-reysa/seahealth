@@ -1,0 +1,22 @@
+{
+  "clean": {
+    "facility_id": "vf_00042_janta_hospital_patna",
+    "equipment": ["anesthesia machine", "laparoscopy tower", "x-ray", "ultrasound"],
+    "staff_count": 4,
+    "capacity_beds": 50,
+    "recency_of_page_update_months": 8,
+    "specialties": ["surgery"],
+    "procedures": ["appendectomy"],
+    "capability_claims": ["surgery"]
+  },
+  "flagged": {
+    "facility_id": "vf_00042_janta_hospital_patna",
+    "equipment": [],
+    "staff_count": 0,
+    "capacity_beds": 50,
+    "recency_of_page_update_months": 8,
+    "specialties": ["surgery"],
+    "procedures": ["appendectomy"],
+    "capability_claims": ["surgery"]
+  }
+}

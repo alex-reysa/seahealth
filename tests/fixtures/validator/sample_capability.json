@@ -1,0 +1,21 @@
+{
+  "facility_id": "vf_00042_janta_hospital_patna",
+  "capability_type": "SURGERY_APPENDECTOMY",
+  "claimed": true,
+  "evidence_refs": [
+    {
+      "source_doc_id": "doc_janta_001",
+      "facility_id": "vf_00042_janta_hospital_patna",
+      "chunk_id": "chunk_3",
+      "row_id": null,
+      "span": [120, 162],
+      "snippet": "general surgery including appendectomy",
+      "source_type": "facility_note",
+      "source_observed_at": "2026-01-15T09:00:00+00:00",
+      "retrieved_at": "2026-04-25T22:30:00+00:00"
+    }
+  ],
+  "source_doc_id": "doc_janta_001",
+  "extracted_at": "2026-04-25T22:30:00+00:00",
+  "extractor_model": "claude-sonnet-4-6"
+}
