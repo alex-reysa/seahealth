@@ -160,23 +160,27 @@ class Contradiction(BaseModel):
 
 ```python
 # src/schemas/evidence_assessment.py — module contract.
+from datetime import datetime
+from typing import Literal
 from pydantic import BaseModel, Field
-from typing import Optional
 
 # from .capability_type import CapabilityType
-# from .contradiction import ContradictionType
-# from .evidence import EvidenceRef, EvidenceStance
 
 class EvidenceAssessment(BaseModel):
-    """Validator judgment tying one evidence span to one capability."""
-    evidence_ref: EvidenceRef
-    stance: EvidenceStance
-    capability_type: CapabilityType
-    contradiction_type: Optional[ContradictionType] = Field(
-        default=None,
-        description="Set when stance='contradicts' and the contradiction maps to the closed taxonomy.",
+    """Validator's per-evidence stance, joined into the Facility Audit View.
+
+    Each row pins one evidence span to one capability claim and records whether the
+    Validator agent thinks that span verifies, contradicts, or is silent on the claim.
+    The join key is the EvidenceRef id — see seahealth.schemas.evidence_ref_id().
+    """
+    evidence_ref_id: str = Field(..., description="Stable id of the EvidenceRef this assessment refers to.")
+    capability_type: CapabilityType = Field(..., description="The capability this evidence was assessed against.")
+    facility_id: str = Field(..., description="Facility the evidence belongs to.")
+    stance: Literal["verifies", "contradicts", "silent"] = Field(
+        ..., description="Validator stance on this evidence relative to the capability claim."
     )
-    rationale: str = Field(..., description="One-sentence rationale for the stance.")
+    reasoning: str = Field(..., description="One-sentence Validator rationale for the stance.")
+    assessed_at: datetime = Field(..., description="When the Validator produced this stance.")
 ```
 
 ---

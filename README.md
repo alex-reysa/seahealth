@@ -11,7 +11,7 @@ View — backed by a typed agent pipeline (Extractor → Validator → Trust Sco
 git clone https://github.com/alex-reysa/seahealth.git
 cd seahealth
 pip install -e ".[dev]"
-cp .env.example .env                       # then drop in ANTHROPIC_API_KEY
+cp .env.example .env                       # update DATABRICKS_TOKEN (PAT) before first run
 pytest -q                                  # 246 tests, all green
 python -m seahealth.db.smoke_test          # exercises the data layer
 uvicorn seahealth.api.main:app --reload    # FastAPI on :8000

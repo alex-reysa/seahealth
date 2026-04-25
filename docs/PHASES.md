@@ -31,7 +31,7 @@
 
 - [x] Full Extractor Agent pipeline runs over 10K rows; outputs `list[Capability]` to bronze Delta table (pipeline code lives in `src/seahealth/pipelines/extract.py`; tested with fixtures).
 - [x] Vector index live: all chunks indexed as `IndexedDoc` with `BAAI/bge-large-en-v1.5` embeddings (Databricks VS endpoint READY in F-1; FAISS / SQL-warehouse fallbacks in retriever).
-- [x] Query Agent answers ONE NL query end-to-end, returning a (rough) `QueryResult` with `RankedFacility` entries (heuristic path; live Anthropic path gated on `ANTHROPIC_API_KEY`).
+- [x] Query Agent answers ONE NL query end-to-end, returning a (rough) `QueryResult` with `RankedFacility` entries (heuristic path; live LLM path on Databricks Foundation Models, gated on `DATABRICKS_TOKEN`).
 - [x] MLflow tracing turned on for Extractor Agent + Query Agent; `QueryResult.query_trace_id` stored on query output.
 - [ ] **Naomi parallel track:** delivers contradiction taxonomy spec as rubric/examples mapped to locked `ContradictionType` values.
 
@@ -75,7 +75,7 @@
 - [ ] One-pager PDF for judges (data on left, product on right).
 - [x] README Quickstart finalized — clone / install / env / pytest / smoke / uvicorn (see `README.md`).
 - [x] Audit Swarm cherry-picks landed (`b93b400`, `7b7182c`, `e932076`, `cdfa9a3`, `2c02d2d`, `cab1981`); 246 tests green.
-- [ ] L-1: regenerate fixtures from real data once `ANTHROPIC_API_KEY` is in `.env`.
+- [ ] L-1: regenerate fixtures from real data once `DATABRICKS_TOKEN` is in `.env` (LLM backend swapped to Databricks Foundation Models in DBX-1).
 - [ ] Bug fixes only — NO new features, NO refactors, NO "while I'm in here" cleanups.
 - [ ] Submission packaged.
 
