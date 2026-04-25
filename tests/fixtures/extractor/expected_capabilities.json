@@ -1,0 +1,71 @@
+{
+  "facility_id": "vf_00042_janta_hospital_patna",
+  "capabilities": [
+    {
+      "facility_id": "vf_00042_janta_hospital_patna",
+      "capability_type": "SURGERY_GENERAL",
+      "claimed": true,
+      "source_doc_id": "vf_00042_janta_hospital_patna",
+      "extracted_at": "2026-04-25T00:00:00",
+      "extractor_model": "claude-sonnet-4-6",
+      "evidence_refs": [
+        {
+          "source_doc_id": "vf_00042_janta_hospital_patna",
+          "facility_id": "vf_00042_janta_hospital_patna",
+          "chunk_id": "vf_00042_janta_hospital_patna::facility_note",
+          "span": [0, 0],
+          "snippet": "general surgery including appendectomy",
+          "source_type": "facility_note",
+          "retrieved_at": "2026-04-25T00:00:00"
+        },
+        {
+          "source_doc_id": "vf_00042_janta_hospital_patna",
+          "facility_id": "vf_00042_janta_hospital_patna",
+          "chunk_id": "vf_00042_janta_hospital_patna::staff_roster",
+          "span": [0, 0],
+          "snippet": "4 general surgeons",
+          "source_type": "staff_roster",
+          "retrieved_at": "2026-04-25T00:00:00"
+        }
+      ]
+    },
+    {
+      "facility_id": "vf_00042_janta_hospital_patna",
+      "capability_type": "SURGERY_APPENDECTOMY",
+      "claimed": true,
+      "source_doc_id": "vf_00042_janta_hospital_patna",
+      "extracted_at": "2026-04-25T00:00:00",
+      "extractor_model": "claude-sonnet-4-6",
+      "evidence_refs": [
+        {
+          "source_doc_id": "vf_00042_janta_hospital_patna",
+          "facility_id": "vf_00042_janta_hospital_patna",
+          "chunk_id": "vf_00042_janta_hospital_patna::facility_note",
+          "span": [0, 0],
+          "snippet": "appendectomy",
+          "source_type": "facility_note",
+          "retrieved_at": "2026-04-25T00:00:00"
+        }
+      ]
+    },
+    {
+      "facility_id": "vf_00042_janta_hospital_patna",
+      "capability_type": "RADIOLOGY",
+      "claimed": true,
+      "source_doc_id": "vf_00042_janta_hospital_patna",
+      "extracted_at": "2026-04-25T00:00:00",
+      "extractor_model": "claude-sonnet-4-6",
+      "evidence_refs": [
+        {
+          "source_doc_id": "vf_00042_janta_hospital_patna",
+          "facility_id": "vf_00042_janta_hospital_patna",
+          "chunk_id": "vf_00042_janta_hospital_patna::equipment_inventory",
+          "span": [0, 0],
+          "snippet": "X-ray, ultrasound",
+          "source_type": "equipment_inventory",
+          "retrieved_at": "2026-04-25T00:00:00"
+        }
+      ]
+    }
+  ]
+}
