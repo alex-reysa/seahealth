@@ -8,7 +8,7 @@
 
 ## Two non-negotiables
 
-1. **Schema ownership.** `Alejandro (acting schema owner)` owns `DATA_CONTRACT.md`. After hour 4, all changes to canonical schema names (`Capability`, `EvidenceRef`, `Contradiction`, `ContradictionType`, `TrustScore`, `FacilityAudit`, `IndexedDoc`, `CapabilityType`, `QueryResult`, `RankedFacility`, `GeoPoint`) require their explicit approval. Veto power is real. Without this, three different `Facility` shapes appear in three files by hour 12.
+1. **Schema ownership.** `Alejandro (acting schema owner)` owns `DATA_CONTRACT.md`. After hour 4, all changes to canonical schema names (`GeoPoint`, `CapabilityType`, `EvidenceRef`, `EvidenceStance`, `EvidenceAssessment`, `Capability`, `Contradiction`, `ContradictionType`, `TrustScore`, `FacilityAudit`, `IndexedDoc`, `ParsedIntent`, `QueryResult`, `RankedFacility`, `PopulationReference`, `MapRegionAggregate`) require their explicit approval. Veto power is real. Without this, three different `Facility` shapes appear in three files by hour 12.
 2. **Demo script written at hour 24, not hour 36.** If a feature isn't in the demo script at hour 24, stop polishing it. The demo script is the spec for "what's actually shipping." Naomi (domain expert) drafts it at the Phase 2 → Phase 3 boundary.
 
 ---
@@ -18,7 +18,7 @@
 - [ ] `DATA_CONTRACT.md` locked. `Alejandro (acting schema owner)` assigned. Veto power active from hour 4.
 - [ ] Repo skeleton, env, secrets wired: Databricks workspace, MLflow tracking URI, Anthropic API key.
 - [ ] Data exploration notebook in `docs/notebooks/` — sample 100 facility records, eyeball schema fit against `DATA_CONTRACT.md`.
-- [ ] Pydantic schemas implemented in `src/schemas/` mirroring `DATA_CONTRACT.md` exactly: `Capability`, `EvidenceRef`, `Contradiction`, `ContradictionType`, `TrustScore`, `FacilityAudit`, `IndexedDoc`, `CapabilityType`, `QueryResult`, `RankedFacility`, `GeoPoint`.
+- [ ] Pydantic schemas implemented in `src/schemas/` mirroring `DATA_CONTRACT.md` exactly: `GeoPoint`, `CapabilityType`, `EvidenceRef`, `EvidenceStance`, `EvidenceAssessment`, `Capability`, `Contradiction`, `ContradictionType`, `TrustScore`, `FacilityAudit`, `IndexedDoc`, `ParsedIntent`, `QueryResult`, `RankedFacility`, `PopulationReference`, `MapRegionAggregate`.
 - [ ] One Extractor Agent run end-to-end on 10 rows producing valid `list[Capability]`.
 - [ ] **Naomi (domain expert) parallel track:** starts hand-labeling 30 facility records — gold eval set seed.
 - [ ] MLflow tracing instrumented for the Extractor Agent; one trace visible end-to-end.
@@ -41,7 +41,7 @@
 
 ## Phase 2 — Hours 12-24: Trust + first surface
 
-- [ ] Validator Agent online; runs on EVERY extraction (not on-demand); produces `list[Contradiction]` typed by `ContradictionType`.
+- [ ] Validator Agent online; runs on EVERY extraction (not on-demand); produces `list[Contradiction]` typed by `ContradictionType` plus `list[EvidenceAssessment]` for evidence stance.
 - [ ] Trust Scorer computes `TrustScore` for every `(facility_id, capability_type)` pair; `confidence_interval` populated via bootstrap.
 - [ ] FacilityAudit Builder writes canonical `FacilityAudit` records to gold Delta table.
 - [ ] Planner Query Console live first with REAL data (not mocked) — cheapest path to a working demo.
@@ -80,7 +80,7 @@
 
 ## Scope freeze log (hours 24+)
 
-_Anything attempted after hour 24 must be logged here AND rejected unless it's a bug fix on an existing surface._
+_Anything attempted after hour 24 must be logged here AND rejected unless it's one of the two planned Phase 3 surfaces or a bug fix on an existing surface._
 
 Format:
 

@@ -329,7 +329,7 @@ class RankedFacility(BaseModel):
     rank: int = Field(..., ge=1, description="1-indexed rank in the result list.")
 
 class QueryResult(BaseModel):
-    """Planner Console output. Drives the demo query: e.g. 'Which facilities within 50km can perform an appendectomy?'"""
+    """Planner Console output. Drives the demo query: e.g. 'Which facilities within 50km of Patna can perform an appendectomy?'"""
     query: str = Field(..., description="Natural-language query as the user asked it.")
     parsed_intent: ParsedIntent
     ranked_facilities: List[RankedFacility] = Field(default_factory=list)
@@ -382,5 +382,5 @@ class MapRegionAggregate(BaseModel):
 
 _Any change to this file after hour 4 must be logged here AND in `DECISIONS.md`._
 
-- **2026-04-25** — Initial schema lock — all canonical schemas defined (`GeoPoint`, `CapabilityType`, `EvidenceRef`, `Capability`, `ContradictionType`, `Contradiction`, `TrustScore`, `FacilityAudit`, `IndexedDoc`, `QueryResult`, `RankedFacility`). Schema owner: **Alejandro (acting schema owner).**
+- **2026-04-25** — Initial schema lock — all canonical schemas defined (`GeoPoint`, `CapabilityType`, `EvidenceRef`, `EvidenceStance`, `EvidenceAssessment`, `Capability`, `ContradictionType`, `Contradiction`, `TrustScore`, `FacilityAudit`, `IndexedDoc`, `ParsedIntent`, `QueryResult`, `RankedFacility`, `PopulationReference`, `MapRegionAggregate`). Schema owner: **Alejandro (acting schema owner).**
 - **2026-04-25** — Schema-lock hardening: added `EvidenceStance`, `EvidenceAssessment`, typed source dates, aligned `SourceType`, typed `ParsedIntent`, ranked facility location, Desert Map population aggregates, and deterministic `TrustScore.score` validation.
