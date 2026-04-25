@@ -62,13 +62,16 @@ Source of truth for sprint task status. Resume work from the last `Merged` row.
 
 **Blocker for live demo run**: `ANTHROPIC_API_KEY` not yet in `.env`. Drop in `sk-ant-...` to unblock the locked appendectomy query against real data.
 
-### Phase 4 — Real API + Eval — IN FLIGHT (alongside Audit Swarm)
+### Phase 4 — Real API + Eval — K-1 + M-1 MERGED (alongside Audit Swarm)
 
-| Task | Status | Worktree | Branch | Notes |
+| Task | Status | Commit | Audit | Notes |
 |---|---|---|---|---|
-| K-1 Wire FastAPI to Delta | **Running** | `seahealth-wt-K1` | `phase4-K1-api` | **LOCKS** `src/seahealth/api/main.py`, `src/seahealth/api/data_access.py` (NEW), `tests/test_api.py`, `tests/test_data_access.py`. AUD-07 must defer to audit-only. |
-| L-1 Regenerate fixtures from real data | Pending | — | — | After K-1 + ANTHROPIC_API_KEY in `.env`. |
-| M-1 Eval vs Naomi gold | **Running** | `seahealth-wt-M1` | `phase4-M1-eval` | **LOCKS** `src/seahealth/eval/*`, `tests/test_naomi_*.py`, `tests/fixtures/naomi/`, `docs/eval/`. No overlap with audit swarm fileScopes. |
+| K-1 Wire FastAPI to Delta | Merged | `c3c9c8e` | pytest 153 ✓, ruff ✓, fileScope ✓ | data_access.py with DELTA→PARQUET→FIXTURE; /query heuristic-path; X-Query-Trace-Id; /health/data |
+| M-1 Eval vs Naomi gold | Merged | `ccf1755` | pytest 179 ✓, ruff ✓, fileScope ✓ | naomi_mapping + metrics + run_eval CLI + 21 tests + skeleton report |
+| Hotfix `.gitignore` for test fixtures | Merged | `f4d5bde` | pytest 190 ✓ | `*.csv` was excluding the synthetic Naomi sample; added `!tests/fixtures/**/*.csv` exception |
+| L-1 Regenerate fixtures from real data | Pending | — | — | After ANTHROPIC_API_KEY in `.env` and a live extract+validate+score+build run. |
+
+**Merged-branch pytest: 190 passing.**
 
 ## Budget
 
