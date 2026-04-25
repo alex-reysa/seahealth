@@ -23,8 +23,9 @@ from __future__ import annotations
 import json
 import logging
 import os
+from typing import Annotated
 
-from fastapi import FastAPI, HTTPException, Response
+from fastapi import FastAPI, HTTPException, Query, Response
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
@@ -77,6 +78,10 @@ app = FastAPI(
     ),
 )
 
+# CORS: ``allow_origins=["*"]`` is fine for the local hackathon demo (read-only
+# endpoints, no cookies, no credentials). TODO(prod): tighten to the deployed
+# UI origin(s) before any non-demo deployment, e.g.
+# ``allow_origins=["https://app.seahealth.example"]``.
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -197,10 +202,19 @@ def get_map_aggregates(
 
 
 @app.get("/facilities", response_model=list[FacilityAudit])
-def list_facilities(limit: int = 50) -> list[FacilityAudit]:
-    """Faceted facility list (capped at ``limit``)."""
+def list_facilities(
+    limit: Annotated[
+        int,
+        Query(
+            ge=1,
+            le=50,
+            description="Maximum number of audits to return (1-50, default 50).",
+        ),
+    ] = 50,
+) -> list[FacilityAudit]:
+    """Faceted facility list. ``limit`` is validated to ``1 <= limit <= 50``."""
     try:
-        return data_access.load_facilities(limit=min(max(limit, 0), 50))
+        return data_access.load_facilities(limit=limit)
     except DataLayerError as exc:
         raise _data_503(exc) from exc
 

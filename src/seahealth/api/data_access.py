@@ -132,15 +132,28 @@ def reset_mode_cache() -> None:
 # ---------------------------------------------------------------------------
 
 
+def _format_fixture_path(path: Path) -> str:
+    """Render ``path`` relative to the repo root when possible, else absolute.
+
+    Tests sometimes monkeypatch the fixture path to a ``tmp_path`` outside the
+    repository. ``Path.relative_to`` would raise ``ValueError`` there, so we
+    fall back to the absolute string representation.
+    """
+    try:
+        return str(path.relative_to(REPO_ROOT))
+    except ValueError:
+        return str(path)
+
+
 def _load_json_file(path: Path) -> Any:
     if not path.exists():
-        raise DataLayerError(f"fixture missing: {path.relative_to(REPO_ROOT)}")
+        raise DataLayerError(f"fixture missing: {_format_fixture_path(path)}")
     try:
         with path.open("r", encoding="utf-8") as fh:
             return json.load(fh)
     except json.JSONDecodeError as exc:  # pragma: no cover - corrupted on disk
         raise DataLayerError(
-            f"fixture not loadable: {path.relative_to(REPO_ROOT)} ({exc.msg})"
+            f"fixture not loadable: {_format_fixture_path(path)} ({exc.msg})"
         ) from exc
 
 

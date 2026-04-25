@@ -163,3 +163,66 @@ def test_health_data_endpoint(monkeypatch):
     assert body["mode"] in {"delta", "parquet", "fixture"}
     assert isinstance(body["delta_reachable"], bool)
     assert isinstance(body["facility_audits_path"], str)
+
+
+# ---------------------------------------------------------------------------
+# AUD-07 hardening — error-path + pagination + content-type + fixture-503
+# ---------------------------------------------------------------------------
+
+
+def test_query_rejects_non_json_content_type():
+    """POST /query must accept JSON only — form-encoded bodies are 422."""
+    resp = client.post(
+        "/query",
+        content=b"query=appendectomy",
+        headers={"Content-Type": "application/x-www-form-urlencoded"},
+    )
+    # FastAPI parses the body via the Pydantic model, which only accepts JSON;
+    # a form-encoded body fails validation rather than being silently accepted.
+    assert resp.status_code == 422
+
+
+def test_facilities_limit_param_rejects_out_of_range_values():
+    """The ``limit`` query param is validated to 1 <= limit <= 50."""
+    too_low = client.get("/facilities", params={"limit": 0})
+    assert too_low.status_code == 422
+    too_high = client.get("/facilities", params={"limit": 51})
+    assert too_high.status_code == 422
+    negative = client.get("/facilities", params={"limit": -1})
+    assert negative.status_code == 422
+
+
+def test_facilities_limit_param_accepts_in_range_values():
+    """``limit=1`` returns at most one row; ``limit=50`` is the documented max."""
+    resp_one = client.get("/facilities", params={"limit": 1})
+    assert resp_one.status_code == 200
+    assert len(resp_one.json()) <= 1
+
+    resp_max = client.get("/facilities", params={"limit": 50})
+    assert resp_max.status_code == 200
+    assert len(resp_max.json()) <= 50
+
+
+def test_summary_503_when_fixture_missing(monkeypatch, tmp_path):
+    """If the summary fixture is unreadable AND we're in FIXTURE mode, surface 503."""
+    monkeypatch.setenv("SEAHEALTH_API_MODE", "fixture")
+    # Point the loader at a non-existent fixture path.
+    missing = tmp_path / "no_such_summary.json"
+    monkeypatch.setattr(data_access, "SUMMARY_FIXTURE", missing)
+    data_access.reset_mode_cache()
+
+    resp = client.get("/summary")
+    assert resp.status_code == 503
+    detail = resp.json().get("detail", "")
+    assert "data unavailable" in detail
+
+
+def test_query_endpoint_returns_query_trace_id_in_body_too(monkeypatch):
+    """Trace id is exposed on both the response body and the X-Query-Trace-Id header."""
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    data_access.reset_mode_cache()
+    resp = client.post("/query", json={"query": "appendectomy near Patna?"})
+    assert resp.status_code == 200
+    body = resp.json()
+    header_id = resp.headers.get("X-Query-Trace-Id")
+    assert body["query_trace_id"] == header_id

@@ -8,8 +8,9 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import List
+from typing import Any
 
+import pytest
 from pydantic import TypeAdapter
 
 from seahealth.schemas import (
@@ -26,6 +27,24 @@ FIXTURES = REPO_ROOT / "fixtures"
 
 def _load(name: str) -> object:
     return json.loads((FIXTURES / name).read_text(encoding="utf-8"))
+
+
+# Fixture file -> validator callable. Each entry MUST deserialize cleanly
+# against the canonical Pydantic model after AUD-01 schema hardening.
+_FIXTURE_VALIDATORS: dict[str, Any] = {
+    "summary_demo.json": SummaryMetrics.model_validate,
+    "facility_audit_demo.json": FacilityAudit.model_validate,
+    "demo_query_appendectomy.json": QueryResult.model_validate,
+    "map_aggregates_demo.json": TypeAdapter(list[MapRegionAggregate]).validate_python,
+}
+
+
+@pytest.mark.parametrize("fixture_name", sorted(_FIXTURE_VALIDATORS.keys()))
+def test_every_fixture_round_trips_against_its_pydantic_model(fixture_name: str):
+    """Every ``fixtures/*.json`` file deserializes cleanly against its schema."""
+    validator = _FIXTURE_VALIDATORS[fixture_name]
+    raw = _load(fixture_name)
+    validator(raw)  # raises ValidationError on drift
 
 
 def test_summary_demo_fixture_round_trips():
@@ -65,7 +84,7 @@ def test_facility_audit_demo_fixture_round_trips():
 
 
 def test_map_aggregates_demo_fixture_round_trips():
-    adapter = TypeAdapter(List[MapRegionAggregate])
+    adapter = TypeAdapter(list[MapRegionAggregate])
     rows = adapter.validate_python(_load("map_aggregates_demo.json"))
     assert len(rows) >= 5
     assert all(r.capability_type == "SURGERY_APPENDECTOMY" for r in rows)

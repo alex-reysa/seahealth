@@ -162,7 +162,8 @@ paths:
   /facilities:
     get:
       summary: List Facilities
-      description: Faceted facility list (capped at ``limit``).
+      description: Faceted facility list. ``limit`` is validated to ``1 <= limit <=
+        50``.
       operationId: list_facilities_facilities_get
       parameters:
       - name: limit
@@ -170,8 +171,12 @@ paths:
         required: false
         schema:
           type: integer
+          maximum: 50
+          minimum: 1
+          description: Maximum number of audits to return (1-50, default 50).
           default: 50
           title: Limit
+        description: Maximum number of audits to return (1-50, default 50).
       responses:
         '200':
           description: Successful Response
@@ -213,7 +218,6 @@ components:
           description: Primary doc the claim was extracted from.
         extracted_at:
           type: string
-          format: date-time
           title: Extracted At
         extractor_model:
           type: string
@@ -228,8 +232,8 @@ components:
       - extracted_at
       - extractor_model
       title: Capability
-      description: A single claimed-or-denied capability for one facility, with its
-        supporting evidence chain.
+      description: A single claimed-or-denied capability for one facility, with evidence
+        chain.
     CapabilityType:
       type: string
       enum:
@@ -286,7 +290,6 @@ components:
           description: Validator agent id (e.g. 'validator.equipment_v1').
         detected_at:
           type: string
-          format: date-time
           title: Detected At
       type: object
       required:
@@ -361,14 +364,12 @@ components:
         source_observed_at:
           anyOf:
           - type: string
-            format: date-time
           - type: 'null'
           title: Source Observed At
           description: When the source content was published, observed, or last updated;
             used for STALE_DATA.
         retrieved_at:
           type: string
-          format: date-time
           title: Retrieved At
           description: When the retrieval/extraction step pulled this evidence.
       type: object
@@ -418,7 +419,6 @@ components:
           default: 0
         last_audited_at:
           type: string
-          format: date-time
           title: Last Audited At
         mlflow_trace_id:
           anyOf:
@@ -467,8 +467,7 @@ components:
       - lat
       - lng
       title: GeoPoint
-      description: A geographic point with optional Indian PIN code; used for facility
-        location and radius queries.
+      description: A geographic point with optional Indian PIN code.
     HTTPValidationError:
       properties:
         detail:
@@ -529,6 +528,7 @@ components:
           description: Facilities flagged with at least one contradiction.
         gap_population:
           type: integer
+          minimum: 0.0
           title: Gap Population
           description: Population minus a coverage estimate for this capability (uncovered
             population).
@@ -601,7 +601,6 @@ components:
           description: MLflow trace id for the planner run.
         generated_at:
           type: string
-          format: date-time
           title: Generated At
       type: object
       required:
@@ -611,8 +610,7 @@ components:
       - query_trace_id
       - generated_at
       title: QueryResult
-      description: 'Planner Console output. Drives the demo query: e.g. ''Which facilities
-        within 50km of Patna can perform an appendectomy?'''
+      description: Planner Console output for the appendectomy demo query.
     RankedFacility:
       properties:
         facility_id:
@@ -655,8 +653,7 @@ components:
       - evidence_count
       - rank
       title: RankedFacility
-      description: "One row in a QueryResult \u2014 a facility that matches the parsed\
-        \ query, with the relevant capability's TrustScore."
+      description: One row in a QueryResult with the relevant capability's TrustScore.
     SummaryMetrics:
       properties:
         audited_count:
@@ -676,7 +673,6 @@ components:
           description: Count where total_contradictions > 0.
         last_audited_at:
           type: string
-          format: date-time
           title: Last Audited At
           description: Most recent FacilityAudit.last_audited_at across the aggregate.
         capability_type:
@@ -743,7 +739,6 @@ components:
             drawer.
         computed_at:
           type: string
-          format: date-time
           title: Computed At
       type: object
       required:
