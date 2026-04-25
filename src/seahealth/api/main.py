@@ -146,7 +146,7 @@ def post_query(body: QueryRequest, response: Response) -> QueryResult:
     data is present (DELTA / PARQUET modes). In FIXTURE mode we serve the
     bundled ``demo_query_appendectomy.json`` so the demo always returns a
     populated ranked list. ``use_llm`` is enabled only when
-    ``ANTHROPIC_API_KEY`` is present; otherwise the deterministic heuristic
+    ``DATABRICKS_TOKEN`` is present; otherwise the deterministic heuristic
     path runs (no network calls).
     """
     mode = data_access.detect_mode()
@@ -159,7 +159,7 @@ def post_query(body: QueryRequest, response: Response) -> QueryResult:
         response.headers["X-Query-Trace-Id"] = result.query_trace_id
         return result
 
-    use_llm = bool(os.environ.get("ANTHROPIC_API_KEY"))
+    use_llm = bool(os.environ.get("DATABRICKS_TOKEN"))
     try:
         result = run_query(body.query, use_llm=use_llm)
     except Exception as exc:  # pragma: no cover - defensive; agent already swallows

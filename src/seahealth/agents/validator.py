@@ -11,9 +11,9 @@ contradictions that are missing it, may add additional CONFLICTING_SOURCES /
 VOLUME_MISMATCH / TEMPORAL_UNVERIFIED contradictions, and produces an
 ``EvidenceAssessment`` per retrieved evidence item.
 
-If the Anthropic client cannot be imported (e.g. in CI without
-``ANTHROPIC_API_KEY``) the LLM step is skipped with a warning and the heuristic
-result is returned unchanged.
+If the LLM client cannot be imported (e.g. in CI without ``DATABRICKS_TOKEN``)
+the LLM step is skipped with a warning and the heuristic result is returned
+unchanged.
 """
 from __future__ import annotations
 
@@ -32,10 +32,11 @@ from seahealth.schemas import (
 )
 
 from .heuristics import FacilityFacts, run_all_heuristics
+from .llm_client import DEFAULT_HEAVY_MODEL
 
 log = logging.getLogger(__name__)
 
-DEFAULT_MODEL = "claude-sonnet-4-6"
+DEFAULT_MODEL = DEFAULT_HEAVY_MODEL
 VALIDATOR_ID = "validator.v1"
 
 # Contradiction types the LLM is permitted to add on top of the heuristic set.
@@ -52,17 +53,17 @@ def _utcnow() -> datetime:
 
 
 def _try_import_client() -> Any | None:
-    """Best-effort import of the shared Anthropic structured-output helper.
+    """Best-effort import of the shared structured-output helper.
 
     Returns the module if importable, else None.  We avoid raising so the
     validator stays useful in test/CI environments without the SDK key.
     """
     try:
-        from seahealth.agents import anthropic_client  # type: ignore
+        from seahealth.agents import llm_client  # type: ignore
     except Exception as exc:  # pragma: no cover - exercised via mock in tests
-        log.warning("anthropic_client unavailable; skipping LLM pass: %s", exc)
+        log.warning("llm_client unavailable; skipping LLM pass: %s", exc)
         return None
-    return anthropic_client
+    return llm_client
 
 
 def _cap_snippet(snippet: str, limit: int = _MAX_SNIPPET_CHARS) -> str:
@@ -247,10 +248,10 @@ def validate_capability(
         retrieved_evidence: Evidence pulled by retrieval/extractor agents that the
             LLM should adjudicate (verifies / contradicts / silent).
         use_llm: When False, skip the LLM step entirely (test default).
-        model: Anthropic model id; only used if ``use_llm`` is True.
+        model: Databricks serving-endpoint name; only used if ``use_llm`` is True.
         client_factory: Optional callable returning an object with a
             ``structured_call(prompt, *, schema, model)`` method.  When None we
-            attempt to import ``seahealth.agents.anthropic_client`` lazily.
+            attempt to import ``seahealth.agents.llm_client`` lazily.
 
     Returns:
         ``(contradictions, evidence_assessments)``.
@@ -279,12 +280,12 @@ def validate_capability(
             return contradictions, assessments
         factory = getattr(module, "get_client", None)
         if factory is None:
-            log.warning("anthropic_client has no get_client(); skipping LLM pass.")
+            log.warning("llm_client has no get_client(); skipping LLM pass.")
             return contradictions, assessments
         try:
             client = factory()
         except Exception as exc:
-            log.warning("anthropic_client.get_client() failed: %s", exc)
+            log.warning("llm_client.get_client() failed: %s", exc)
             return contradictions, assessments
 
     prompt = _build_llm_prompt(cap, facts, evidence, contradictions)

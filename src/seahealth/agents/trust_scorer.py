@@ -16,7 +16,7 @@ The scorer composes:
    templated sentence when the LLM is disabled or unavailable.
 
 No I/O happens unless ``use_llm=True`` and a working ``client_factory`` /
-``anthropic_client`` is wired in. Tests must drive the LLM path through
+``llm_client`` is wired in. Tests must drive the LLM path through
 ``client_factory`` and never hit the network.
 """
 
@@ -35,9 +35,11 @@ from seahealth.schemas import (
     TrustScore,
 )
 
+from .llm_client import DEFAULT_LIGHT_MODEL
+
 log = logging.getLogger(__name__)
 
-DEFAULT_MODEL = "claude-haiku-4-5-20251001"
+DEFAULT_MODEL = DEFAULT_LIGHT_MODEL
 SCORER_ID = "trust_scorer.v1"
 
 # Bootstrap iteration count is fixed for reproducibility of the CI bounds.
@@ -159,17 +161,17 @@ def _llm_reasoning(
             return None
     else:
         try:
-            from seahealth.agents import anthropic_client  # type: ignore
+            from seahealth.agents import llm_client  # type: ignore
         except Exception as exc:
-            log.warning("trust_scorer anthropic_client unavailable: %s", exc)
+            log.warning("trust_scorer llm_client unavailable: %s", exc)
             return None
-        factory = getattr(anthropic_client, "get_client", None)
+        factory = getattr(llm_client, "get_client", None)
         if factory is None:
             return None
         try:
             client = factory()
         except Exception as exc:
-            log.warning("trust_scorer anthropic_client.get_client failed: %s", exc)
+            log.warning("trust_scorer llm_client.get_client failed: %s", exc)
             return None
 
     call = getattr(client, "structured_call", None)
@@ -222,10 +224,10 @@ def score_capability(
         contradictions: All contradictions tied to this capability for this
             facility (already filtered upstream in the audit builder).
         use_llm: When False, reasoning is the deterministic template.
-        model: Anthropic model id used when ``use_llm=True``.
+        model: Databricks serving-endpoint name used when ``use_llm=True``.
         client_factory: Optional callable returning an object with a
             ``structured_call(prompt, *, model)`` method. When ``None`` we lazy
-            import ``seahealth.agents.anthropic_client`` and call ``get_client``.
+            import ``seahealth.agents.llm_client`` and call ``get_client``.
         rng_seed: Seed for the bootstrap RNG. Same seed → same CI bounds.
 
     Returns:

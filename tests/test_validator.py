@@ -249,7 +249,7 @@ def test_llm_prompt_caps_long_snippets() -> None:
 def test_llm_failure_falls_back_to_heuristics_only(caplog):
     cap = _capability()
     facts = _flagged_facts()
-    boom = _FakeClient(raise_exc=RuntimeError("anthropic 503"))
+    boom = _FakeClient(raise_exc=RuntimeError("databricks 503"))
 
     with caplog.at_level("WARNING"):
         contradictions, assessments = validate_capability(

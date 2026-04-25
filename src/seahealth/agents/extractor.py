@@ -18,11 +18,12 @@ from pydantic import BaseModel
 
 from seahealth.schemas import Capability, CapabilityType, EvidenceRef
 
-from .anthropic_client import structured_call
+from .llm_client import DEFAULT_HEAVY_MODEL, structured_call
 
 # Default extractor model id. Tests pass an explicit override; production uses
-# whatever the orchestrator wires in. Sonnet 4.6 is a reasonable, cheap default.
-DEFAULT_EXTRACTOR_MODEL = "claude-sonnet-4-6"
+# whatever the orchestrator wires in. The heavy Databricks Foundation Model
+# (``databricks-gpt-5-5``) is a reasonable, cheap default.
+DEFAULT_EXTRACTOR_MODEL = DEFAULT_HEAVY_MODEL
 _MAX_SNIPPET_CHARS = 512
 
 
@@ -219,10 +220,10 @@ def extract_capabilities(
             Required keys: ``chunk_id``, ``source_type``, ``text``.
             Optional: ``source_doc_id`` (used to fill EvidenceRef.source_doc_id
             when the model omits it).
-        model: Anthropic model id used in the API call.
+        model: Databricks serving-endpoint name used in the API call.
         extractor_model_id: Model id stamped onto each Capability for
             provenance — kept separate so we can A/B against the API model.
-        client_factory: Optional callable returning an Anthropic-compatible
+        client_factory: Optional callable returning an OpenAI-compatible
             client. Used by tests to inject mocks.
 
     Returns:
