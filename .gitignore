@@ -42,6 +42,11 @@ build/
 data/
 tables/
 
+# But DO commit small synthetic fixtures used by tests
+!tests/fixtures/**/*.csv
+!tests/fixtures/**/*.parquet
+!tests/fixtures/**/*.xlsx
+
 # MLflow / Databricks
 mlruns/
 mlartifacts/
