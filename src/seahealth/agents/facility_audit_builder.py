@@ -1,0 +1,84 @@
+"""Pure-function assembler for :class:`FacilityAudit` records.
+
+Joins per-capability outputs (Capability + Contradictions + EvidenceAssessments
++ TrustScore) into the canonical :class:`FacilityAudit` shape consumed by every
+UI surface. No I/O, no LLM, no randomness — fully deterministic given inputs.
+"""
+
+from __future__ import annotations
+
+from datetime import UTC, datetime
+
+from seahealth.schemas import (
+    Capability,
+    CapabilityType,
+    Contradiction,
+    EvidenceAssessment,  # noqa: F401  # carried through DATA_CONTRACT join surface
+    FacilityAudit,
+    GeoPoint,
+    TrustScore,
+)
+
+
+def _utcnow() -> datetime:
+    return datetime.now(UTC)
+
+
+def build_facility_audit(
+    facility_id: str,
+    name: str,
+    location: GeoPoint,
+    capabilities: list[Capability],
+    contradictions: list[Contradiction],
+    evidence_assessments: list[EvidenceAssessment],
+    trust_scores: dict[CapabilityType, TrustScore],
+    *,
+    mlflow_trace_id: str | None = None,
+) -> FacilityAudit:
+    """Assemble a :class:`FacilityAudit` from already-computed components.
+
+    The function is pure: given the same inputs it always produces the same
+    output (modulo ``last_audited_at`` when ``trust_scores`` is empty, in which
+    case we stamp ``utcnow``). Contradictions whose ``facility_id`` does not
+    match the audit subject are silently dropped — the caller should usually
+    have filtered already, but this guards the contract.
+
+    Args:
+        facility_id: Subject facility id; contradictions and trust scores
+            should already pertain to this facility.
+        name: Display name shown on the Facility Card.
+        location: GeoPoint used by the map layer.
+        capabilities: All capabilities extracted for this facility.
+        contradictions: Contradictions for this facility (filtered here for
+            safety).
+        evidence_assessments: Validator's per-evidence stances. Currently
+            accepted for the join surface but not aggregated into the audit
+            (UI renders these via ``trust_scores[*].contradictions``).
+        trust_scores: Per-capability TrustScore keyed by CapabilityType.
+        mlflow_trace_id: Optional trace id passed through for transparency.
+
+    Returns:
+        A fully-validated :class:`FacilityAudit`.
+    """
+    # ``evidence_assessments`` is part of the join surface and reserved for
+    # future use; explicit no-op keeps the import + parameter alive for callers
+    # without a ruff/F401 warning.
+    _ = evidence_assessments
+
+    filtered_contradictions = [c for c in contradictions if c.facility_id == facility_id]
+
+    if trust_scores:
+        last_audited_at = max(ts.computed_at for ts in trust_scores.values())
+    else:
+        last_audited_at = _utcnow()
+
+    return FacilityAudit(
+        facility_id=facility_id,
+        name=name,
+        location=location,
+        capabilities=list(capabilities),
+        trust_scores=dict(trust_scores),
+        total_contradictions=len(filtered_contradictions),
+        last_audited_at=last_audited_at,
+        mlflow_trace_id=mlflow_trace_id,
+    )
