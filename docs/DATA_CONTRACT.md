@@ -378,9 +378,85 @@ class MapRegionAggregate(BaseModel):
 
 ---
 
+## Phase-1 additions (UI-driven)
+
+These three shapes are required by UI surfaces and were not previously defined in this contract. The implementations live in `src/seahealth/schemas/{evidence_assessment,summary,map}.py` and are re-exported from `src/seahealth/schemas/__init__.py`. Where a name overlaps with an earlier section (e.g. `EvidenceAssessment`, `PopulationReference`, `MapRegionAggregate`), the Phase-1 shape below is the slim variant the UI consumes; the richer Delta-rollup shapes from earlier sections remain valid for downstream gold tables, but the schema package exports the Phase-1 variant.
+
+### EvidenceAssessment
+
+```python
+# src/seahealth/schemas/evidence_assessment.py — module contract.
+# Validator's per-evidence stance, joined into the Facility Audit View.
+from datetime import datetime
+from typing import Literal
+from pydantic import BaseModel, Field
+
+# from .capability_type import CapabilityType
+
+class EvidenceAssessment(BaseModel):
+    """Validator's per-evidence stance, joined into the Facility Audit View."""
+    evidence_ref_id: str = Field(..., description="Stable id of the EvidenceRef this assessment refers to.")
+    capability_type: CapabilityType
+    facility_id: str
+    stance: Literal["verifies", "contradicts", "silent"]
+    reasoning: str = Field(..., description="One-sentence Validator rationale for the stance.")
+    assessed_at: datetime
+```
+
+### SummaryMetrics
+
+```python
+# src/seahealth/schemas/summary.py — module contract.
+# Verified = TrustScore.score >= 80 AND no HIGH-severity contradiction.
+# Flagged  = total_contradictions > 0.
+from datetime import datetime
+from typing import Optional
+from pydantic import BaseModel, Field
+
+# from .capability_type import CapabilityType
+
+class SummaryMetrics(BaseModel):
+    """High-level audit tallies for the home/summary tile."""
+    audited_count: int = Field(..., ge=0)
+    verified_count: int = Field(..., ge=0, description="score>=80 AND no HIGH-severity contradiction.")
+    flagged_count: int = Field(..., ge=0, description="total_contradictions > 0.")
+    last_audited_at: datetime
+    capability_type: Optional[CapabilityType] = None
+```
+
+### MapRegionAggregate / PopulationReference
+
+```python
+# src/seahealth/schemas/map.py — module contract.
+from pydantic import BaseModel, Field
+
+# from .capability_type import CapabilityType
+# from .geo import GeoPoint
+
+class PopulationReference(BaseModel):
+    """Population denominator for one map region (UI variant)."""
+    region_id: str
+    population_total: int = Field(..., ge=0)
+
+class MapRegionAggregate(BaseModel):
+    """Desert Map rollup for one region and capability, sized for the UI map layer."""
+    region_id: str
+    region_name: str
+    state: str
+    capability_type: CapabilityType
+    population: int = Field(..., ge=0)
+    verified_facilities_count: int = Field(..., ge=0)
+    flagged_facilities_count: int = Field(..., ge=0)
+    gap_population: int = Field(..., description="Population minus a coverage estimate for this capability.")
+    centroid: GeoPoint
+```
+
+---
+
 ## Change log
 
 _Any change to this file after hour 4 must be logged here AND in `DECISIONS.md`._
 
 - **2026-04-25** — Initial schema lock — all canonical schemas defined (`GeoPoint`, `CapabilityType`, `EvidenceRef`, `EvidenceStance`, `EvidenceAssessment`, `Capability`, `ContradictionType`, `Contradiction`, `TrustScore`, `FacilityAudit`, `IndexedDoc`, `ParsedIntent`, `QueryResult`, `RankedFacility`, `PopulationReference`, `MapRegionAggregate`). Schema owner: **Alejandro (acting schema owner).**
 - **2026-04-25** — Schema-lock hardening: added `EvidenceStance`, `EvidenceAssessment`, typed source dates, aligned `SourceType`, typed `ParsedIntent`, ranked facility location, Desert Map population aggregates, and deterministic `TrustScore.score` validation.
+- **2026-04-25 22:30** — Added `EvidenceAssessment`, `SummaryMetrics`, `MapRegionAggregate`, `PopulationReference`. Reason: required by UI surfaces; not previously defined.
