@@ -1,4 +1,5 @@
 """SeaHealth Pydantic v2 schemas — single source of truth for cross-module data shapes."""
+from ._evidence_id import evidence_ref_id
 from .capability import Capability
 from .capability_type import CapabilityType
 from .contradiction import (
@@ -41,4 +42,6 @@ __all__ = [
     "RankedFacility",
     "SummaryMetrics",
     "TrustScore",
+    # helpers
+    "evidence_ref_id",
 ]

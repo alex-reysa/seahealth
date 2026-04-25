@@ -300,10 +300,25 @@ class VectorSearchRetriever:
 # Factory
 # --------------------------------------------------------------------------- #
 
-DEFAULT_CHUNKS_PARQUET_PATHS: Sequence[Path] = (
-    Path(__file__).resolve().parents[3] / "tables" / "chunks.parquet",
-    Path("/Users/alejandro/Desktop/seahealth/tables/chunks.parquet"),
-)
+def _default_chunks_parquet_paths() -> list[Path]:
+    """Resolve the chunks-parquet candidate list, env-var first.
+
+    ``SEAHEALTH_CHUNKS_PARQUET`` (when set) is tried before the project-relative
+    and absolute developer-machine fallbacks.
+    """
+    env_path = os.environ.get("SEAHEALTH_CHUNKS_PARQUET")
+    paths: list[Path] = []
+    if env_path:
+        paths.append(Path(env_path))
+    paths.extend([
+        Path(__file__).resolve().parents[3] / "tables" / "chunks.parquet",
+        # Last-resort absolute fallback for the original developer machine.
+        Path("/Users/alejandro/Desktop/seahealth/tables/chunks.parquet"),
+    ])
+    return paths
+
+
+DEFAULT_CHUNKS_PARQUET_PATHS: Sequence[Path] = tuple(_default_chunks_parquet_paths())
 
 
 def _load_chunks_dataframe(path: Path | None = None) -> pd.DataFrame:
