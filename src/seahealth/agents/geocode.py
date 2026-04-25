@@ -16,6 +16,9 @@ from seahealth.schemas import GeoPoint
 # city-centre values; PIN codes are representative head-PO 6-digit codes.
 INDIA_CITIES: dict[str, GeoPoint] = {
     "Patna": GeoPoint(lat=25.61, lng=85.14, pin_code="800001"),
+    "Madhubani": GeoPoint(lat=26.3483, lng=86.0712, pin_code="847211"),
+    "Muzaffarpur": GeoPoint(lat=26.1226, lng=85.3906, pin_code="842001"),
+    "Bhagalpur": GeoPoint(lat=25.2425, lng=86.9842, pin_code="812001"),
     "Delhi": GeoPoint(lat=28.6139, lng=77.2090, pin_code="110001"),
     "Mumbai": GeoPoint(lat=19.0760, lng=72.8777, pin_code="400001"),
     "Bengaluru": GeoPoint(lat=12.9716, lng=77.5946, pin_code="560001"),
@@ -39,10 +42,7 @@ def haversine_km(a: GeoPoint, b: GeoPoint) -> float:
     lat2 = math.radians(b.lat)
     dlat = math.radians(b.lat - a.lat)
     dlng = math.radians(b.lng - a.lng)
-    h = (
-        math.sin(dlat / 2) ** 2
-        + math.cos(lat1) * math.cos(lat2) * math.sin(dlng / 2) ** 2
-    )
+    h = math.sin(dlat / 2) ** 2 + math.cos(lat1) * math.cos(lat2) * math.sin(dlng / 2) ** 2
     return 2 * _EARTH_RADIUS_KM * math.asin(min(1.0, math.sqrt(h)))
 
 

@@ -55,7 +55,10 @@ MAX_RANKED_FACILITIES = 20
 # Order matters: SURGERY_APPENDECTOMY needs to win over SURGERY_GENERAL when a
 # query contains "appendectomy".
 _CAPABILITY_KEYWORDS: list[tuple[str, CapabilityType]] = [
+    ("appendicitis", CapabilityType.SURGERY_APPENDECTOMY),
     ("appendectomy", CapabilityType.SURGERY_APPENDECTOMY),
+    ("appendix surgery", CapabilityType.SURGERY_APPENDECTOMY),
+    ("appendix removal", CapabilityType.SURGERY_APPENDECTOMY),
     ("appendix", CapabilityType.SURGERY_APPENDECTOMY),
     ("dialysis", CapabilityType.DIALYSIS),
     ("oncology", CapabilityType.ONCOLOGY),
@@ -68,9 +71,50 @@ _CAPABILITY_KEYWORDS: list[tuple[str, CapabilityType]] = [
     ("intensive care", CapabilityType.ICU),
     ("surgery", CapabilityType.SURGERY_GENERAL),
     ("operation", CapabilityType.SURGERY_GENERAL),
+    ("abdominal procedure", CapabilityType.SURGERY_GENERAL),
+    ("abdominal surgery", CapabilityType.SURGERY_GENERAL),
 ]
 
-_RADIUS_RE = re.compile(r"(\d+(?:\.\d+)?)\s*(?:km|kilometre|kilometer)s?", re.IGNORECASE)
+_RADIUS_RE = re.compile(r"\b(\d+(?:\.\d+)?)\s*(?:km|kilometre|kilometer)s?\b", re.IGNORECASE)
+_NUMBER_WORDS: dict[str, int] = {
+    "one": 1,
+    "two": 2,
+    "three": 3,
+    "four": 4,
+    "five": 5,
+    "six": 6,
+    "seven": 7,
+    "eight": 8,
+    "nine": 9,
+    "ten": 10,
+    "eleven": 11,
+    "twelve": 12,
+    "thirteen": 13,
+    "fourteen": 14,
+    "fifteen": 15,
+    "sixteen": 16,
+    "seventeen": 17,
+    "eighteen": 18,
+    "nineteen": 19,
+    "twenty": 20,
+    "thirty": 30,
+    "forty": 40,
+    "fifty": 50,
+    "sixty": 60,
+    "seventy": 70,
+    "eighty": 80,
+    "ninety": 90,
+    "hundred": 100,
+}
+_WORD_RADIUS_RE = re.compile(
+    r"\b("
+    r"(?:twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety)"
+    r"(?:[-\s](?:one|two|three|four|five|six|seven|eight|nine))?"
+    r"|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve"
+    r"|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|hundred"
+    r")\s*(?:km|kilometre|kilometer)s?\b",
+    re.IGNORECASE,
+)
 
 
 def _utcnow() -> datetime:
@@ -91,13 +135,34 @@ def _detect_capability(query: str) -> CapabilityType | None:
 
 def _detect_radius(query: str) -> float:
     match = _RADIUS_RE.search(query)
-    if not match:
+    if match:
+        try:
+            value = float(match.group(1))
+        except ValueError:
+            return DEFAULT_RADIUS_KM
+        return value if value > 0 else DEFAULT_RADIUS_KM
+
+    word_match = _WORD_RADIUS_RE.search(query)
+    if not word_match:
         return DEFAULT_RADIUS_KM
-    try:
-        value = float(match.group(1))
-    except ValueError:
+    value = _number_word_to_float(word_match.group(1))
+    if value is None:
         return DEFAULT_RADIUS_KM
     return value if value > 0 else DEFAULT_RADIUS_KM
+
+
+def _number_word_to_float(raw: str) -> float | None:
+    normalized = raw.lower().replace("-", " ").strip()
+    parts = normalized.split()
+    if not parts:
+        return None
+    total = 0
+    for part in parts:
+        value = _NUMBER_WORDS.get(part)
+        if value is None:
+            return None
+        total += value
+    return float(total)
 
 
 def _detect_location(query: str) -> GeoPoint | None:
@@ -141,7 +206,7 @@ def _build_ranked(
 ) -> list[RankedFacility]:
     """Materialize RankedFacility rows by joining search hits with audit details."""
     ranked: list[RankedFacility] = []
-    for idx, hit in enumerate(candidates[:MAX_RANKED_FACILITIES], start=1):
+    for hit in candidates[:MAX_RANKED_FACILITIES]:
         facility_id = hit.get("facility_id")
         if not facility_id:
             continue
@@ -174,9 +239,12 @@ def _build_ranked(
                 trust_score=trust,
                 contradictions_flagged=int(hit.get("contradictions_flagged", 0)),
                 evidence_count=int(hit.get("evidence_count", 0)),
-                rank=idx,
+                rank=1,
             )
         )
+    ranked.sort(key=lambda item: (-item.trust_score.score, item.distance_km))
+    for idx, item in enumerate(ranked, start=1):
+        item.rank = idx
     return ranked
 
 
@@ -185,9 +253,7 @@ def _build_ranked(
 # ---------------------------------------------------------------------------
 
 
-def _run_heuristic(
-    query: str, *, audits_path: str | None
-) -> QueryResult:
+def _run_heuristic(query: str, *, audits_path: str | None) -> QueryResult:
     capability = _detect_capability(query)
     location = _detect_location(query)
     radius = _detect_radius(query)
@@ -210,9 +276,7 @@ def _run_heuristic(
             generated_at=now,
         )
 
-    parsed = ParsedIntent(
-        capability_type=capability, location=location, radius_km=radius
-    )
+    parsed = ParsedIntent(capability_type=capability, location=location, radius_km=radius)
     candidates = tool_search_facilities(
         capability.value,
         location.lat,
@@ -337,9 +401,7 @@ def _iter_tool_calls(message: Any) -> list[dict[str, Any]]:
     return calls
 
 
-def _execute_tool_call(
-    name: str, arguments: dict[str, Any], *, audits_path: str | None
-) -> Any:
+def _execute_tool_call(name: str, arguments: dict[str, Any], *, audits_path: str | None) -> Any:
     if name == "geocode":
         return tool_geocode(str(arguments.get("query", "")))
     if name == "search_facilities":
@@ -464,13 +526,16 @@ def _run_llm(
 
     # Re-run the search authoritatively so distance/score numbers reflect the
     # parquet table even if the model invented them.
-    candidates = tool_search_facilities(
-        parsed.capability_type.value,
-        parsed.location.lat,
-        parsed.location.lng,
-        parsed.radius_km,
-        audits_path=audits_path,
-    ) or last_search
+    candidates = (
+        tool_search_facilities(
+            parsed.capability_type.value,
+            parsed.location.lat,
+            parsed.location.lng,
+            parsed.radius_km,
+            audits_path=audits_path,
+        )
+        or last_search
+    )
 
     if plan.selected_facility_ids:
         ordered = []

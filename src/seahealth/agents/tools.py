@@ -24,6 +24,7 @@ from seahealth.schemas import GeoPoint
 from .geocode import geocode, haversine_km
 
 DEFAULT_AUDITS_PATH = "tables/facility_audits.parquet"
+_JSON_COLUMNS = {"location", "capabilities", "trust_scores"}
 
 
 def tool_geocode(query: str) -> dict:
@@ -42,19 +43,38 @@ def _row_to_audit_dict(row: dict[str, Any]) -> dict[str, Any]:
     """Decode a parquet row into a plain dict; JSON columns are eagerly parsed."""
     out: dict[str, Any] = {}
     for key, value in row.items():
-        if isinstance(value, (bytes, bytearray)):
-            value = value.decode("utf-8")
-        if isinstance(value, str) and key in {
-            "location",
-            "capabilities",
-            "trust_scores",
-        }:
-            try:
-                value = json.loads(value)
-            except (TypeError, ValueError):
-                pass
+        value = _decode_jsonish(
+            value,
+            force=key.endswith("_json") or key in _JSON_COLUMNS,
+        )
         out[key] = value
+    if "location" not in out and {"lat", "lng"} <= set(out):
+        out["location"] = {
+            "lat": out.get("lat"),
+            "lng": out.get("lng"),
+            "pin_code": out.get("pin_code"),
+        }
+    if "capabilities" not in out and isinstance(out.get("capabilities_json"), list):
+        out["capabilities"] = out["capabilities_json"]
+    if "trust_scores" not in out and isinstance(out.get("trust_scores_json"), dict):
+        out["trust_scores"] = out["trust_scores_json"]
     return out
+
+
+def _decode_jsonish(value: Any, *, force: bool = False) -> Any:
+    if isinstance(value, (bytes, bytearray)):
+        value = value.decode("utf-8")
+    if not isinstance(value, str):
+        return value
+    stripped = value.strip()
+    if not stripped:
+        return value
+    if force or stripped[0] in "[{":
+        try:
+            return json.loads(stripped)
+        except (TypeError, ValueError, json.JSONDecodeError):
+            return value
+    return value
 
 
 def _read_audits(audits_path: str | None) -> list[dict[str, Any]]:
@@ -72,7 +92,7 @@ def _read_audits(audits_path: str | None) -> list[dict[str, Any]]:
 
 
 def _location_from_audit(audit: dict[str, Any]) -> GeoPoint | None:
-    raw = audit.get("location")
+    raw = _decode_jsonish(audit.get("location"), force=True)
     if isinstance(raw, GeoPoint):
         return raw
     if isinstance(raw, dict):
@@ -87,12 +107,10 @@ def _location_from_audit(audit: dict[str, Any]) -> GeoPoint | None:
     return None
 
 
-def _trust_for_capability(
-    audit: dict[str, Any], capability_type: str
-) -> dict[str, Any] | None:
-    raw = audit.get("trust_scores")
+def _trust_for_capability(audit: dict[str, Any], capability_type: str) -> dict[str, Any] | None:
+    raw = _decode_jsonish(audit.get("trust_scores"), force=True)
     if isinstance(raw, dict):
-        score = raw.get(capability_type)
+        score = _decode_jsonish(raw.get(capability_type), force=True)
         if isinstance(score, dict):
             return score
     return None
@@ -139,7 +157,7 @@ def tool_search_facilities(
                 "name": audit.get("name"),
                 "lat": location.lat,
                 "lng": location.lng,
-                "distance_km": round(distance_km, 4),
+                "distance_km": round(distance_km, 2),
                 "score": score_value,
                 "contradictions_flagged": len(contradictions),
                 "evidence_count": len(evidence),
@@ -149,9 +167,7 @@ def tool_search_facilities(
     return candidates
 
 
-def tool_get_facility_audit(
-    facility_id: str, *, audits_path: str | None = None
-) -> dict | None:
+def tool_get_facility_audit(facility_id: str, *, audits_path: str | None = None) -> dict | None:
     """Fetch one FacilityAudit by id from the parquet table.
 
     Returns the row as a plain dict (with ``location``, ``capabilities``,

@@ -60,9 +60,7 @@ def audits_parquet(tmp_path: Path) -> str:
             "facility_id": "vf_bihta",
             "name": "Bihta District Hospital",
             "location": {"lat": 25.5639, "lng": 84.8651, "pin_code": "801103"},
-            "trust_scores": {
-                "SURGERY_APPENDECTOMY": _trust_score_dict(score=70, confidence=0.70)
-            },
+            "trust_scores": {"SURGERY_APPENDECTOMY": _trust_score_dict(score=70, confidence=0.70)},
         },
     ]
     table = pa.table(
@@ -97,6 +95,37 @@ def test_heuristic_appendectomy_query(audits_parquet: str) -> None:
     assert result.ranked_facilities[0].rank == 1
 
 
+@pytest.mark.parametrize(
+    ("text", "expected_radius"),
+    [
+        ("appendectomy within 50 km of Patna", 50.0),
+        ("appendectomy within 50km of Patna", 50.0),
+        ("appendectomy near Patna, 50 km radius", 50.0),
+        ("appendectomy within fifty km of Patna", 50.0),
+        ("appendectomy near Patna, fifty km radius", 50.0),
+    ],
+)
+def test_heuristic_radius_patterns(text: str, expected_radius: float, audits_parquet: str) -> None:
+    result = query.run_query(text, use_llm=False, audits_path=audits_parquet)
+    assert result.parsed_intent.radius_km == expected_radius
+
+
+@pytest.mark.parametrize(
+    ("text", "expected_capability"),
+    [
+        ("appendicitis care near Patna", CapabilityType.SURGERY_APPENDECTOMY),
+        ("appendix removal near Patna", CapabilityType.SURGERY_APPENDECTOMY),
+        ("appendix surgery near Patna", CapabilityType.SURGERY_APPENDECTOMY),
+        ("abdominal surgery near Patna", CapabilityType.SURGERY_GENERAL),
+    ],
+)
+def test_heuristic_surgery_synonyms(
+    text: str, expected_capability: CapabilityType, audits_parquet: str
+) -> None:
+    result = query.run_query(text, use_llm=False, audits_path=audits_parquet)
+    assert result.parsed_intent.capability_type is expected_capability
+
+
 def test_heuristic_radius_default(audits_parquet: str) -> None:
     """No explicit radius in the query -> default of 50 km."""
     result = query.run_query(
@@ -113,6 +142,17 @@ def test_query_no_match_returns_empty_result(audits_parquet: str) -> None:
         "appendectomy near Atlantis",
         use_llm=False,
         audits_path=audits_parquet,
+    )
+    assert result.ranked_facilities == []
+    assert result.total_candidates == 0
+
+
+def test_query_empty_candidate_state_returns_empty(tmp_path: Path) -> None:
+    missing = tmp_path / "missing.parquet"
+    result = query.run_query(
+        "appendectomy within 50 km of Patna",
+        use_llm=False,
+        audits_path=str(missing),
     )
     assert result.ranked_facilities == []
     assert result.total_candidates == 0
@@ -192,7 +232,7 @@ def test_llm_path_with_mocked_tool_use(
                             "pin_code": "800001",
                         },
                         "radius_km": 50.0,
-                        "selected_facility_ids": ["vf_near_patna", "vf_bihta"],
+                        "selected_facility_ids": ["vf_bihta", "vf_near_patna"],
                     },
                 )
             ]
@@ -223,6 +263,39 @@ def test_llm_path_with_mocked_tool_use(
     assert result.parsed_intent.radius_km == 50.0
     assert result.query_trace_id.startswith("q_")
     assert len(result.ranked_facilities) >= 1
-    # The model picked vf_near_patna first; that ordering must be preserved.
+    # Deterministic ranking wins over the model's selected id order.
     assert result.ranked_facilities[0].facility_id == "vf_near_patna"
     assert result.ranked_facilities[0].rank == 1
+
+
+def test_llm_path_max_steps_guard_falls_back(
+    audits_parquet: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    calls: list[dict] = []
+
+    def fake_structured_call(**kwargs: Any) -> Any:
+        calls.append(kwargs)
+        return _FakeMessage(
+            [
+                _FakeBlock(
+                    type_="tool_use",
+                    id=f"t{len(calls)}",
+                    name="geocode",
+                    input={"query": "Patna"},
+                )
+            ]
+        )
+
+    monkeypatch.setattr(anthropic_client, "structured_call", fake_structured_call)
+
+    result = query.run_query(
+        "Which facilities within 50km of Patna can perform an appendectomy?",
+        use_llm=True,
+        max_steps=2,
+        retries=1,
+        audits_path=audits_parquet,
+    )
+
+    assert len(calls) == 2
+    assert result.parsed_intent.capability_type is CapabilityType.SURGERY_APPENDECTOMY
+    assert result.ranked_facilities

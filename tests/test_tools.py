@@ -83,6 +83,20 @@ def audits_parquet(tmp_path: Path) -> str:
             },
         },
         {
+            "facility_id": "vf_same_score_farther",
+            "name": "Same Score Farther",
+            # Similar trust score to vf_near_patna but farther away.
+            "location": {"lat": 25.5639, "lng": 84.8651, "pin_code": "801103"},
+            "trust_scores": {
+                "SURGERY_APPENDECTOMY": _trust_score_dict(
+                    capability_type="SURGERY_APPENDECTOMY",
+                    score=88,
+                    confidence=0.88,
+                    evidence=1,
+                ),
+            },
+        },
+        {
             "facility_id": "vf_far",
             "name": "Far Hospital",
             # ~200+ km away (rough Ranchi-ish) -> outside 50 km.
@@ -121,11 +135,24 @@ def test_search_filters_by_radius(audits_parquet: str) -> None:
     ids = [r["facility_id"] for r in results]
     assert "vf_near_patna" in ids
     assert "vf_close" in ids
+    assert "vf_same_score_farther" in ids
     assert "vf_far" not in ids
     # Sort: score desc, then distance asc.
-    assert results == sorted(
-        results, key=lambda r: (-r["score"], r["distance_km"])
+    assert results == sorted(results, key=lambda r: (-r["score"], r["distance_km"]))
+    assert ids.index("vf_near_patna") < ids.index("vf_same_score_farther")
+
+
+def test_search_distance_rounded_to_two_decimals(audits_parquet: str) -> None:
+    results = tool_search_facilities(
+        capability_type="SURGERY_APPENDECTOMY",
+        lat=25.61,
+        lng=85.14,
+        radius_km=50.0,
+        audits_path=audits_parquet,
     )
+    assert results
+    for row in results:
+        assert row["distance_km"] == round(row["distance_km"], 2)
 
 
 def test_search_returns_empty_when_no_parquet(tmp_path: Path) -> None:
@@ -140,6 +167,69 @@ def test_search_returns_empty_when_no_parquet(tmp_path: Path) -> None:
         )
         == []
     )
+
+
+def test_search_returns_empty_for_empty_parquet(tmp_path: Path) -> None:
+    path = tmp_path / "empty.parquet"
+    pq.write_table(
+        pa.table(
+            {
+                "facility_id": pa.array([], type=pa.string()),
+                "name": pa.array([], type=pa.string()),
+                "location": pa.array([], type=pa.string()),
+                "trust_scores": pa.array([], type=pa.string()),
+            }
+        ),
+        path,
+    )
+    assert (
+        tool_search_facilities(
+            capability_type="SURGERY_APPENDECTOMY",
+            lat=25.61,
+            lng=85.14,
+            radius_km=50.0,
+            audits_path=str(path),
+        )
+        == []
+    )
+
+
+def test_pipeline_style_json_columns_are_decoded(tmp_path: Path) -> None:
+    trust_scores = {
+        "SURGERY_APPENDECTOMY": _trust_score_dict(
+            capability_type="SURGERY_APPENDECTOMY",
+            score=88,
+            confidence=0.88,
+            evidence=2,
+        )
+    }
+    table = pa.table(
+        {
+            "facility_id": ["vf_pipeline", "vf_bad_json"],
+            "name": ["Pipeline Hospital", "Malformed Hospital"],
+            "lat": [25.6121, 25.6121],
+            "lng": [85.1418, 85.1418],
+            "pin_code": ["800001", "800001"],
+            "capabilities_json": ["[]", "not-json"],
+            "trust_scores_json": [json.dumps(trust_scores), "not-json"],
+        }
+    )
+    path = tmp_path / "facility_audits.parquet"
+    pq.write_table(table, path)
+
+    results = tool_search_facilities(
+        capability_type="SURGERY_APPENDECTOMY",
+        lat=25.61,
+        lng=85.14,
+        radius_km=50.0,
+        audits_path=str(path),
+    )
+    assert [row["facility_id"] for row in results] == ["vf_pipeline"]
+
+    audit = tool_get_facility_audit("vf_pipeline", audits_path=str(path))
+    assert audit is not None
+    assert audit["location"]["pin_code"] == "800001"
+    assert "SURGERY_APPENDECTOMY" in audit["trust_scores"]
 
 
 def test_get_facility_audit_found(audits_parquet: str) -> None:

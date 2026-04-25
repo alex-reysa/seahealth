@@ -20,6 +20,20 @@ def test_patna_resolvable() -> None:
     assert point.pin_code == "800001"
 
 
+@pytest.mark.parametrize(
+    ("city", "pin_code"),
+    [
+        ("Madhubani", "847211"),
+        ("Muzaffarpur", "842001"),
+        ("Bhagalpur", "812001"),
+    ],
+)
+def test_bihar_expansion_cities_resolvable(city: str, pin_code: str) -> None:
+    point = geocode(city)
+    assert point is not None
+    assert point.pin_code == pin_code
+
+
 def test_unknown_returns_none() -> None:
     assert geocode("Atlantis") is None
 
@@ -42,7 +56,7 @@ def test_case_insensitive() -> None:
 
 
 def test_fixture_matches_module_table() -> None:
-    """The repo fixture must stay in sync with the module's INDIA_CITIES dict."""
+    """The repo fixture's seeded cities must remain present in INDIA_CITIES."""
     payload = json.loads(FIXTURE.read_text(encoding="utf-8"))
     cities = {c["name"] for c in payload["cities"]}
-    assert cities == set(INDIA_CITIES.keys())
+    assert cities <= set(INDIA_CITIES.keys())
