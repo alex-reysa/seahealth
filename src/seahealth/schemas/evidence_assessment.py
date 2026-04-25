@@ -1,9 +1,9 @@
 """EvidenceAssessment — Validator's per-evidence stance, joined into the Facility Audit View."""
-from datetime import datetime
 from typing import Literal
 
 from pydantic import BaseModel, Field
 
+from ._datetime import AwareDatetime
 from .capability_type import CapabilityType
 
 
@@ -28,4 +28,4 @@ class EvidenceAssessment(BaseModel):
     reasoning: str = Field(
         ..., description="One-sentence Validator rationale for the stance."
     )
-    assessed_at: datetime = Field(..., description="When the Validator produced this stance.")
+    assessed_at: AwareDatetime = Field(..., description="When the Validator produced this stance.")

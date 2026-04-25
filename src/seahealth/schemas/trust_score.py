@@ -1,14 +1,13 @@
 """TrustScore — per-capability trust assessment with deterministic score derivation."""
-from datetime import datetime
-from typing import Dict, List, Tuple
 
 from pydantic import BaseModel, Field, model_validator
 
+from ._datetime import AwareDatetime
 from .capability_type import CapabilityType
 from .contradiction import Contradiction
 from .evidence import EvidenceRef
 
-SEVERITY_PENALTY: Dict[str, int] = {"LOW": 5, "MEDIUM": 15, "HIGH": 30}
+SEVERITY_PENALTY: dict[str, int] = {"LOW": 5, "MEDIUM": 15, "HIGH": 30}
 
 
 class TrustScore(BaseModel):
@@ -26,12 +25,12 @@ class TrustScore(BaseModel):
 
     capability_type: CapabilityType
     claimed: bool
-    evidence: List[EvidenceRef] = Field(default_factory=list)
-    contradictions: List[Contradiction] = Field(default_factory=list)
+    evidence: list[EvidenceRef] = Field(default_factory=list)
+    contradictions: list[Contradiction] = Field(default_factory=list)
     confidence: float = Field(
         ..., ge=0.0, le=1.0, description="Model-reported probability the claim is true."
     )
-    confidence_interval: Tuple[float, float] = Field(
+    confidence_interval: tuple[float, float] = Field(
         ...,
         description="95% CI on confidence; both endpoints in [0.0, 1.0], lo <= hi.",
     )
@@ -45,13 +44,14 @@ class TrustScore(BaseModel):
         ...,
         description="Short paragraph, model-generated, shown in the Trust Score drawer.",
     )
-    computed_at: datetime
+    computed_at: AwareDatetime
 
     @model_validator(mode="after")
     def _validate_ci_and_score(self) -> "TrustScore":
         lo, hi = self.confidence_interval
         if not (0.0 <= lo <= hi <= 1.0):
             raise ValueError("confidence_interval must satisfy 0.0 <= lo <= hi <= 1.0")
+        self.confidence_interval = (min(lo, self.confidence), max(hi, self.confidence))
         base = round(self.confidence * 100)
         penalty = sum(SEVERITY_PENALTY[c.severity] for c in self.contradictions)
         expected_score = max(0, min(100, base - penalty))

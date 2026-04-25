@@ -2,19 +2,19 @@
 
 The taxonomy is closed. New types require an explicit DECISIONS.md entry and a schema bump.
 """
-from datetime import datetime
-from enum import Enum
-from typing import List, Literal
+from enum import StrEnum
+from typing import Literal
 
 from pydantic import BaseModel, Field
 
+from ._datetime import AwareDatetime
 from .capability_type import CapabilityType
 from .evidence import EvidenceRef
 
 STALE_DATA_THRESHOLD_MONTHS: int = 24  # Evidence older than this trips STALE_DATA.
 
 
-class ContradictionType(str, Enum):
+class ContradictionType(StrEnum):
     """Closed taxonomy of validator-detectable contradictions for the hackathon demo."""
 
     MISSING_EQUIPMENT = "MISSING_EQUIPMENT"
@@ -34,10 +34,10 @@ class Contradiction(BaseModel):
     contradiction_type: ContradictionType
     capability_type: CapabilityType
     facility_id: str
-    evidence_for: List[EvidenceRef] = Field(
+    evidence_for: list[EvidenceRef] = Field(
         default_factory=list, description="Evidence supporting the original claim."
     )
-    evidence_against: List[EvidenceRef] = Field(
+    evidence_against: list[EvidenceRef] = Field(
         default_factory=list, description="Evidence undermining the claim."
     )
     severity: Literal["LOW", "MEDIUM", "HIGH"]
@@ -45,4 +45,4 @@ class Contradiction(BaseModel):
     detected_by: str = Field(
         ..., description="Validator agent id (e.g. 'validator.equipment_v1')."
     )
-    detected_at: datetime
+    detected_at: AwareDatetime

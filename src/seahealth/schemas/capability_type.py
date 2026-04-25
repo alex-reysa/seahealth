@@ -1,8 +1,8 @@
 """CapabilityType — closed enum of facility capabilities for the demo."""
-from enum import Enum
+from enum import StrEnum
 
 
-class CapabilityType(str, Enum):
+class CapabilityType(StrEnum):
     """Closed set of facility capabilities considered in scope for the hackathon demo."""
 
     ICU = "ICU"

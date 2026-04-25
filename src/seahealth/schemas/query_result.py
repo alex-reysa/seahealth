@@ -1,9 +1,8 @@
 """QueryResult — Planner Console output, plus ParsedIntent and RankedFacility."""
-from datetime import datetime
-from typing import List
 
 from pydantic import BaseModel, Field
 
+from ._datetime import AwareDatetime
 from .capability_type import CapabilityType
 from .geo import GeoPoint
 from .trust_score import TrustScore
@@ -20,7 +19,7 @@ class ParsedIntent(BaseModel):
 
 
 class RankedFacility(BaseModel):
-    """One row in a QueryResult — a facility that matches the parsed query, with the relevant capability's TrustScore."""
+    """One row in a QueryResult with the relevant capability's TrustScore."""
 
     facility_id: str
     name: str
@@ -35,13 +34,13 @@ class RankedFacility(BaseModel):
 
 
 class QueryResult(BaseModel):
-    """Planner Console output. Drives the demo query: e.g. 'Which facilities within 50km of Patna can perform an appendectomy?'"""
+    """Planner Console output for the appendectomy demo query."""
 
     query: str = Field(..., description="Natural-language query as the user asked it.")
     parsed_intent: ParsedIntent
-    ranked_facilities: List[RankedFacility] = Field(default_factory=list)
+    ranked_facilities: list[RankedFacility] = Field(default_factory=list)
     total_candidates: int = Field(
         ..., ge=0, description="Candidates considered before ranking/cutoff."
     )
     query_trace_id: str = Field(..., description="MLflow trace id for the planner run.")
-    generated_at: datetime
+    generated_at: AwareDatetime

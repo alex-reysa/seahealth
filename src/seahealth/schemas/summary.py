@@ -10,11 +10,10 @@ Definitions:
     - capability_type      : optional filter; when set, all counts are restricted to that
                              capability. When None, the metrics are global.
 """
-from datetime import datetime
-from typing import Optional
 
 from pydantic import BaseModel, Field
 
+from ._datetime import AwareDatetime
 from .capability_type import CapabilityType
 
 
@@ -25,7 +24,11 @@ class SummaryMetrics(BaseModel):
     Flagged  = total_contradictions > 0.
     """
 
-    audited_count: int = Field(..., ge=0, description="Total audited facilities (or rows when capability_type is set).")
+    audited_count: int = Field(
+        ...,
+        ge=0,
+        description="Total audited facilities (or rows when capability_type is set).",
+    )
     verified_count: int = Field(
         ...,
         ge=0,
@@ -34,10 +37,10 @@ class SummaryMetrics(BaseModel):
     flagged_count: int = Field(
         ..., ge=0, description="Count where total_contradictions > 0."
     )
-    last_audited_at: datetime = Field(
+    last_audited_at: AwareDatetime = Field(
         ..., description="Most recent FacilityAudit.last_audited_at across the aggregate."
     )
-    capability_type: Optional[CapabilityType] = Field(
+    capability_type: CapabilityType | None = Field(
         default=None,
         description="When set, all counts are restricted to this capability; otherwise global.",
     )

@@ -32,9 +32,9 @@ class GeoPoint(BaseModel):
 
 ```python
 # src/schemas/capability_type.py — module contract.
-from enum import Enum
+from enum import StrEnum
 
-class CapabilityType(str, Enum):
+class CapabilityType(StrEnum):
     """Closed set of facility capabilities considered in scope for the hackathon demo."""
     ICU = "ICU"
     SURGERY_GENERAL = "SURGERY_GENERAL"
@@ -123,7 +123,7 @@ The taxonomy is **closed**. New types require an explicit DECISIONS.md entry and
 ```python
 # src/schemas/contradiction.py — module contract.
 from datetime import datetime
-from enum import Enum
+from enum import StrEnum
 from pydantic import BaseModel, Field
 from typing import List, Literal
 
@@ -132,7 +132,7 @@ from typing import List, Literal
 
 STALE_DATA_THRESHOLD_MONTHS: int = 24  # Evidence older than this trips STALE_DATA.
 
-class ContradictionType(str, Enum):
+class ContradictionType(StrEnum):
     """Closed taxonomy of validator-detectable contradictions for the hackathon demo."""
     MISSING_EQUIPMENT = "MISSING_EQUIPMENT"
     MISSING_STAFF = "MISSING_STAFF"
@@ -214,7 +214,7 @@ class TrustScore(BaseModel):
     confidence: float = Field(..., ge=0.0, le=1.0, description="Model-reported probability the claim is true.")
     confidence_interval: Tuple[float, float] = Field(
         ...,
-        description="95% CI on confidence; both endpoints in [0.0, 1.0], lo <= hi.",
+        description="95% CI on confidence; endpoints in [0.0, 1.0], lo <= confidence <= hi.",
     )
     score: int = Field(..., ge=0, le=100, description="Derived 0-100 headline number per the docstring formula.")
     reasoning: str = Field(..., description="Short paragraph, model-generated, shown in the Trust Score drawer.")
@@ -225,6 +225,7 @@ class TrustScore(BaseModel):
         lo, hi = self.confidence_interval
         if not (0.0 <= lo <= hi <= 1.0):
             raise ValueError("confidence_interval must satisfy 0.0 <= lo <= hi <= 1.0")
+        self.confidence_interval = (min(lo, self.confidence), max(hi, self.confidence))
         base = round(self.confidence * 100)
         penalty = sum(SEVERITY_PENALTY[c.severity] for c in self.contradictions)
         expected_score = max(0, min(100, base - penalty))
@@ -450,9 +451,36 @@ class MapRegionAggregate(BaseModel):
     population: int = Field(..., ge=0)
     verified_facilities_count: int = Field(..., ge=0)
     flagged_facilities_count: int = Field(..., ge=0)
-    gap_population: int = Field(..., description="Population minus a coverage estimate for this capability.")
+    gap_population: int = Field(..., ge=0, description="Population minus a coverage estimate for this capability.")
     centroid: GeoPoint
 ```
+
+---
+
+## Schema invariants
+
+These invariants are enforced in `src/seahealth/schemas/` and must remain stable unless
+`DECISIONS.md` records a schema bump.
+
+- All schema datetime fields are normalized to timezone-aware UTC. JSON serialization
+  uses ISO-8601 UTC with a trailing `Z` (for example, `2026-04-25T22:30:00Z`).
+- Nullable UI-facing fields stay nullable: `GeoPoint.pin_code`, `EvidenceRef.row_id`,
+  `EvidenceRef.source_observed_at`, `IndexedDoc.facility_id`,
+  `IndexedDoc.source_observed_at`, `FacilityAudit.mlflow_trace_id`, and
+  `SummaryMetrics.capability_type` may be `null`.
+- `EvidenceRef.span` must satisfy `start >= 0`, `end >= 0`, and `start <= end`.
+- `evidence_ref_id(ref)` is the canonical join id for `EvidenceAssessment` and is
+  exactly `f"{ref.source_doc_id}:{ref.chunk_id}"`; it is deterministic and total for
+  any valid `EvidenceRef`.
+- `IndexedDoc.embedding` length is pinned by the exported `EMBEDDING_DIM` constant
+  (`1024`). Do not duplicate the dimension in callers.
+- `TrustScore.confidence_interval` input bounds must satisfy `0.0 <= lo <= hi <= 1.0`;
+  valid bounds are normalized outward when necessary so the stored model satisfies
+  `lo <= confidence <= hi`.
+- `TrustScore.score` is deterministic:
+  `clamp(round(confidence * 100) - severity_penalty_sum, 0, 100)`, where
+  `LOW=5`, `MEDIUM=15`, and `HIGH=30`.
+- `MapRegionAggregate.gap_population` must be non-negative.
 
 ---
 
@@ -463,3 +491,4 @@ _Any change to this file after hour 4 must be logged here AND in `DECISIONS.md`.
 - **2026-04-25** — Initial schema lock — all canonical schemas defined (`GeoPoint`, `CapabilityType`, `EvidenceRef`, `EvidenceStance`, `EvidenceAssessment`, `Capability`, `ContradictionType`, `Contradiction`, `TrustScore`, `FacilityAudit`, `IndexedDoc`, `ParsedIntent`, `QueryResult`, `RankedFacility`, `PopulationReference`, `MapRegionAggregate`). Schema owner: **Alejandro (acting schema owner).**
 - **2026-04-25** — Schema-lock hardening: added `EvidenceStance`, `EvidenceAssessment`, typed source dates, aligned `SourceType`, typed `ParsedIntent`, ranked facility location, Desert Map population aggregates, and deterministic `TrustScore.score` validation.
 - **2026-04-25 22:30** — Added `EvidenceAssessment`, `SummaryMetrics`, `MapRegionAggregate`, `PopulationReference`. Reason: required by UI surfaces; not previously defined.
+- **2026-04-25** — Added schema invariants for UTC/Z datetime serialization, evidence span bounds, confidence interval containment, embedding dimension source of truth, non-negative map gap population, and `evidence_ref_id` join semantics.

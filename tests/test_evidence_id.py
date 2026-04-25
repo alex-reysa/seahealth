@@ -23,3 +23,16 @@ def test_evidence_ref_id_format():
 def test_evidence_ref_id_handles_special_chars():
     ref = _make_ref(source_doc_id="vf::row#42", chunk_id="c::1")
     assert evidence_ref_id(ref) == "vf::row#42:c::1"
+
+
+def test_evidence_ref_id_is_idempotent_across_round_trip():
+    ref = _make_ref(row_id=None, source_observed_at=None)
+    restored = EvidenceRef.model_validate_json(ref.model_dump_json())
+
+    assert evidence_ref_id(ref) == evidence_ref_id(restored)
+
+
+def test_evidence_ref_id_total_over_valid_ref_with_empty_string_ids():
+    ref = _make_ref(source_doc_id="", chunk_id="")
+
+    assert evidence_ref_id(ref) == ":"

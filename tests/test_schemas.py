@@ -6,7 +6,8 @@ For each model:
 
 One small hand-built valid example per model keeps the round-trip blocks short.
 """
-from datetime import datetime, timezone
+import json
+from datetime import UTC, datetime
 
 import pytest
 from pydantic import ValidationError
@@ -37,7 +38,7 @@ from seahealth.schemas import (
 # Canonical fixtures (one valid instance per model)
 # ---------------------------------------------------------------------------
 
-NOW = datetime(2026, 4, 25, 22, 30, tzinfo=timezone.utc)
+NOW = datetime(2026, 4, 25, 22, 30, tzinfo=UTC)
 
 
 def _geo() -> GeoPoint:
@@ -216,7 +217,11 @@ ROUND_TRIP_CASES = [
 ]
 
 
-@pytest.mark.parametrize("name,instance,model_cls", ROUND_TRIP_CASES, ids=[c[0] for c in ROUND_TRIP_CASES])
+@pytest.mark.parametrize(
+    "name,instance,model_cls",
+    ROUND_TRIP_CASES,
+    ids=[c[0] for c in ROUND_TRIP_CASES],
+)
 def test_json_round_trip(name, instance, model_cls):
     payload = instance.model_dump_json()
     restored = model_cls.model_validate_json(payload)
@@ -286,6 +291,123 @@ def test_trust_score_score_must_match_formula():
             reasoning="x",
             computed_at=NOW,
         )
+
+
+def test_trust_score_confidence_interval_normalizes_to_include_confidence():
+    score = TrustScore(
+        capability_type=CapabilityType.ICU,
+        claimed=True,
+        evidence=[],
+        contradictions=[],
+        confidence=0.7,
+        confidence_interval=(0.8, 0.9),
+        score=70,
+        reasoning="x",
+        computed_at=NOW,
+    )
+
+    assert score.confidence_interval == (0.7, 0.9)
+
+
+def test_datetime_fields_normalize_to_utc_and_serialize_z():
+    ref = EvidenceRef(
+        source_doc_id="doc_1",
+        facility_id="vf_00001_aiims_patna",
+        chunk_id="chunk_1",
+        span=(0, 1),
+        snippet="x",
+        source_type="facility_note",
+        source_observed_at="2026-04-26T00:30:00+02:00",
+        retrieved_at=datetime(2026, 4, 25, 22, 30),
+    )
+
+    assert ref.source_observed_at == datetime(2026, 4, 25, 22, 30, tzinfo=UTC)
+    assert ref.retrieved_at == NOW
+
+    payload = json.loads(ref.model_dump_json())
+    assert payload["source_observed_at"] == "2026-04-25T22:30:00Z"
+    assert payload["retrieved_at"] == "2026-04-25T22:30:00Z"
+
+
+def test_evidence_span_rejects_negative_offsets():
+    with pytest.raises(ValidationError, match="span offsets must be >= 0"):
+        EvidenceRef(
+            source_doc_id="doc_1",
+            facility_id="vf_00001_aiims_patna",
+            chunk_id="chunk_1",
+            span=(-1, 1),
+            snippet="x",
+            source_type="facility_note",
+            retrieved_at=NOW,
+        )
+
+
+def test_evidence_span_rejects_reversed_offsets():
+    with pytest.raises(ValidationError, match="span start must be <= end"):
+        EvidenceRef(
+            source_doc_id="doc_1",
+            facility_id="vf_00001_aiims_patna",
+            chunk_id="chunk_1",
+            span=(2, 1),
+            snippet="x",
+            source_type="facility_note",
+            retrieved_at=NOW,
+        )
+
+
+def test_map_region_gap_population_non_negative():
+    with pytest.raises(ValidationError):
+        MapRegionAggregate(
+            region_id="IN-BR-PAT",
+            region_name="Patna",
+            state="Bihar",
+            capability_type=CapabilityType.SURGERY_APPENDECTOMY,
+            population=2_046_000,
+            verified_facilities_count=12,
+            flagged_facilities_count=3,
+            gap_population=-1,
+            centroid=_geo(),
+        )
+
+
+def test_ui_nullable_fields_remain_nullable():
+    ref = EvidenceRef(
+        source_doc_id="doc_1",
+        facility_id="vf_00001_aiims_patna",
+        chunk_id="chunk_1",
+        row_id=None,
+        span=(0, 1),
+        snippet="x",
+        source_type="facility_note",
+        source_observed_at=None,
+        retrieved_at=NOW,
+    )
+    audit = FacilityAudit(
+        facility_id="vf_00001_aiims_patna",
+        name="AIIMS Patna",
+        location=GeoPoint(lat=25.61, lng=85.14, pin_code=None),
+        last_audited_at=NOW,
+        mlflow_trace_id=None,
+    )
+    summary = SummaryMetrics(
+        audited_count=0,
+        verified_count=0,
+        flagged_count=0,
+        last_audited_at=NOW,
+        capability_type=None,
+    )
+
+    assert ref.row_id is None
+    assert ref.source_observed_at is None
+    assert audit.location.pin_code is None
+    assert audit.mlflow_trace_id is None
+    assert summary.capability_type is None
+
+
+def test_heuristic_core_equipment_capabilities_are_schema_capabilities():
+    from seahealth.agents.heuristics import _CORE_EQUIPMENT
+
+    assert set(_CORE_EQUIPMENT) <= set(CapabilityType)
 
 
 def test_capability_type_membership():

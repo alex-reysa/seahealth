@@ -35,6 +35,10 @@ class MapRegionAggregate(BaseModel):
     )
     gap_population: int = Field(
         ...,
-        description="Population minus a coverage estimate for this capability (uncovered population).",
+        ge=0,
+        description=(
+            "Population minus a coverage estimate for this capability "
+            "(uncovered population)."
+        ),
     )
     centroid: GeoPoint = Field(..., description="Geographic centroid of the region.")
