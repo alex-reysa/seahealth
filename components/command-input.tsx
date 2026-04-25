@@ -41,52 +41,42 @@ export function CommandInput({
   };
 
   return (
-    <div
-      className={cn(
-        "glass-control rounded-[var(--radius-xl)] p-2 transition-all",
-        isExecuting && "ring-2 ring-[var(--color-accent-aura)]",
-        className
-      )}
-    >
-      <form onSubmit={handleSubmit} className="flex items-center gap-2">
-        <div className="relative flex-1">
-          {/* Aura glow on focus/executing */}
-          <div
-            className={cn(
-              "absolute inset-0 rounded-[var(--radius-lg)] bg-[var(--color-accent-aura)] opacity-0 transition-opacity blur-xl -z-10",
-              (isExecuting || isFocused) && "opacity-100"
-            )}
+    <div className={cn("relative", className)}>
+      {/* Aura glow on focus/executing */}
+      <div
+        className={cn(
+          "pointer-events-none absolute inset-0 rounded-[var(--radius-lg)] bg-[var(--color-accent-aura)] opacity-0 transition-opacity blur-2xl -z-10",
+          (isExecuting || isFocused) && "opacity-100"
+        )}
+      />
+      <form onSubmit={handleSubmit} className="flex items-center gap-1.5">
+        <div className="relative flex-1 min-w-0 flex items-center">
+          <Search className="absolute left-3 h-4 w-4 text-[var(--color-content-tertiary)] pointer-events-none" />
+          <input
+            ref={inputRef}
+            type="text"
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+            onKeyDown={handleKeyDown}
+            onFocus={() => setIsFocused(true)}
+            onBlur={() => setIsFocused(false)}
+            placeholder={placeholder}
+            disabled={isExecuting}
+            className="w-full h-11 pl-10 pr-4 bg-[var(--color-surface-sunken)] border border-[var(--color-border-subtle)] rounded-[var(--radius-md)] text-body text-[var(--color-content-primary)] placeholder:text-[var(--color-content-tertiary)] focus:outline-none focus:border-[var(--color-accent-primary)] focus:ring-2 focus:ring-[var(--color-accent-primary-subtle)] disabled:opacity-50 transition-all"
           />
-          <div className="relative flex items-center">
-            <Search className="absolute left-3 h-5 w-5 text-[var(--color-content-tertiary)]" />
-            <input
-              ref={inputRef}
-              type="text"
-              value={value}
-              onChange={(e) => onChange(e.target.value)}
-              onKeyDown={handleKeyDown}
-              onFocus={() => setIsFocused(true)}
-              onBlur={() => setIsFocused(false)}
-              placeholder={placeholder}
-              disabled={isExecuting}
-              className="w-full h-12 pl-11 pr-4 bg-transparent text-body text-[var(--color-content-primary)] placeholder:text-[var(--color-content-tertiary)] focus:outline-none disabled:opacity-50"
-            />
-          </div>
         </div>
 
-        {/* Voice button (future) */}
         <Button
           type="button"
           variant="ghost"
           size="icon"
           disabled
-          className="text-[var(--color-content-tertiary)] opacity-50"
+          className="text-[var(--color-content-tertiary)] opacity-40 flex-shrink-0"
           aria-label="Voice input (coming soon)"
         >
-          <Mic className="h-5 w-5" />
+          <Mic className="h-4 w-4" />
         </Button>
 
-        {/* Submit button */}
         <Button
           type="submit"
           variant="primary"
@@ -96,18 +86,17 @@ export function CommandInput({
           aria-label="Execute command"
         >
           {isExecuting ? (
-            <Loader2 className="h-5 w-5 animate-spin" />
+            <Loader2 className="h-4 w-4 animate-spin" />
           ) : (
-            <Send className="h-5 w-5" />
+            <Send className="h-4 w-4" />
           )}
         </Button>
       </form>
 
-      {/* Status indicator */}
       {status && (
-        <div className="mt-2 px-3 flex items-center gap-2 text-caption text-[var(--color-content-secondary)]">
+        <div className="mt-1.5 px-1 flex items-center gap-2 text-mono-s text-[var(--color-content-secondary)]">
           {isExecuting && (
-            <span className="inline-block h-2 w-2 rounded-full bg-[var(--color-accent-primary)] animate-pulse" />
+            <span className="inline-block h-1.5 w-1.5 rounded-full bg-[var(--color-accent-primary)] animate-pulse" />
           )}
           <span>{status}</span>
         </div>

@@ -18,6 +18,13 @@ export const INDIA_BOUNDS: [[number, number], [number, number]] = [
 export const INDIA_CENTER: [number, number] = [78.9629, 22.5937];
 export const PATNA_CENTER: [number, number] = [85.1376, 25.5941];
 
+// Fixed reference timestamp so server and client render identically
+// (avoids hydration mismatches from Date.now() at module load).
+const NOW_ISO = "2026-04-25T14:32:00.000Z";
+const HOUR_MS = 3600000;
+const tsAgo = (hours: number) =>
+  new Date(new Date(NOW_ISO).getTime() - hours * HOUR_MS).toISOString();
+
 // Mock evidence references
 const createEvidenceRef = (
   facilityId: string,
@@ -30,7 +37,7 @@ const createEvidenceRef = (
   span: [0, snippet.length],
   snippet,
   source_type: sourceType,
-  retrieved_at: new Date().toISOString(),
+  retrieved_at: NOW_ISO,
 });
 
 // Mock contradictions
@@ -64,7 +71,7 @@ const createContradiction = (
       ? "Appendectomy requires anesthesia support. No anesthesiologist found in staff roster."
       : "Appendectomy requires anesthesia machine. Not found in equipment inventory.",
   detected_by: "validator.equipment_v1",
-  detected_at: new Date().toISOString(),
+  detected_at: NOW_ISO,
 });
 
 // Mock trust scores
@@ -99,7 +106,7 @@ const createTrustScore = (
     reasoning: hasContradiction
       ? `This facility claims ${capabilityType} capability with supporting documentation, but staff roster analysis reveals potential gaps in required personnel. Score reflects evidence strength minus contradiction penalty.`
       : `Strong evidence supports this facility's ${capabilityType} capability. Documentation, equipment inventory, and staff credentials align with claimed services.`,
-    computed_at: new Date().toISOString(),
+    computed_at: NOW_ISO,
   };
 };
 
@@ -116,7 +123,7 @@ export const MOCK_FACILITIES: FacilityAudit[] = [
       EMERGENCY_24_7: createTrustScore("EMERGENCY_24_7", 96, "fac_001"),
     } as Record<CapabilityType, TrustScore>,
     total_contradictions: 0,
-    last_audited_at: new Date(Date.now() - 3600000).toISOString(),
+    last_audited_at: tsAgo(1),
     mlflow_trace_id: "mlflow_trace_001",
   },
   {
@@ -131,7 +138,7 @@ export const MOCK_FACILITIES: FacilityAudit[] = [
       TRAUMA: createTrustScore("TRAUMA", 96, "fac_002"),
     } as Record<CapabilityType, TrustScore>,
     total_contradictions: 0,
-    last_audited_at: new Date(Date.now() - 7200000).toISOString(),
+    last_audited_at: tsAgo(2),
     mlflow_trace_id: "mlflow_trace_002",
   },
   {
@@ -145,7 +152,7 @@ export const MOCK_FACILITIES: FacilityAudit[] = [
       ONCOLOGY: createTrustScore("ONCOLOGY", 88, "fac_003"),
     } as Record<CapabilityType, TrustScore>,
     total_contradictions: 1,
-    last_audited_at: new Date(Date.now() - 10800000).toISOString(),
+    last_audited_at: tsAgo(3),
     mlflow_trace_id: "mlflow_trace_003",
   },
   {
@@ -159,7 +166,7 @@ export const MOCK_FACILITIES: FacilityAudit[] = [
       NEONATAL: createTrustScore("NEONATAL", 76, "fac_004", true),
     } as Record<CapabilityType, TrustScore>,
     total_contradictions: 1,
-    last_audited_at: new Date(Date.now() - 14400000).toISOString(),
+    last_audited_at: tsAgo(4),
     mlflow_trace_id: "mlflow_trace_004",
   },
   {
@@ -173,7 +180,7 @@ export const MOCK_FACILITIES: FacilityAudit[] = [
       LAB: createTrustScore("LAB", 90, "fac_005"),
     } as Record<CapabilityType, TrustScore>,
     total_contradictions: 0,
-    last_audited_at: new Date(Date.now() - 18000000).toISOString(),
+    last_audited_at: tsAgo(5),
     mlflow_trace_id: "mlflow_trace_005",
   },
   {
@@ -186,7 +193,7 @@ export const MOCK_FACILITIES: FacilityAudit[] = [
       EMERGENCY_24_7: createTrustScore("EMERGENCY_24_7", 74, "fac_006", true),
     } as Record<CapabilityType, TrustScore>,
     total_contradictions: 2,
-    last_audited_at: new Date(Date.now() - 21600000).toISOString(),
+    last_audited_at: tsAgo(6),
     mlflow_trace_id: "mlflow_trace_006",
   },
   {
@@ -200,7 +207,7 @@ export const MOCK_FACILITIES: FacilityAudit[] = [
       DIALYSIS: createTrustScore("DIALYSIS", 91, "fac_007"),
     } as Record<CapabilityType, TrustScore>,
     total_contradictions: 0,
-    last_audited_at: new Date(Date.now() - 25200000).toISOString(),
+    last_audited_at: tsAgo(7),
     mlflow_trace_id: "mlflow_trace_007",
   },
   {
@@ -214,7 +221,7 @@ export const MOCK_FACILITIES: FacilityAudit[] = [
       NEONATAL: createTrustScore("NEONATAL", 88, "fac_008"),
     } as Record<CapabilityType, TrustScore>,
     total_contradictions: 0,
-    last_audited_at: new Date(Date.now() - 28800000).toISOString(),
+    last_audited_at: tsAgo(8),
     mlflow_trace_id: "mlflow_trace_008",
   },
 ];
@@ -247,7 +254,7 @@ export const MOCK_QUERY_RESULT: QueryResult = {
     })),
   total_candidates: 24,
   query_trace_id: "query_trace_001",
-  generated_at: new Date().toISOString(),
+  generated_at: NOW_ISO,
 };
 
 // Mock region aggregates for desert map
@@ -270,7 +277,7 @@ export const MOCK_REGION_AGGREGATES: MapRegionAggregate[] = [
     covered_population: 4200000,
     gap_population: 1638465,
     coverage_ratio: 0.72,
-    generated_at: new Date().toISOString(),
+    generated_at: NOW_ISO,
   },
   {
     region_id: "BR_GAYA",
@@ -290,7 +297,7 @@ export const MOCK_REGION_AGGREGATES: MapRegionAggregate[] = [
     covered_population: 1800000,
     gap_population: 2591418,
     coverage_ratio: 0.41,
-    generated_at: new Date().toISOString(),
+    generated_at: NOW_ISO,
   },
   {
     region_id: "BR_MUZAFFARPUR",
@@ -310,7 +317,7 @@ export const MOCK_REGION_AGGREGATES: MapRegionAggregate[] = [
     covered_population: 2800000,
     gap_population: 2001062,
     coverage_ratio: 0.58,
-    generated_at: new Date().toISOString(),
+    generated_at: NOW_ISO,
   },
   {
     region_id: "BR_BHAGALPUR",
@@ -330,7 +337,7 @@ export const MOCK_REGION_AGGREGATES: MapRegionAggregate[] = [
     covered_population: 800000,
     gap_population: 2237766,
     coverage_ratio: 0.26,
-    generated_at: new Date().toISOString(),
+    generated_at: NOW_ISO,
   },
 ];
 
