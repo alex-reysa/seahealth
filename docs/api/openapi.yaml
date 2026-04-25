@@ -1,9 +1,10 @@
 openapi: 3.1.0
 info:
   title: SeaHealth API
-  description: Phase-1 stub serving hand-crafted demo fixtures. Phase 4 will swap
-    the fixture loaders for live Databricks reads.
-  version: 0.1.0
+  description: Phase-4 surface. Endpoints read through a unified data-access layer
+    that auto-detects DELTA -> PARQUET -> FIXTURE and falls back gracefully so the
+    demo never hard-stops.
+  version: 0.2.0
 paths:
   /health:
     get:
@@ -19,13 +20,22 @@ paths:
                 additionalProperties: true
                 type: object
                 title: Response Health Health Get
+  /health/data:
+    get:
+      summary: Health Data
+      description: Current data-mode snapshot. Useful for the demo to confirm wiring.
+      operationId: health_data_health_data_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthDataResponse'
   /summary:
     get:
       summary: Get Summary
-      description: "Dashboard summary tile.\n\nThe ``capability_type`` query param\
-        \ is currently advisory \u2014 Phase 1 returns\nthe same fixture regardless,\
-        \ but the param is accepted and validated so the\nPhase 4 swap is a pure backend\
-        \ change."
+      description: Dashboard summary tile (audited / verified / flagged counts).
       operationId: get_summary_summary_get
       parameters:
       - name: capability_type
@@ -52,7 +62,20 @@ paths:
   /query:
     post:
       summary: Post Query
-      description: Planner Console query endpoint.
+      description: 'Planner Console query endpoint.
+
+
+        Routes through :func:`seahealth.agents.query.run_query` when real audit
+
+        data is present (DELTA / PARQUET modes). In FIXTURE mode we serve the
+
+        bundled ``demo_query_appendectomy.json`` so the demo always returns a
+
+        populated ranked list. ``use_llm`` is enabled only when
+
+        ``ANTHROPIC_API_KEY`` is present; otherwise the deterministic heuristic
+
+        path runs (no network calls).'
       operationId: post_query_query_post
       requestBody:
         content:
@@ -139,18 +162,32 @@ paths:
   /facilities:
     get:
       summary: List Facilities
-      description: Faceted facility list (Phase 1 returns up to 50 from the demo fixture).
+      description: Faceted facility list (capped at ``limit``).
       operationId: list_facilities_facilities_get
+      parameters:
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          default: 50
+          title: Limit
       responses:
         '200':
           description: Successful Response
           content:
             application/json:
               schema:
+                type: array
                 items:
                   $ref: '#/components/schemas/FacilityAudit'
-                type: array
                 title: Response List Facilities Facilities Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
 components:
   schemas:
     Capability:
@@ -441,6 +478,24 @@ components:
           title: Detail
       type: object
       title: HTTPValidationError
+    HealthDataResponse:
+      properties:
+        mode:
+          type: string
+          title: Mode
+        facility_audits_path:
+          type: string
+          title: Facility Audits Path
+        delta_reachable:
+          type: boolean
+          title: Delta Reachable
+      type: object
+      required:
+      - mode
+      - facility_audits_path
+      - delta_reachable
+      title: HealthDataResponse
+      description: GET /health/data payload (used by the demo to confirm data wiring).
     MapRegionAggregate:
       properties:
         region_id:
