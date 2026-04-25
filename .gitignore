@@ -1,0 +1,46 @@
+# Secrets
+.env
+.env.*
+!.env.example
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor / IDE
+.vscode/
+.idea/
+
+# Claude / agents tooling (local-only)
+.claude/
+.agents/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Node / app
+node_modules/
+.next/
+dist/
+build/
+
+# Notebooks
+.ipynb_checkpoints/
+
+# Data — do not commit raw datasets
+*.csv
+*.xlsx
+*.parquet
+data/
+
+# MLflow / Databricks
+mlruns/
+mlartifacts/
