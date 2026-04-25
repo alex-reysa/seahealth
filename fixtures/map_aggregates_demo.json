@@ -1,0 +1,122 @@
+[
+  {
+    "region_id": "IN-BR-PAT",
+    "region_name": "Patna",
+    "state": "Bihar",
+    "capability_type": "SURGERY_APPENDECTOMY",
+    "population": 5838465,
+    "verified_facilities_count": 14,
+    "flagged_facilities_count": 6,
+    "gap_population": 1850000,
+    "centroid": {
+      "lat": 25.61,
+      "lng": 85.14,
+      "pin_code": "800001"
+    }
+  },
+  {
+    "region_id": "IN-BR-GAY",
+    "region_name": "Gaya",
+    "state": "Bihar",
+    "capability_type": "SURGERY_APPENDECTOMY",
+    "population": 4391418,
+    "verified_facilities_count": 5,
+    "flagged_facilities_count": 4,
+    "gap_population": 2900000,
+    "centroid": {
+      "lat": 24.7955,
+      "lng": 85.0002,
+      "pin_code": "823001"
+    }
+  },
+  {
+    "region_id": "IN-JH-RAN",
+    "region_name": "Ranchi",
+    "state": "Jharkhand",
+    "capability_type": "SURGERY_APPENDECTOMY",
+    "population": 2914253,
+    "verified_facilities_count": 9,
+    "flagged_facilities_count": 2,
+    "gap_population": 850000,
+    "centroid": {
+      "lat": 23.3441,
+      "lng": 85.3096,
+      "pin_code": "834001"
+    }
+  },
+  {
+    "region_id": "IN-JH-DHN",
+    "region_name": "Dhanbad",
+    "state": "Jharkhand",
+    "capability_type": "SURGERY_APPENDECTOMY",
+    "population": 2684487,
+    "verified_facilities_count": 3,
+    "flagged_facilities_count": 7,
+    "gap_population": 1700000,
+    "centroid": {
+      "lat": 23.7957,
+      "lng": 86.4304,
+      "pin_code": "826001"
+    }
+  },
+  {
+    "region_id": "IN-UP-VAR",
+    "region_name": "Varanasi",
+    "state": "Uttar Pradesh",
+    "capability_type": "SURGERY_APPENDECTOMY",
+    "population": 3676841,
+    "verified_facilities_count": 11,
+    "flagged_facilities_count": 3,
+    "gap_population": 1100000,
+    "centroid": {
+      "lat": 25.3176,
+      "lng": 82.9739,
+      "pin_code": "221001"
+    }
+  },
+  {
+    "region_id": "IN-UP-GKP",
+    "region_name": "Gorakhpur",
+    "state": "Uttar Pradesh",
+    "capability_type": "SURGERY_APPENDECTOMY",
+    "population": 4440895,
+    "verified_facilities_count": 4,
+    "flagged_facilities_count": 5,
+    "gap_population": 2400000,
+    "centroid": {
+      "lat": 26.7606,
+      "lng": 83.3732,
+      "pin_code": "273001"
+    }
+  },
+  {
+    "region_id": "IN-WB-KOL",
+    "region_name": "Kolkata",
+    "state": "West Bengal",
+    "capability_type": "SURGERY_APPENDECTOMY",
+    "population": 4496694,
+    "verified_facilities_count": 22,
+    "flagged_facilities_count": 4,
+    "gap_population": 600000,
+    "centroid": {
+      "lat": 22.5726,
+      "lng": 88.3639,
+      "pin_code": "700001"
+    }
+  },
+  {
+    "region_id": "IN-WB-MAL",
+    "region_name": "Malda",
+    "state": "West Bengal",
+    "capability_type": "SURGERY_APPENDECTOMY",
+    "population": 3988845,
+    "verified_facilities_count": 2,
+    "flagged_facilities_count": 6,
+    "gap_population": 2600000,
+    "centroid": {
+      "lat": 25.0119,
+      "lng": 88.1433,
+      "pin_code": "732101"
+    }
+  }
+]
