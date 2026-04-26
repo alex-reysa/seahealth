@@ -123,6 +123,37 @@ function facilityDotsGeoJson(locations: Array<{ facility_id: string; name: strin
   };
 }
 
+function pinPrefixBucket(pinCode: string | null | undefined): string | null {
+  const digit = pinCode?.trim().match(/^\d/)?.[0];
+  return digit ? `PIN-${digit}xxxxx` : null;
+}
+
+function findFacilityRegionAggregate(
+  aggregates: MapRegionAggregate[],
+  capability: CapabilityType,
+  audit: FacilityAudit | undefined,
+  rankedFacility: RankedFacility | undefined,
+): MapRegionAggregate | undefined {
+  const bucket = pinPrefixBucket(audit?.location.pin_code ?? rankedFacility?.location.pin_code);
+  if (!bucket) return undefined;
+
+  return aggregates.find(
+    (row) =>
+      row.capability_type === capability &&
+      (row.region_id === `AUTO-${bucket}` || row.region_name === bucket || row.state === bucket),
+  );
+}
+
+function formatRegionContextName(regionAggregate: MapRegionAggregate): string {
+  const bucket = regionAggregate.region_name.match(/^PIN-(\d)x{5}$/);
+  if (!bucket) return regionAggregate.region_name;
+  return `PIN prefix ${bucket[1]} region`;
+}
+
+function isSyntheticPinRegion(regionAggregate: MapRegionAggregate): boolean {
+  return /^PIN-\dx{5}$/.test(regionAggregate.region_name);
+}
+
 function getMapStyle(
   desertRadius: DesertRadius,
   coverageFeatures: any,
@@ -351,6 +382,8 @@ function FacilityModal({
   const trustScoreEntries = Object.entries(audit.trust_scores) as [CapabilityType, ApiTrustScore][];
   const selectedTrust: ApiTrustScore | undefined = audit.trust_scores[selectedCapability] ?? trustScoreEntries[0]?.[1];
   const rank = rankedFacility?.rank ?? 0;
+  const regionContextName = regionAggregate ? formatRegionContextName(regionAggregate) : '';
+  const hasSyntheticRegionContext = regionAggregate ? isSyntheticPinRegion(regionAggregate) : false;
 
   return createPortal(
     <div
@@ -468,7 +501,12 @@ function FacilityModal({
               <div className="mb-3 flex items-center justify-between gap-4">
                 <div>
                   <div className="text-caption font-semibold uppercase tracking-wider text-content-secondary">Region context</div>
-                  <h3 className="mt-1 text-heading-l text-content-primary">{regionAggregate.region_name}</h3>
+                  <h3 className="mt-1 text-heading-l text-content-primary">{regionContextName}</h3>
+                  {hasSyntheticRegionContext && (
+                    <p className="mt-1 text-caption text-content-secondary">
+                      Synthetic rollup matched from the facility PIN prefix.
+                    </p>
+                  )}
                 </div>
                 <span className="rounded-full bg-white/70 px-3 py-1 text-caption font-semibold text-accent-primary">
                   {regionAggregate.verified_facilities_count} verified · {regionAggregate.flagged_facilities_count} flagged
@@ -613,6 +651,10 @@ export function Dashboard() {
   const selectedRankedFacility = selectedFacilityId
     ? rankedFacilities.find((f) => f.facility_id === selectedFacilityId)
     : undefined;
+  const selectedFacilityRegionAggregate = React.useMemo(
+    () => findFacilityRegionAggregate(aggregates, capability, facilityAuditFetch.data, selectedRankedFacility),
+    [aggregates, capability, facilityAuditFetch.data, selectedRankedFacility],
+  );
 
   const coverageFeatures = React.useMemo(
     () => buildCoverageFeatureCollection(topFacilities, radiusKm),
@@ -1331,7 +1373,7 @@ export function Dashboard() {
           audit={facilityAuditFetch.data}
           rankedFacility={selectedRankedFacility}
           capability={capability}
-          regionAggregate={aggregates[0]}
+          regionAggregate={selectedFacilityRegionAggregate}
           onClose={() => setSelectedFacilityId(null)}
           onOpenFull={() => {
             const audit = facilityAuditFetch.data!;
