@@ -56,6 +56,7 @@ import indiaDistrictsTopoRaw from '@/src/data/indiaDistricts.topojson?raw';
 import mockIndiaRegionsTopologyRaw from '@/src/data/mockIndiaRegions.topojson?raw';
 import { useFacilityLocations } from '@/src/hooks/useFacilityLocations';
 import { useMapAggregates } from '@/src/hooks/useMapAggregates';
+import { usePlannerQuery } from '@/src/hooks/usePlannerQuery';
 import { useSummary } from '@/src/hooks/useSummary';
 import { decorateFeaturesWithJoin, joinAggregatesToFeatures } from '@/src/lib/mapJoin';
 import { getBounds } from '@/src/lib/regionTree';
@@ -518,10 +519,9 @@ export function Dashboard() {
   const initialQuery = searchParams.get('q') || '';
   const hasInitialQuery = Boolean(searchParams.get('q'));
   const [command, setCommand] = React.useState(initialQuery || CHALLENGE_QUERY);
-  const [activeResult, setActiveResult] = React.useState(() => getQueryResultForCommand(hasInitialQuery ? initialQuery : ''));
   const [activeStep, setActiveStep] = React.useState<number | null>(null);
   const [regionSearch, setRegionSearch] = React.useState(searchParams.get('pin_code') || '');
-  const [isAgentPanelOpen, setIsAgentPanelOpen] = React.useState(hasInitialQuery);
+  const [isAgentPanelOpen, setIsAgentPanelOpen] = React.useState(false);
   const [searchMode, setSearchMode] = React.useState<SearchMode>('semantic');
   const [capabilityDetails, setCapabilityDetails] = React.useState('');
   const [agentPanelView, setAgentPanelView] = React.useState<AgentPanelView>('facilities');
@@ -529,15 +529,18 @@ export function Dashboard() {
   const [selectedFacilityCapabilityId, setSelectedFacilityCapabilityId] = React.useState<CapabilityType | null>(null);
   const [overlayMode, setOverlayMode] = React.useState<MapOverlayMode>('priority_score');
   const [isPlanningLayersOpen, setIsPlanningLayersOpen] = React.useState(false);
-  const [isPriorityZoneOpen, setIsPriorityZoneOpen] = React.useState(true);
+  const [isPriorityZoneOpen, setIsPriorityZoneOpen] = React.useState(false);
   const [visibleLayers, setVisibleLayers] = React.useState<PlanningLayerVisibility>(DEFAULT_PLANNING_LAYER_VISIBILITY);
 
   const parsed = parseDemoCommand(command);
-  const capability = (searchParams.get('capability') as CapabilityType) || activeResult.parsedIntent.capability || parsed.capability;
-  const radiusKm = Number(searchParams.get('radius_km') || activeResult.parsedIntent.radiusKm || parsed.radiusKm);
+  const capability: CapabilityType = (searchParams.get('capability') as CapabilityType) || parsed.capability || ('SURGERY_GENERAL' as CapabilityType);
+  const radiusKm = Number(searchParams.get('radius_km') || parsed.radiusKm || 50);
   const regionId = searchParams.get('region_id') || '';
   const pinCode = searchParams.get('pin_code') || parsed.pinCode;
-  const fundingRegion = getFundingPriorityRegion(regionId, capability);
+  const hasBiharRegionSelected = regionId.startsWith('BR_');
+  const fundingRegion = hasBiharRegionSelected ? getFundingPriorityRegion(regionId, capability) : null;
+
+  const plannerQuery = usePlannerQuery();
 
   // Backend-driven counts + per-region signal. The summary tile and the
   // choropleth fill MUST come from these — never from demoData. The funding
@@ -581,9 +584,8 @@ export function Dashboard() {
   const populationSource: PopulationSource | null = selectedAggregate?.population_source ?? null;
   const populationUnavailable = populationSource === 'unavailable';
   const regionFacilities = getFacilityRowsForRegion(regionId, capability);
-  const rankedFacilities = getRankedFacilities(activeResult);
-  const fundingFacilities = fundingRegion.recommendedFacilities.map((id) => getFacilityById(id)).filter(Boolean) as DemoFacility[];
-  const mapFacilities = fundingFacilities.length ? fundingFacilities : rankedFacilities.length ? rankedFacilities : regionFacilities;
+  const fundingFacilities = fundingRegion ? fundingRegion.recommendedFacilities.map((id) => getFacilityById(id)).filter(Boolean) as DemoFacility[] : [];
+  const mapFacilities = fundingFacilities.length ? fundingFacilities : regionFacilities;
   const topFacility = mapFacilities[0];
   const selectedFacility = selectedFacilityId ? getFacilityById(selectedFacilityId) : undefined;
   const selectedFacilityRank = selectedFacility ? Math.max(1, mapFacilities.findIndex((facility) => facility.id === selectedFacility.id) + 1) : 0;
@@ -599,7 +601,7 @@ export function Dashboard() {
     () => facilityDotsGeoJson(locationsFetch.data ?? []),
     [locationsFetch.data],
   );
-  const selectedRegionCentroid = regionCentroidsById.get(fundingRegion.regionId);
+  const selectedRegionCentroid = fundingRegion ? regionCentroidsById.get(fundingRegion.regionId) : undefined;
 
   // /summary is the canonical source for the audit/verified/flagged counts.
   // Until the fetch resolves we render dashes so the page never advertises a
@@ -608,10 +610,14 @@ export function Dashboard() {
   const auditedCount = summary?.audited_count ?? null;
   const verifiedCount = summary?.verified_count ?? null;
   const flaggedCount = summary?.flagged_count ?? null;
-  const isRunning = activeStep !== null;
+  const isRunningQuery = plannerQuery.status === 'loading';
+  const isRunning = isRunningQuery;
+  const queryResult = plannerQuery.data;
+  // Shim for legacy AgentTimeline / rank rationale that still reads demoData shape.
+  const activeResult = hasInitialQuery ? getQueryResultForCommand(command) : getQueryResultForCommand('');
   const activeOverlayOption = OVERLAY_MODE_OPTIONS.find((option) => option.id === overlayMode) ?? OVERLAY_MODE_OPTIONS[0];
   const selectedFundingAudit = selectedFacility ? getCapabilityAudit(selectedFacility, capability) : undefined;
-  const selectedFundingRecommendation = selectedFacility
+  const selectedFundingRecommendation = selectedFacility && fundingRegion
     ? getCandidateRecommendation(selectedFacility, selectedFundingAudit ?? selectedAudit, selectedFacilityRank, fundingRegion)
     : undefined;
 
@@ -656,15 +662,11 @@ export function Dashboard() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [regionId]);
 
-  const applyCommand = (nextCommand: string, animate = true) => {
-    const nextParsed = parseDemoCommand(nextCommand);
-    const nextResult = getQueryResultForCommand(nextCommand);
-    timersRef.current.forEach(window.clearTimeout);
-    timersRef.current = [];
+  const applyCommand = (nextCommand: string) => {
     setCommand(nextCommand);
-    setActiveResult(nextResult);
-    setIsPriorityZoneOpen(true);
-    if (animate) setAgentPanelView('trace');
+    setIsAgentPanelOpen(true);
+    setAgentPanelView('trace');
+    const nextParsed = parseDemoCommand(nextCommand);
     setSearchParams({
       q: nextCommand,
       capability: nextParsed.capability,
@@ -672,21 +674,9 @@ export function Dashboard() {
       region_id: nextParsed.regionId,
       pin_code: nextParsed.pinCode,
     });
-    focusMap(nextParsed.regionId);
-
-    if (!animate) {
-      setActiveStep(null);
-      return;
-    }
-
-    setActiveStep(0);
-    nextResult.spans.forEach((_, index) => {
-      const timer = window.setTimeout(() => {
-        const isLastStep = index + 1 >= nextResult.spans.length;
-        setActiveStep(isLastStep ? null : index + 1);
-        if (isLastStep) setAgentPanelView('facilities');
-      }, 260 + index * 190);
-      timersRef.current.push(timer);
+    if (nextParsed.regionId) focusMap(nextParsed.regionId);
+    plannerQuery.run(nextCommand).then(() => {
+      setAgentPanelView('facilities');
     });
   };
 
@@ -704,20 +694,11 @@ export function Dashboard() {
   };
 
   const selectPriorityRegion = (nextRegionId: string) => {
-    const nextFundingRegion = getFundingPriorityRegion(nextRegionId);
-    const nextCommand = `Show funding candidates for ${nextFundingRegion.name} with verified ${getCapabilityLabel(nextFundingRegion.capability)} access gaps.`;
-    setCommand(nextCommand);
-    setActiveResult(getQueryResultForCommand(nextCommand));
-    setAgentPanelView('facilities');
     setIsPriorityZoneOpen(true);
-    setSearchParams({
-      q: nextCommand,
-      capability: nextFundingRegion.capability,
-      radius_km: String(radiusKm),
-      region_id: nextFundingRegion.regionId,
-      pin_code: nextFundingRegion.regionId === 'BR_MADHUBANI' ? '847211' : '800001',
-    });
-    focusMap(nextFundingRegion.regionId);
+    const params = new URLSearchParams(searchParams);
+    params.set('region_id', nextRegionId);
+    setSearchParams(params);
+    focusMap(nextRegionId);
   };
 
   const updateContext = (next: Partial<{ capability: CapabilityType; radiusKm: number; regionId: string; pinCode: string }>) => {
@@ -740,7 +721,9 @@ export function Dashboard() {
 
   const handleResetMap = () => {
     setRegionSearch('');
-    applyCommand(CHALLENGE_QUERY, false);
+    setIsAgentPanelOpen(false);
+    setIsPriorityZoneOpen(false);
+    setSearchParams({});
     mapRef.current?.getMap()?.flyTo({ center: INDIA_CENTER, zoom: 4, duration: 1000 });
   };
 
@@ -972,7 +955,7 @@ export function Dashboard() {
             </div>
             <div className="h-7 w-px bg-border-default" />
             <div>
-              <div className="text-body font-semibold text-content-primary">{new Date(activeResult.generatedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</div>
+              <div className="text-body font-semibold text-content-primary">{new Date(queryResult?.generated_at ?? new Date().toISOString()).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</div>
               <div className="text-mono-s uppercase text-content-secondary">Generated</div>
             </div>
           </Card>
@@ -1210,7 +1193,7 @@ export function Dashboard() {
             </div>
             <div className="mt-3 rounded-xl border border-border-subtle bg-white/62 p-3">
               <div className="text-mono-s uppercase text-content-tertiary">Current request</div>
-              <p className="mt-1 line-clamp-2 text-body text-content-secondary">{activeResult.query}</p>
+              <p className="mt-1 line-clamp-2 text-body text-content-secondary">{queryResult?.query ?? command}</p>
             </div>
             <div className="mt-4 grid grid-cols-2 gap-3">
               <div className="rounded-lg bg-white/65 p-3">
@@ -1277,7 +1260,7 @@ export function Dashboard() {
                   <div className="flex items-center gap-2 text-caption font-semibold uppercase tracking-wider text-content-secondary">
                     <Clock3 className="h-4 w-4" /> Execution Timeline
                   </div>
-                  <span className="text-mono-s text-content-tertiary">{activeResult.queryTraceId}</span>
+                  <span className="text-mono-s text-content-tertiary">{queryResult?.query_trace_id ?? '—'}</span>
                 </div>
                 <AgentTimeline result={activeResult} activeStep={activeStep} />
               </>
@@ -1287,7 +1270,7 @@ export function Dashboard() {
                   <div className="flex items-center gap-2 text-caption font-semibold uppercase tracking-wider text-content-secondary">
                     <Target className="h-4 w-4" /> Funding candidates
                   </div>
-                  <span className="text-caption text-content-tertiary">{activeResult.totalCandidates} candidates</span>
+                  <span className="text-caption text-content-tertiary">{queryResult?.total_candidates ?? 0} candidates</span>
                 </div>
 
                 <div className="mt-3 flex flex-col gap-2">
