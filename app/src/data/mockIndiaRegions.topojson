@@ -8,7 +8,12 @@
           "type": "Polygon",
           "properties": {
             "regionId": "BR_STATE",
-            "name": "Bihar State Background"
+            "name": "Bihar State Background",
+            "centroid": [85.56, 25.68],
+            "priorityScore": 0.52,
+            "needSignal": 0.62,
+            "verifiedAccessScore": 0.44,
+            "contradictionRisk": 0.48
           },
           "arcs": [[0]]
         },
@@ -16,7 +21,12 @@
           "type": "Polygon",
           "properties": {
             "regionId": "BR_PATNA",
-            "name": "Patna Appendectomy Catchment"
+            "name": "Patna Appendectomy Catchment",
+            "centroid": [85.07, 25.54],
+            "priorityScore": 0.68,
+            "needSignal": 0.74,
+            "verifiedAccessScore": 0.46,
+            "contradictionRisk": 0.66
           },
           "arcs": [[1]]
         },
@@ -24,7 +34,12 @@
           "type": "Polygon",
           "properties": {
             "regionId": "BR_MADHUBANI",
-            "name": "Rural Bihar Neonatal Priority Zone"
+            "name": "Rural Bihar Neonatal Priority Zone",
+            "centroid": [86.43, 26.45],
+            "priorityScore": 0.86,
+            "needSignal": 0.91,
+            "verifiedAccessScore": 0.18,
+            "contradictionRisk": 0.82
           },
           "arcs": [[2]]
         }

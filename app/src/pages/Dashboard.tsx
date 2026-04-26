@@ -34,7 +34,6 @@ import {
   type DemoFacility,
   type DemoQueryResult,
   type DemoTraceSpan,
-  FUNDING_PRIORITY_REGIONS,
   formatNumber,
   getCapabilityAudit,
   getCapabilityLabel,
@@ -65,12 +64,53 @@ const DEFAULT_PLANNING_LAYER_VISIBILITY: PlanningLayerVisibility = {
   facility_coverage_radius: false,
 };
 
-const OVERLAY_MODE_OPTIONS: Array<{ id: MapOverlayMode; label: string; legend: string }> = [
-  { id: 'priority_score', label: 'Priority score', legend: 'committee priority' },
-  { id: 'need_signal', label: 'Need signal', legend: 'newborn burden' },
-  { id: 'verified_access', label: 'Verified access', legend: 'audited supply' },
-  { id: 'contradiction_risk', label: 'Contradiction risk', legend: 'claim reliability' },
-];
+const NEUTRAL_LENS_FILL = '#DDEBE5';
+
+type LensRamp = ReadonlyArray<readonly [number, string]>;
+
+const LENS_CONFIG: Record<MapOverlayMode, {
+  label: string;
+  legend: string;
+  propertyName: string;
+  layerId: PlanningLayerId | null;
+  ramp: LensRamp;
+}> = {
+  priority_score: {
+    label: 'Priority score',
+    legend: 'committee priority',
+    propertyName: 'priorityScore',
+    layerId: null,
+    ramp: [[0, '#E4F3EC'], [0.55, '#B7DFC9'], [0.75, '#72B7A8'], [1, '#2F7F72']],
+  },
+  need_signal: {
+    label: 'Need signal',
+    legend: 'newborn burden',
+    propertyName: 'needSignal',
+    layerId: 'need_signal',
+    ramp: [[0, '#F5EFE5'], [0.55, '#F1C7A6'], [0.78, '#D88975'], [1, '#A4473E']],
+  },
+  verified_access: {
+    label: 'Verified access',
+    legend: 'audited supply',
+    propertyName: 'verifiedAccessScore',
+    layerId: 'verified_access_gap',
+    ramp: [[0, '#A4473E'], [0.35, '#F1C7A6'], [0.72, '#72B7A8'], [1, '#176D6A']],
+  },
+  contradiction_risk: {
+    label: 'Contradiction risk',
+    legend: 'claim reliability',
+    propertyName: 'contradictionRisk',
+    layerId: 'contradiction_risk',
+    ramp: [[0, '#E4F3EC'], [0.5, '#E5B86F'], [0.8, '#C56556'], [1, '#7E2F2C']],
+  },
+};
+
+const OVERLAY_MODE_OPTIONS: Array<{ id: MapOverlayMode; label: string; legend: string }> =
+  (Object.entries(LENS_CONFIG) as Array<[MapOverlayMode, (typeof LENS_CONFIG)[MapOverlayMode]]>).map(([id, cfg]) => ({
+    id,
+    label: cfg.label,
+    legend: cfg.legend,
+  }));
 
 const PLANNING_LAYER_OPTIONS: Array<{ id: PlanningLayerId; label: string; detail: string }> = [
   { id: 'verified_access_gap', label: 'Verified access gap', detail: 'low audited supply' },
@@ -79,49 +119,64 @@ const PLANNING_LAYER_OPTIONS: Array<{ id: PlanningLayerId; label: string; detail
   { id: 'facility_coverage_radius', label: 'Facility coverage radius', detail: 'candidate reach' },
 ];
 
-const overlayModeLayer: Record<MapOverlayMode, PlanningLayerId | null> = {
-  priority_score: null,
-  need_signal: 'need_signal',
-  verified_access: 'verified_access_gap',
-  contradiction_risk: 'contradiction_risk',
-};
-
 function isOverlayModeVisible(overlayMode: MapOverlayMode, visibleLayers: PlanningLayerVisibility) {
-  const layerId = overlayModeLayer[overlayMode];
+  const layerId = LENS_CONFIG[overlayMode].layerId;
   return layerId ? visibleLayers[layerId] : true;
 }
 
 const mockIndiaRegionsTopology = JSON.parse(mockIndiaRegionsTopologyRaw);
 const mockIndiaRegionsGeoJson = feature(mockIndiaRegionsTopology, mockIndiaRegionsTopology.objects.regions) as any;
-const fundingPriorityByRegionId = new globalThis.Map(FUNDING_PRIORITY_REGIONS.map((region) => [region.regionId, region]));
-const mockFundingRegionsGeoJson = {
-  ...mockIndiaRegionsGeoJson,
-  features: mockIndiaRegionsGeoJson.features.map((regionFeature: any) => {
-    const fundingRegion = fundingPriorityByRegionId.get(regionFeature.properties.regionId);
-    return {
-      ...regionFeature,
-      properties: {
-        ...regionFeature.properties,
-        priorityScore: fundingRegion?.priorityScore ?? 0,
-        verifiedAccessScore: fundingRegion?.verifiedAccessScore ?? 0,
-        needSignal: fundingRegion?.needSignal ?? 0,
-        contradictionRisk: fundingRegion?.contradictionRisk ?? 0,
-      },
-    };
-  }),
-};
+const regionCentroidsById = new globalThis.Map<string, [number, number]>(
+  mockIndiaRegionsGeoJson.features.map((regionFeature: any) => [
+    regionFeature.properties.regionId as string,
+    regionFeature.properties.centroid as [number, number],
+  ]),
+);
 
-function getOverlayFillColor(overlayMode: MapOverlayMode) {
-  if (overlayMode === 'need_signal') {
-    return ['interpolate', ['linear'], ['get', 'needSignal'], 0, '#F5EFE5', 0.55, '#F1C7A6', 0.78, '#D88975', 1, '#A4473E'];
+function getOverlayFillColor(overlayMode: MapOverlayMode, visibleLayers: PlanningLayerVisibility): any {
+  if (!isOverlayModeVisible(overlayMode, visibleLayers)) {
+    return NEUTRAL_LENS_FILL;
   }
-  if (overlayMode === 'verified_access') {
-    return ['interpolate', ['linear'], ['get', 'verifiedAccessScore'], 0, '#A4473E', 0.35, '#F1C7A6', 0.72, '#72B7A8', 1, '#176D6A'];
+  const cfg = LENS_CONFIG[overlayMode];
+  const stops: any[] = [];
+  cfg.ramp.forEach(([stop, color]) => {
+    stops.push(stop, color);
+  });
+  return ['interpolate', ['linear'], ['get', cfg.propertyName], ...stops];
+}
+
+function geoCircleFeature(lng: number, lat: number, radiusKm: number, steps = 64): any {
+  const earthRadiusKm = 6371;
+  const angularDistance = radiusKm / earthRadiusKm;
+  const latRad = (lat * Math.PI) / 180;
+  const lngRad = (lng * Math.PI) / 180;
+  const ring: Array<[number, number]> = [];
+  for (let i = 0; i <= steps; i++) {
+    const bearing = (i * 2 * Math.PI) / steps;
+    const lat2 = Math.asin(
+      Math.sin(latRad) * Math.cos(angularDistance) +
+        Math.cos(latRad) * Math.sin(angularDistance) * Math.cos(bearing),
+    );
+    const lng2 =
+      lngRad +
+      Math.atan2(
+        Math.sin(bearing) * Math.sin(angularDistance) * Math.cos(latRad),
+        Math.cos(angularDistance) - Math.sin(latRad) * Math.sin(lat2),
+      );
+    ring.push([(lng2 * 180) / Math.PI, (lat2 * 180) / Math.PI]);
   }
-  if (overlayMode === 'contradiction_risk') {
-    return ['interpolate', ['linear'], ['get', 'contradictionRisk'], 0, '#E4F3EC', 0.5, '#E5B86F', 0.8, '#C56556', 1, '#7E2F2C'];
-  }
-  return ['interpolate', ['linear'], ['get', 'priorityScore'], 0, '#E4F3EC', 55, '#B7DFC9', 75, '#72B7A8', 100, '#2F7F72'];
+  return {
+    type: 'Feature',
+    geometry: { type: 'Polygon', coordinates: [ring] },
+    properties: {},
+  };
+}
+
+function buildCoverageFeatureCollection(facilities: DemoFacility[], radiusKm: number): any {
+  return {
+    type: 'FeatureCollection',
+    features: facilities.map((facility) => geoCircleFeature(facility.lng, facility.lat, radiusKm)),
+  };
 }
 
 function getMetricLabel(value: number, labels: [string, string, string]) {
@@ -134,7 +189,12 @@ function formatPercentMetric(value: number) {
   return `${Math.round(value * 100)}%`;
 }
 
-function getMapStyle(regionId: string, overlayMode: MapOverlayMode, visibleLayers: PlanningLayerVisibility) {
+function getMapStyle(
+  regionId: string,
+  overlayMode: MapOverlayMode,
+  visibleLayers: PlanningLayerVisibility,
+  coverageFeatures: any,
+) {
   const overlayVisible = isOverlayModeVisible(overlayMode, visibleLayers);
   const fundingFillOpacity = overlayVisible
     ? ['case', ['==', ['get', 'regionId'], regionId], 0.7, 0.5]
@@ -156,8 +216,12 @@ function getMapStyle(regionId: string, overlayMode: MapOverlayMode, visibleLayer
       },
       'funding-regions': {
         type: 'geojson',
-        data: mockFundingRegionsGeoJson,
+        data: mockIndiaRegionsGeoJson,
         generateId: true,
+      },
+      'coverage-radius': {
+        type: 'geojson',
+        data: coverageFeatures,
       },
     },
     layers: [
@@ -193,7 +257,7 @@ function getMapStyle(regionId: string, overlayMode: MapOverlayMode, visibleLayer
             '#105B58',
             ['==', ['get', 'regionId'], regionId],
             '#3D9D89',
-            getOverlayFillColor(overlayMode),
+            getOverlayFillColor(overlayMode, visibleLayers),
           ],
           'fill-opacity': fundingFillOpacity,
         },
@@ -226,6 +290,28 @@ function getMapStyle(regionId: string, overlayMode: MapOverlayMode, visibleLayer
           'line-opacity': 0.32,
           'line-width': ['interpolate', ['linear'], ['get', 'contradictionRisk'], 0, 0.4, 1, 2.8],
           'line-dasharray': [2, 1.4],
+        },
+      },
+      {
+        id: 'coverage-radius-fill',
+        type: 'fill',
+        source: 'coverage-radius',
+        layout: { visibility: visibleLayers.facility_coverage_radius ? 'visible' : 'none' },
+        paint: {
+          'fill-color': '#3D9D89',
+          'fill-opacity': 0.08,
+        },
+      },
+      {
+        id: 'coverage-radius-line',
+        type: 'line',
+        source: 'coverage-radius',
+        layout: { visibility: visibleLayers.facility_coverage_radius ? 'visible' : 'none' },
+        paint: {
+          'line-color': '#176D6A',
+          'line-opacity': 0.45,
+          'line-width': 1.4,
+          'line-dasharray': [2, 1.2],
         },
       },
     ],
@@ -355,6 +441,12 @@ export function Dashboard() {
   const selectedAudit = selectedFacility
     ? getCapabilityAudit(selectedFacility, selectedFacilityCapabilityId ?? capability) ?? selectedFacility.capabilities[0]
     : undefined;
+
+  const coverageFeatures = React.useMemo(
+    () => buildCoverageFeatureCollection(mapFacilities.slice(0, 7), radiusKm),
+    [mapFacilities, radiusKm],
+  );
+  const selectedRegionCentroid = regionCentroidsById.get(fundingRegion.regionId);
 
   const auditedCount = 2145;
   const verifiedCount = regionFacilities.filter((facility) => (getCapabilityAudit(facility, capability)?.score ?? 0) >= 70).length;
@@ -493,7 +585,7 @@ export function Dashboard() {
           latitude: regionId === 'BR_MADHUBANI' ? MADHUBANI_CENTER[1] : PATNA_CENTER[1],
           zoom: regionId ? 7 : 4,
         }}
-        mapStyle={getMapStyle(regionId, overlayMode, visibleLayers)}
+        mapStyle={getMapStyle(regionId, overlayMode, visibleLayers, coverageFeatures)}
         style={{ width: '100%', height: '100%' }}
         interactiveLayerIds={['funding-fill']}
         onClick={(event: any) => {
@@ -520,13 +612,74 @@ export function Dashboard() {
               } ${selectedFacilityId === facility.id ? 'border-content-primary ring-4 ring-white/80' : 'border-white'}`}
               aria-label={`Open ${facility.name}`}
             >
-              {visibleLayers.facility_coverage_radius && (
-                <span className="absolute -inset-5 -z-10 rounded-full border border-accent-primary/30 bg-accent-primary/10" />
-              )}
               {index + 1}
             </button>
           </Marker>
         ))}
+
+        {selectedRegionCentroid && (
+          <Marker longitude={selectedRegionCentroid[0]} latitude={selectedRegionCentroid[1]} anchor="center">
+            <span className="block h-3 w-3 rounded-full bg-accent-primary ring-4 ring-white/80 shadow-elevation-2" />
+          </Marker>
+        )}
+
+        {selectedRegionCentroid && (
+          <Marker
+            longitude={selectedRegionCentroid[0]}
+            latitude={selectedRegionCentroid[1]}
+            anchor="top-left"
+            offset={[14, 12]}
+          >
+            <div
+              className="pointer-events-auto w-[300px] rounded-2xl border border-border-subtle bg-white/86 p-4 shadow-elevation-3 backdrop-blur-xl"
+              onClick={(event) => event.stopPropagation()}
+            >
+              <div className="text-caption font-semibold uppercase tracking-wider text-content-secondary">Selected priority zone</div>
+              <h2 className="mt-1 text-heading-m text-content-primary">{fundingRegion.name}</h2>
+              <p className="mt-2 text-caption text-content-secondary">{fundingRegion.regionSummary}</p>
+
+              <div className="mt-4 grid grid-cols-2 gap-2">
+                <div className="rounded-xl bg-white/70 p-3">
+                  <div className="text-mono-s uppercase text-content-tertiary">Priority score</div>
+                  <div className="mt-1 text-heading-m text-accent-primary">{Math.round(fundingRegion.priorityScore * 100)}/100</div>
+                </div>
+                <div className="rounded-xl bg-white/70 p-3">
+                  <div className="text-mono-s uppercase text-content-tertiary">Gap population</div>
+                  <div className="mt-1 text-heading-m text-content-primary">{formatNumber(fundingRegion.gapPopulation)}</div>
+                </div>
+                <div className="rounded-xl bg-white/70 p-3">
+                  <div className="text-mono-s uppercase text-content-tertiary">Need signal</div>
+                  <div className="mt-1 text-caption font-semibold text-content-primary">
+                    {getMetricLabel(fundingRegion.needSignal, ['Low', 'Moderate', 'High'])} ({formatPercentMetric(fundingRegion.needSignal)})
+                  </div>
+                  <div className="mt-1 text-mono-s text-content-tertiary">{fundingRegion.needLayerLabel}</div>
+                </div>
+                <div className="rounded-xl bg-white/70 p-3">
+                  <div className="text-mono-s uppercase text-content-tertiary">Verified access</div>
+                  <div className="mt-1 text-caption font-semibold text-content-primary">
+                    {getMetricLabel(fundingRegion.verifiedAccessScore, ['Low', 'Mixed', 'High'])} ({formatPercentMetric(fundingRegion.verifiedAccessScore)})
+                  </div>
+                  <div className="mt-1 text-mono-s text-content-tertiary">{fundingRegion.supplyLayerLabel}</div>
+                </div>
+              </div>
+
+              <div className="mt-3 rounded-xl border border-border-subtle bg-white/62 p-3">
+                <div className="flex items-center justify-between gap-3 text-caption">
+                  <span className="text-content-secondary">Nearest verified {getCapabilityLabel(fundingRegion.capability).toLowerCase()}</span>
+                  <span className="font-semibold text-content-primary">{fundingRegion.nearestVerifiedKm}km</span>
+                </div>
+                <div className="mt-2 flex items-center justify-between gap-3 text-caption">
+                  <span className="text-content-secondary">Contradiction risk</span>
+                  <span className="font-semibold text-semantic-critical">
+                    {getMetricLabel(fundingRegion.contradictionRisk, ['Low', 'Moderate', 'High'])} ({formatPercentMetric(fundingRegion.contradictionRisk)})
+                  </span>
+                </div>
+              </div>
+
+              <p className="mt-3 text-caption font-medium text-content-primary">{fundingRegion.recommendedAction}</p>
+            </div>
+          </Marker>
+        )}
       </Map>
 
       <div className={`pointer-events-none absolute left-6 ${isAgentPanelOpen ? 'right-[500px]' : 'right-6'} top-5 z-20 flex flex-col gap-2 transition-all duration-300`}>
@@ -611,51 +764,6 @@ export function Dashboard() {
           </div>
         </Card>
 
-        <Card variant="glass" className="pointer-events-auto rounded-2xl bg-white/68 p-4 shadow-elevation-2">
-          <div className="text-caption font-semibold uppercase tracking-wider text-content-secondary">Selected priority zone</div>
-          <h2 className="mt-1 text-heading-m text-content-primary">{fundingRegion.name}</h2>
-          <p className="mt-2 text-caption text-content-secondary">{fundingRegion.regionSummary}</p>
-
-          <div className="mt-4 grid grid-cols-2 gap-2">
-            <div className="rounded-xl bg-white/70 p-3">
-              <div className="text-mono-s uppercase text-content-tertiary">Priority score</div>
-              <div className="mt-1 text-heading-m text-accent-primary">{fundingRegion.priorityScore}/100</div>
-            </div>
-            <div className="rounded-xl bg-white/70 p-3">
-              <div className="text-mono-s uppercase text-content-tertiary">Gap population</div>
-              <div className="mt-1 text-heading-m text-content-primary">{formatNumber(fundingRegion.gapPopulation)}</div>
-            </div>
-            <div className="rounded-xl bg-white/70 p-3">
-              <div className="text-mono-s uppercase text-content-tertiary">Need signal</div>
-              <div className="mt-1 text-caption font-semibold text-content-primary">
-                {getMetricLabel(fundingRegion.needSignal, ['Low', 'Moderate', 'High'])} ({formatPercentMetric(fundingRegion.needSignal)})
-              </div>
-              <div className="mt-1 text-mono-s text-content-tertiary">{fundingRegion.needLayerLabel}</div>
-            </div>
-            <div className="rounded-xl bg-white/70 p-3">
-              <div className="text-mono-s uppercase text-content-tertiary">Verified access</div>
-              <div className="mt-1 text-caption font-semibold text-content-primary">
-                {getMetricLabel(fundingRegion.verifiedAccessScore, ['Low', 'Mixed', 'High'])} ({formatPercentMetric(fundingRegion.verifiedAccessScore)})
-              </div>
-              <div className="mt-1 text-mono-s text-content-tertiary">{fundingRegion.supplyLayerLabel}</div>
-            </div>
-          </div>
-
-          <div className="mt-3 rounded-xl border border-border-subtle bg-white/62 p-3">
-            <div className="flex items-center justify-between gap-3 text-caption">
-              <span className="text-content-secondary">Nearest verified {getCapabilityLabel(fundingRegion.capability).toLowerCase()}</span>
-              <span className="font-semibold text-content-primary">{fundingRegion.nearestVerifiedKm}km</span>
-            </div>
-            <div className="mt-2 flex items-center justify-between gap-3 text-caption">
-              <span className="text-content-secondary">Contradiction risk</span>
-              <span className="font-semibold text-semantic-critical">
-                {getMetricLabel(fundingRegion.contradictionRisk, ['Low', 'Moderate', 'High'])} ({formatPercentMetric(fundingRegion.contradictionRisk)})
-              </span>
-            </div>
-          </div>
-
-          <p className="mt-3 text-caption font-medium text-content-primary">{fundingRegion.recommendedAction}</p>
-        </Card>
       </div>
 
       <div
@@ -823,7 +931,7 @@ export function Dashboard() {
               </div>
               <div className="rounded-lg bg-white/65 p-3">
                 <div className="text-caption text-content-tertiary">Priority Score</div>
-                <div className="mt-1 text-heading-s text-accent-primary">{fundingRegion.priorityScore}/100</div>
+                <div className="mt-1 text-heading-s text-accent-primary">{Math.round(fundingRegion.priorityScore * 100)}/100</div>
               </div>
             </div>
             <div className="mt-3 rounded-xl border border-border-subtle bg-white/62 p-3">
@@ -1072,7 +1180,7 @@ export function Dashboard() {
                     <h3 className="mt-1 text-heading-l text-content-primary">{fundingRegion.name}</h3>
                   </div>
                   <span className="rounded-full bg-white/70 px-3 py-1 text-caption font-semibold text-accent-primary">
-                    Priority {fundingRegion.priorityScore}/100
+                    Priority {Math.round(fundingRegion.priorityScore * 100)}/100
                   </span>
                 </div>
                 <p className="text-body-l text-content-primary">
