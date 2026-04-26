@@ -1,0 +1,43 @@
+{
+  "IN": {
+    "parent": null,
+    "level": 0,
+    "name": "India",
+    "children": ["BR"],
+    "bounds": [[68.0, 6.0], [97.5, 36.0]],
+    "centroid": [78.9629, 20.5937]
+  },
+  "BR": {
+    "parent": "IN",
+    "level": 1,
+    "name": "Bihar",
+    "children": ["BR_PATNA", "BR_MADHUBANI"],
+    "bounds": [[83.0, 24.0], [88.5, 27.5]],
+    "centroid": [85.56, 25.68]
+  },
+  "BR_STATE": {
+    "parent": "IN",
+    "level": 1,
+    "name": "Bihar State Background",
+    "children": ["BR_PATNA", "BR_MADHUBANI"],
+    "bounds": [[83.0, 24.0], [88.5, 27.5]],
+    "centroid": [85.56, 25.68],
+    "alias_of": "BR"
+  },
+  "BR_PATNA": {
+    "parent": "BR",
+    "level": 2,
+    "name": "Patna District",
+    "children": [],
+    "bounds": [[84.7, 25.3], [85.5, 25.8]],
+    "centroid": [85.07, 25.54]
+  },
+  "BR_MADHUBANI": {
+    "parent": "BR",
+    "level": 2,
+    "name": "Madhubani District",
+    "children": [],
+    "bounds": [[86.0, 26.0], [86.8, 26.7]],
+    "centroid": [86.43, 26.45]
+  }
+}
