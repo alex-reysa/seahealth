@@ -81,13 +81,18 @@ app = FastAPI(
     ),
 )
 
-# CORS: ``allow_origins=["*"]`` is fine for the local hackathon demo (read-only
-# endpoints, no cookies, no credentials). TODO(prod): tighten to the deployed
-# UI origin(s) before any non-demo deployment, e.g.
-# ``allow_origins=["https://app.seahealth.example"]``.
+# CORS: read CORS_ALLOW_ORIGINS as a comma-separated env var; defaults to
+# ``*`` for the local hackathon demo. Production deployments should set
+# ``CORS_ALLOW_ORIGINS=https://app.seahealth.example``.
+_cors_origins_env = os.environ.get("CORS_ALLOW_ORIGINS", "*").strip()
+_cors_origins = (
+    [o.strip() for o in _cors_origins_env.split(",") if o.strip()]
+    if _cors_origins_env != "*"
+    else ["*"]
+)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=_cors_origins,
     allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
