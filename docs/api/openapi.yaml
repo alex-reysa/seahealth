@@ -488,11 +488,26 @@ components:
         delta_reachable:
           type: boolean
           title: Delta Reachable
+        retriever_mode:
+          type: string
+          title: Retriever Mode
+          description: vector_search | faiss_local | unknown.
+        vs_endpoint:
+          anyOf:
+            - type: string
+            - type: 'null'
+          title: Vs Endpoint
+        vs_index:
+          anyOf:
+            - type: string
+            - type: 'null'
+          title: Vs Index
       type: object
       required:
       - mode
       - facility_audits_path
       - delta_reachable
+      - retriever_mode
       title: HealthDataResponse
       description: GET /health/data payload (used by the demo to confirm data wiring).
     MapRegionAggregate:
@@ -681,6 +696,18 @@ components:
           - type: 'null'
           description: When set, all counts are restricted to this capability; otherwise
             global.
+        verified_count_ci:
+          anyOf:
+          - type: array
+            prefixItems:
+            - type: integer
+            - type: integer
+            minItems: 2
+            maxItems: 2
+          - type: 'null'
+          title: Verified Count Ci
+          description: Optional 95% Wilson CI on verified_count, scaled back to integer
+            counts in [0, audited_count]. None when audited_count is 0.
       type: object
       required:
       - audited_count

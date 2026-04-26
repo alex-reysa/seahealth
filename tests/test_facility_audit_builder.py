@@ -255,3 +255,15 @@ def test_explicit_trace_id_wins_over_caps():
     )
 
     assert audit.mlflow_trace_id == "explicit-trace"
+
+
+def test_classify_trace_id_live_synthetic_missing():
+    """Trace classifier distinguishes live MLflow ids from local synthetics."""
+    from seahealth.agents.facility_audit_builder import classify_trace_id
+
+    assert classify_trace_id(None) == "missing"
+    assert classify_trace_id("") == "missing"
+    assert classify_trace_id("local::vf_02239::abc123") == "synthetic"
+    # MLflow 3 uses tr-... and request_<uuid>; both classify as live.
+    assert classify_trace_id("tr-12345abc") == "live"
+    assert classify_trace_id("request_12345abc") == "live"

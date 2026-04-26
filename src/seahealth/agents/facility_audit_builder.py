@@ -8,6 +8,7 @@ UI surface. No I/O, no LLM, no randomness — fully deterministic given inputs.
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from typing import Literal
 
 from seahealth.schemas import (
     Capability,
@@ -18,6 +19,25 @@ from seahealth.schemas import (
     GeoPoint,
     TrustScore,
 )
+
+TraceClass = Literal["live", "synthetic", "missing"]
+
+LOCAL_TRACE_PREFIX = "local::"
+
+
+def classify_trace_id(trace_id: str | None) -> TraceClass:
+    """Classify a trace id as live, synthetic, or missing.
+
+    A real MLflow trace id never starts with ``local::``; the extractor's
+    deterministic synthetic fallback does. The classifier lets the build
+    pipeline (and the UI) distinguish "we ran without MLflow" from "we ran with
+    MLflow and the id resolves to a real trace" without parsing the id further.
+    """
+    if not trace_id:
+        return "missing"
+    if trace_id.startswith(LOCAL_TRACE_PREFIX):
+        return "synthetic"
+    return "live"
 
 
 def _utcnow() -> datetime:

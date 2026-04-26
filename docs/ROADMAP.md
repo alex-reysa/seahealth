@@ -26,6 +26,14 @@ Updated as phases land. ✅ = merged on `integrate/ship-12h`. ⏳ = in flight. �
 | 5 | Naomi REAL eval — adapter (xlsx → CSV) + run_eval + report | ✅ | `d2cb4f3` | First pass P=0.196 R=0.345 (250-ext); see Phase 6 for the 10k re-run |
 | **6** | **Gap closure to fully meet `challenge.md` — full 10k extraction (Haiku 4.5), parallel workers, MLflow trace propagation, multi-attribute query** | **✅** | (this commit) | 10k facilities, 2784 with caps, 974 verified, 900 flagged. Eval re-scoped: P=0.488 R=0.362 F1=0.416 |
 | 7 | Demo polish + submission (script, video, one-pager, packaging) | ☐ | — | Demo script locked at hour 24 per PHASES.md |
+| **PR-0** | **Product Readiness baseline freeze — `docs/PRODUCT_READINESS_REPORT.md` generated; demo query + facility locked** | **✅** | (this commit) | 279 tests passing; gaps mapped to Phase 1–7 lanes |
+| PR-1 | Phase 1 — MLflow traces + citation quality + contradiction recall | ☐ | — | Lanes 1A / 1B / 1C |
+| PR-2 | Phase 2 — Vector Search live + Databricks substitution rationale | ☐ | — | Lanes 2A / 2B |
+| PR-3 | Phase 3 — Live API UI + Facility audit trace view + Choropleth | ☐ | — | Lanes 3A / 3B / 3C |
+| PR-4 | Phase 4 — Naomi repro + Aggregate CIs | ☐ | — | Lanes 4A / 4B |
+| PR-5 | Phase 5 — Clean clone runtime + API hardening | ☐ | — | Lanes 5A / 5B |
+| PR-6 | Phase 6 — Demo package + One-pager | ☐ | — | Lanes 6A / 6B |
+| PR-7 | Phase 7 — Final integration + release tag | ☐ | — | `release/seahealth-submission` |
 | Optional | R-3 Phase 3 reviewer, AUD-R audit-swarm reviewer, AUD-08 tautology cleanup | ☐ | — | Non-blocking; can run post-submission |
 
 ## Current state

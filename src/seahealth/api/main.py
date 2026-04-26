@@ -61,6 +61,9 @@ class HealthDataResponse(BaseModel):
     mode: str
     facility_audits_path: str
     delta_reachable: bool
+    retriever_mode: str
+    vs_endpoint: str | None = None
+    vs_index: str | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -78,13 +81,24 @@ app = FastAPI(
     ),
 )
 
-# CORS: ``allow_origins=["*"]`` is fine for the local hackathon demo (read-only
-# endpoints, no cookies, no credentials). TODO(prod): tighten to the deployed
-# UI origin(s) before any non-demo deployment, e.g.
-# ``allow_origins=["https://app.seahealth.example"]``.
+# CORS: read CORS_ALLOW_ORIGINS as a comma-separated env var; defaults to
+# ``*`` for the local hackathon demo. Production deployments should set
+# ``CORS_ALLOW_ORIGINS=https://app.seahealth.example``.
+_cors_origins_env = os.environ.get("CORS_ALLOW_ORIGINS", "*").strip()
+_cors_origins = (
+    [o.strip() for o in _cors_origins_env.split(",") if o.strip()]
+    if _cors_origins_env != "*"
+    else ["*"]
+)
+# Production posture := the operator restricted CORS to a non-wildcard. In
+# that mode we redact infrastructure identifiers from /health/data and stop
+# leaking raw exception text into 503 bodies. Local demo (CORS=*) keeps
+# the verbose responses so reviewers can debug.
+_PRODUCTION_POSTURE: bool = _cors_origins != ["*"]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=_cors_origins,
     allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -92,6 +106,9 @@ app.add_middleware(
 
 
 def _data_503(exc: DataLayerError) -> HTTPException:
+    if _PRODUCTION_POSTURE:
+        # Don't leak data-layer internals when CORS is restricted.
+        return HTTPException(status_code=503, detail="data unavailable")
     return HTTPException(status_code=503, detail=f"data unavailable: {exc}")
 
 
@@ -105,10 +122,34 @@ def health() -> dict:
 def health_data() -> HealthDataResponse:
     """Current data-mode snapshot. Useful for the demo to confirm wiring."""
     snapshot = data_access.health_snapshot()
+    # Best-effort retriever snapshot — never block /health/data on it.
+    retriever_mode = "unknown"
+    vs_endpoint: str | None = None
+    vs_index: str | None = None
+    try:
+        from seahealth.db.retriever import describe_retriever_mode
+
+        rs = describe_retriever_mode()
+        retriever_mode = str(rs.get("mode") or "unknown")
+        vs_endpoint = rs.get("vs_endpoint")  # type: ignore[assignment]
+        vs_index = rs.get("vs_index")  # type: ignore[assignment]
+    except Exception as exc:  # pragma: no cover - defensive
+        log.warning("retriever snapshot failed: %s", exc)
+    # Production posture: redact filesystem and Vector Search identifiers
+    # so an unauthenticated health probe doesn't surface internal paths.
+    if _PRODUCTION_POSTURE:
+        facility_audits_path = "<redacted>"
+        vs_endpoint = None
+        vs_index = None
+    else:
+        facility_audits_path = snapshot["facility_audits_path"]
     return HealthDataResponse(
         mode=snapshot["mode"],
-        facility_audits_path=snapshot["facility_audits_path"],
+        facility_audits_path=facility_audits_path,
         delta_reachable=bool(snapshot.get("delta_reachable", False)),
+        retriever_mode=retriever_mode,
+        vs_endpoint=vs_endpoint,
+        vs_index=vs_index,
     )
 
 

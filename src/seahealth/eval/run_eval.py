@@ -113,9 +113,22 @@ def _read_audits(
 ) -> list[tuple[str, CapabilityType, ContradictionType]]:
     """Return (facility_id, CapabilityType, ContradictionType) triples.
 
-    Accepts JSON (list of {facility_id, capability_type, contradictions:[...]}
-    where each contradiction is a string) or Parquet with the same shape.
-    Returns one row per (facility, capability, contradiction_type).
+    Two parquet/JSON shapes are accepted:
+
+    1. **Flat shape** — one row per (facility, capability) with a literal
+       ``contradictions: list[str]`` column / field. Used by historical eval
+       fixtures.
+    2. **Canonical FacilityAudit shape** — one row per facility with a
+       ``trust_scores_json`` (or ``trust_scores``) column whose JSON object
+       maps ``CapabilityType`` -> ``TrustScore``; each TrustScore carries a
+       ``contradictions`` list. This is the shape
+       ``seahealth.pipelines.build_audits`` writes to
+       ``tables/facility_audits.parquet``.
+
+    Returns one row per (facility, capability, contradiction_type). Audits
+    without contradictions or whose contradiction types fail enum mapping
+    are silently dropped (the eval report's "Limitations" section calls this
+    out).
     """
     if path is None:
         path = DEFAULT_AUDITS_PARQUET
@@ -134,6 +147,49 @@ def _read_audits(
 
     out: list[tuple[str, CapabilityType, ContradictionType]] = []
     for row in raw:
+        facility_id = str(row.get("facility_id", "") or "")
+        if not facility_id:
+            continue
+
+        # Shape 2: canonical FacilityAudit row carries ``trust_scores_json``.
+        trust_scores_raw = row.get("trust_scores_json")
+        if trust_scores_raw is None and "trust_scores" in row:
+            trust_scores_raw = row.get("trust_scores")
+        if isinstance(trust_scores_raw, (bytes, bytearray)):
+            trust_scores_raw = trust_scores_raw.decode("utf-8")
+        if isinstance(trust_scores_raw, str) and trust_scores_raw:
+            try:
+                trust_scores = json.loads(trust_scores_raw)
+            except json.JSONDecodeError:
+                trust_scores = {}
+        elif isinstance(trust_scores_raw, dict):
+            trust_scores = trust_scores_raw
+        else:
+            trust_scores = None
+        if trust_scores:
+            for cap_str, ts in trust_scores.items():
+                try:
+                    cap = CapabilityType(str(cap_str))
+                except ValueError:
+                    continue
+                contras = (ts or {}).get("contradictions") or []
+                for contradiction in contras:
+                    raw_type = (
+                        contradiction.get("contradiction_type")
+                        if isinstance(contradiction, dict)
+                        else contradiction
+                    )
+                    try:
+                        ctype = ContradictionType(str(raw_type))
+                    except (TypeError, ValueError):
+                        continue
+                    out.append((facility_id, cap, ctype))
+            # If we successfully parsed a canonical row, don't also try the
+            # flat shape — they would double-count.
+            continue
+
+        # Shape 1: legacy flat row. ``capability_type`` is a single value and
+        # ``contradictions`` is a list of strings.
         try:
             cap = CapabilityType(str(row["capability_type"]))
         except (KeyError, ValueError):
@@ -146,7 +202,7 @@ def _read_audits(
                 ctype = ContradictionType(str(c))
             except ValueError:
                 continue
-            out.append((str(row["facility_id"]), cap, ctype))
+            out.append((facility_id, cap, ctype))
     return out
 
 

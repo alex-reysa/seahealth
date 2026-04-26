@@ -1,0 +1,122 @@
+[
+    {
+        "region_id": "AUTO-PIN-1xxxxx",
+        "region_name": "PIN-1xxxxx",
+        "state": "PIN-1xxxxx",
+        "capability_type": "SURGERY_GENERAL",
+        "population": 0,
+        "verified_facilities_count": 0,
+        "flagged_facilities_count": 60,
+        "gap_population": 0,
+        "centroid": {
+            "lat": 29.666652757945204,
+            "lng": 76.58755670835616,
+            "pin_code": null
+        }
+    },
+    {
+        "region_id": "AUTO-PIN-6xxxxx",
+        "region_name": "PIN-6xxxxx",
+        "state": "PIN-6xxxxx",
+        "capability_type": "SURGERY_GENERAL",
+        "population": 0,
+        "verified_facilities_count": 0,
+        "flagged_facilities_count": 15,
+        "gap_population": 0,
+        "centroid": {
+            "lat": 11.518664378075472,
+            "lng": 77.9923477171698,
+            "pin_code": null
+        }
+    },
+    {
+        "region_id": "AUTO-PIN-2xxxxx",
+        "region_name": "PIN-2xxxxx",
+        "state": "PIN-2xxxxx",
+        "capability_type": "SURGERY_GENERAL",
+        "population": 0,
+        "verified_facilities_count": 0,
+        "flagged_facilities_count": 29,
+        "gap_population": 0,
+        "centroid": {
+            "lat": 27.382615573150684,
+            "lng": 80.10971654630137,
+            "pin_code": null
+        }
+    },
+    {
+        "region_id": "AUTO-PIN-5xxxxx",
+        "region_name": "PIN-5xxxxx",
+        "state": "PIN-5xxxxx",
+        "capability_type": "SURGERY_GENERAL",
+        "population": 0,
+        "verified_facilities_count": 0,
+        "flagged_facilities_count": 37,
+        "gap_population": 0,
+        "centroid": {
+            "lat": 16.01268695945055,
+            "lng": 78.45667795,
+            "pin_code": null
+        }
+    },
+    {
+        "region_id": "AUTO-PIN-3xxxxx",
+        "region_name": "PIN-3xxxxx",
+        "state": "PIN-3xxxxx",
+        "capability_type": "SURGERY_GENERAL",
+        "population": 0,
+        "verified_facilities_count": 0,
+        "flagged_facilities_count": 53,
+        "gap_population": 0,
+        "centroid": {
+            "lat": 23.478853242327585,
+            "lng": 73.12936947293105,
+            "pin_code": null
+        }
+    },
+    {
+        "region_id": "AUTO-PIN-8xxxxx",
+        "region_name": "PIN-8xxxxx",
+        "state": "PIN-8xxxxx",
+        "capability_type": "SURGERY_GENERAL",
+        "population": 0,
+        "verified_facilities_count": 0,
+        "flagged_facilities_count": 37,
+        "gap_population": 0,
+        "centroid": {
+            "lat": 25.470147813809522,
+            "lng": 85.127674285,
+            "pin_code": null
+        }
+    },
+    {
+        "region_id": "AUTO-PIN-4xxxxx",
+        "region_name": "PIN-4xxxxx",
+        "state": "PIN-4xxxxx",
+        "capability_type": "SURGERY_GENERAL",
+        "population": 0,
+        "verified_facilities_count": 0,
+        "flagged_facilities_count": 27,
+        "gap_population": 0,
+        "centroid": {
+            "lat": 19.63290981761194,
+            "lng": 75.36501744985075,
+            "pin_code": null
+        }
+    },
+    {
+        "region_id": "AUTO-PIN-7xxxxx",
+        "region_name": "PIN-7xxxxx",
+        "state": "PIN-7xxxxx",
+        "capability_type": "SURGERY_GENERAL",
+        "population": 0,
+        "verified_facilities_count": 0,
+        "flagged_facilities_count": 17,
+        "gap_population": 0,
+        "centroid": {
+            "lat": 23.336408053529414,
+            "lng": 88.3950509467647,
+            "pin_code": null
+        }
+    }
+]

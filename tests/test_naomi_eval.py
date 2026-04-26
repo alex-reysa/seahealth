@@ -99,3 +99,59 @@ def test_run_eval_missing_labels_raises(tmp_path):
             extractions_path=str(SAMPLE_EXTRACTION),
             output_md=None,
         )
+
+
+def test_read_audits_parses_canonical_facility_audit_shape(tmp_path):
+    """Phase 1C — _read_audits must accept the FacilityAudit shape produced by
+    seahealth.pipelines.build_audits (trust_scores_json keyed by capability,
+    each TrustScore carrying its own list of contradictions)."""
+    import json
+
+    import pandas as pd
+    import pyarrow as pa
+    import pyarrow.parquet as pq
+
+    from seahealth.eval.run_eval import _read_audits
+
+    audits_path = tmp_path / "facility_audits.parquet"
+    trust_scores = {
+        "ICU": {
+            "capability_type": "ICU",
+            "claimed": True,
+            "evidence": [],
+            "contradictions": [
+                {
+                    "contradiction_type": "MISSING_STAFF",
+                    "capability_type": "ICU",
+                    "facility_id": "vf_001",
+                    "evidence_for": [],
+                    "evidence_against": [],
+                    "severity": "HIGH",
+                    "reasoning": "test",
+                    "detected_by": "validator.heuristics_v1",
+                    "detected_at": "2026-04-25T22:30:00Z",
+                }
+            ],
+            "confidence": 0.7,
+            "confidence_interval": [0.6, 0.8],
+            "score": 40,
+            "reasoning": "n/a",
+            "computed_at": "2026-04-25T22:30:00Z",
+        }
+    }
+    df = pd.DataFrame.from_records(
+        [
+            {
+                "facility_id": "vf_001",
+                "trust_scores_json": json.dumps(trust_scores),
+            }
+        ]
+    )
+    pq.write_table(pa.Table.from_pandas(df, preserve_index=False), audits_path)
+
+    triples = _read_audits(str(audits_path))
+    assert len(triples) == 1
+    facility_id, cap, ctype = triples[0]
+    assert facility_id == "vf_001"
+    assert cap.value == "ICU"
+    assert ctype.value == "MISSING_STAFF"
