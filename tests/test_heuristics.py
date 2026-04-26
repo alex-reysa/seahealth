@@ -13,6 +13,7 @@ from seahealth.agents.heuristics import (
     detect_missing_staff,
     detect_stale_data,
     detect_temporal_unverified,
+    detect_vague_claim,
     detect_volume_mismatch,
     run_all_heuristics,
 )
@@ -28,13 +29,16 @@ FIXTURES = Path(__file__).parent / "fixtures" / "validator"
 
 
 def _evidence(facility_id: str = "vf_test") -> EvidenceRef:
+    # Snippet is intentionally above the vague-claim threshold so that
+    # equipment / staff / volume / temporal / stale tests are not
+    # contaminated by a vague-claim flag.
     return EvidenceRef(
         source_doc_id="doc_1",
         facility_id=facility_id,
         chunk_id="chunk_1",
         row_id=None,
-        span=(0, 10),
-        snippet="snippet",
+        span=(0, 60),
+        snippet="Detailed evidence sentence about the capability claim.",
         source_type="facility_note",
         source_observed_at=NOW,
         retrieved_at=NOW,
@@ -323,3 +327,88 @@ def test_missing_equipment_severity_matrix(cap_type, equipment, expected_severit
     result = detect_missing_equipment(cap, facts)
     assert result is not None
     assert result.severity == expected_severity
+
+
+# ---------------------------------------------------------------------------
+# detect_vague_claim
+# ---------------------------------------------------------------------------
+
+
+def _capability_with_snippet(
+    cap_type: CapabilityType,
+    snippet: str,
+    *,
+    facility_id: str = "vf_vague",
+) -> Capability:
+    ref = EvidenceRef(
+        source_doc_id="doc_1",
+        facility_id=facility_id,
+        chunk_id="chunk_1",
+        row_id=None,
+        span=(0, max(1, len(snippet))),
+        snippet=snippet,
+        source_type="facility_note",
+        source_observed_at=NOW,
+        retrieved_at=NOW,
+    )
+    return Capability(
+        facility_id=facility_id,
+        capability_type=cap_type,
+        claimed=True,
+        evidence_refs=[ref] if snippet else [],
+        source_doc_id="doc_1",
+        extracted_at=NOW,
+        extractor_model="claude-sonnet-4-6",
+    )
+
+
+def test_vague_claim_fires_on_high_acuity_with_terse_snippet() -> None:
+    cap = _capability_with_snippet(CapabilityType.SURGERY_GENERAL, "yes")
+    facts = _facts()
+    result = detect_vague_claim(cap, facts)
+    assert result is not None
+    assert result.severity == "LOW"
+    assert "Vague claim" in result.reasoning
+    # Maps onto MISSING_STAFF since the closed taxonomy lacks VAGUE_CLAIM.
+    assert result.contradiction_type == ContradictionType.MISSING_STAFF
+
+
+def test_vague_claim_fires_when_evidence_missing_entirely() -> None:
+    cap = _capability_with_snippet(CapabilityType.ONCOLOGY, "")
+    facts = _facts()
+    result = detect_vague_claim(cap, facts)
+    assert result is not None
+    assert "without any evidence span" in result.reasoning
+
+
+def test_vague_claim_quiet_on_low_acuity_capability() -> None:
+    cap = _capability_with_snippet(CapabilityType.LAB, "ok")
+    facts = _facts()
+    assert detect_vague_claim(cap, facts) is None
+
+
+def test_vague_claim_quiet_on_long_snippet() -> None:
+    cap = _capability_with_snippet(
+        CapabilityType.ICU,
+        "Adult and pediatric ICU beds with continuous ventilator support",
+    )
+    facts = _facts()
+    assert detect_vague_claim(cap, facts) is None
+
+
+def test_vague_claim_quiet_when_capability_is_denied() -> None:
+    cap = _capability_with_snippet(CapabilityType.SURGERY_GENERAL, "n/a").model_copy(
+        update={"claimed": False}
+    )
+    facts = _facts()
+    assert detect_vague_claim(cap, facts) is None
+
+
+def test_run_all_includes_vague_claim() -> None:
+    cap = _capability_with_snippet(CapabilityType.NEONATAL, "yes")
+    facts = _facts(equipment=["incubator"], staff_count=10)
+    contras = run_all_heuristics(cap, facts)
+    types = [c.contradiction_type for c in contras]
+    # Vague-claim heuristic produces at least one MISSING_STAFF row even when
+    # the staffing threshold is satisfied.
+    assert ContradictionType.MISSING_STAFF in types

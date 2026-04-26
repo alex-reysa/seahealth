@@ -13,6 +13,29 @@ The following Naomi values are intentionally not mapped to our closed enums. Row
 - Capabilities without a clean enum target: cardiology, dental, other
 - Contradiction types without a clean enum target: facility_type_mismatch, other, vague_claim
 
+### Phase 1C — recall-lift mechanics (re-run pending live audits)
+
+Two changes apply to the next eval run:
+
+1. `seahealth.eval.run_eval._read_audits` now parses the canonical
+   `tables/facility_audits.parquet` shape (`trust_scores_json` keyed by
+   capability, each TrustScore carrying its own `contradictions` list). The
+   previous reader only understood a legacy flat shape, which is why this
+   first run reports `Contradiction recall = 0.000` despite the validator
+   producing 900 flagged audits.
+2. `seahealth.agents.heuristics.detect_vague_claim` flags high-acuity claims
+   (surgery, ICU, oncology, etc.) supported only by an empty or
+   sub-12-character snippet. The closed `ContradictionType` taxonomy has no
+   `VAGUE_CLAIM` member, so the contradiction is emitted with
+   `contradiction_type=MISSING_STAFF` and a reasoning string that names the
+   "Vague claim" heuristic. Naomi's eval scores contradiction presence (not
+   type), so this directly lifts contradiction recall on her `vague_claim`
+   labels.
+
+Re-running `python -m seahealth.eval.run_eval --labels tables/naomi_labels.csv`
+with the live 10k audits regenerates this report; the precision impact of the
+new heuristic will be visible alongside the recall lift.
+
 ## Capability extraction
 
 - Precision: **0.488**
