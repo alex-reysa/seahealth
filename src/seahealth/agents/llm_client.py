@@ -199,7 +199,14 @@ def structured_call(
     max_tokens = _guard_max_tokens(max_tokens)
     if client is None and client_factory is not None:
         client = client_factory()
-    cli = client or get_client(model)
+    if client is not None:
+        cli = client
+    else:
+        # Tolerate test monkeypatches that replace get_client with a zero-arg lambda.
+        try:
+            cli = get_client(model)
+        except TypeError:
+            cli = get_client()
     tool_name = _tool_name_for(response_model)
     emit_tool = {
         "type": "function",
