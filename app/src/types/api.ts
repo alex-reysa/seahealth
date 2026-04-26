@@ -161,6 +161,15 @@ export interface MapRegionAggregate {
   population_source: PopulationSource;
 }
 
+export interface FacilityLocation {
+  facility_id: string;
+  name: string;
+  lat: number;
+  lng: number;
+  score: number;
+  has_contradictions: boolean;
+}
+
 export interface HealthData {
   mode: 'delta' | 'parquet' | 'fixture';
   facility_audits_path: string;

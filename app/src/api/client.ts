@@ -24,6 +24,7 @@
 import type {
   CapabilityType,
   FacilityAudit,
+  FacilityLocation,
   HealthData,
   MapRegionAggregate,
   QueryResult,
@@ -137,6 +138,24 @@ export async function fetchFacility(
     return jsonFetch<FacilityAudit>(`/facilities/${encodeURIComponent(facilityId)}`);
   }
   return demoFacilityAudit as unknown as FacilityAudit;
+}
+
+export async function fetchFacilityLocations(
+  mode: ApiMode = resolveApiMode(),
+): Promise<FacilityLocation[]> {
+  if (mode === 'live') return jsonFetch<FacilityLocation[]>('/facilities/geo');
+  // Demo mode: synthesize a single dot from the fixture audit.
+  const audit = demoFacilityAudit as any;
+  return [
+    {
+      facility_id: audit.facility_id,
+      name: audit.name,
+      lat: audit.location.lat,
+      lng: audit.location.lng,
+      score: 0,
+      has_contradictions: audit.total_contradictions > 0,
+    },
+  ];
 }
 
 export async function fetchMapAggregates(

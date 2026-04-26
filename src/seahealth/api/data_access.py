@@ -679,6 +679,26 @@ def load_facilities(limit: int = 50) -> list[FacilityAudit]:
     return [audit][:limit]
 
 
+def load_all_audits() -> list[FacilityAudit]:
+    """Return ALL audits without pagination — used by /facilities/geo."""
+    mode = detect_mode()
+    if mode is DataMode.DELTA:
+        try:
+            return _delta_select_audits()
+        except DataLayerError as exc:
+            log.warning("all_audits: delta failed (%s); falling back to parquet", exc)
+            mode = DataMode.PARQUET
+    if mode is DataMode.PARQUET:
+        try:
+            return _read_parquet_audits()
+        except DataLayerError as exc:
+            log.warning("all_audits: parquet failed (%s); falling back to fixture", exc)
+            mode = DataMode.FIXTURE
+    raw = _load_json_file(FACILITY_AUDIT_FIXTURE)
+    audit = FacilityAudit.model_validate(raw)
+    return [audit]
+
+
 def load_map_aggregates(
     capability_type: CapabilityType | None = None,
     radius_km: float = DEFAULT_MAP_RADIUS_KM,
