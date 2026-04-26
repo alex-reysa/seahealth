@@ -94,6 +94,7 @@ async function jsonFetch<T>(path: string, init?: RequestInit): Promise<T> {
 // imports are statically resolved by Vite, so the live build does not pay
 // for them at runtime.
 import demoFacilityAudit from '@/src/data/fixtures/facility_audit_demo.json';
+import demoFacilityLocations from '@/src/data/fixtures/facility_locations_demo.json';
 import demoMapAggregates from '@/src/data/fixtures/map_aggregates_demo.json';
 import demoQueryResult from '@/src/data/fixtures/demo_query_appendectomy.json';
 import demoSummary from '@/src/data/fixtures/summary_demo.json';
@@ -144,18 +145,7 @@ export async function fetchFacilityLocations(
   mode: ApiMode = resolveApiMode(),
 ): Promise<FacilityLocation[]> {
   if (mode === 'live') return jsonFetch<FacilityLocation[]>('/facilities/geo');
-  // Demo mode: synthesize a single dot from the fixture audit.
-  const audit = demoFacilityAudit as any;
-  return [
-    {
-      facility_id: audit.facility_id,
-      name: audit.name,
-      lat: audit.location.lat,
-      lng: audit.location.lng,
-      score: 0,
-      has_contradictions: audit.total_contradictions > 0,
-    },
-  ];
+  return demoFacilityLocations as unknown as FacilityLocation[];
 }
 
 export async function fetchMapAggregates(
