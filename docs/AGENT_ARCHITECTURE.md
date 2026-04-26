@@ -59,3 +59,18 @@ Every agent emits `mlflow.start_span` with the parent `trace_id` propagated thro
 - `QueryResult.query_trace_id` — opens the planner-side trace for one user query (geocode + search + per-facility audit fetches).
 
 Traces are stored in the workspace MLflow tracking server. The UI fetches a trace by id and renders the span timeline inside the Facility Audit View, so every claim, contradiction, and ranked recommendation is one click away from its underlying agent steps.
+
+## Databricks-native vs. substitutions
+
+The challenge calls for the Databricks Data Intelligence Platform. We list every component as **native** (runs on the platform exactly as the brief envisages), **substitution** (we ship an open or third-party alternative; the platform-native path is reachable but not the default for the demo), or **out of scope** (acknowledged but not shipped).
+
+| Component | Status | Why |
+|---|---|---|
+| Unity Catalog + 7 Delta tables | Native | Provisioned by `databricks bundle deploy`; the gold Delta path is the production data layer. |
+| Mosaic AI Vector Search (`seahealth-vs` / `chunks_index`) | Native (live), FAISS fallback for offline | Live retriever class is `seahealth.db.retriever.VectorSearchRetriever`; falls back to local FAISS only when env vars are unset. `/health/data` surfaces the active mode. |
+| MLflow 3 Tracing | Native | `MLFLOW_TRACKING_URI=databricks` opens real spans; `Capability.mlflow_trace_id` and `FacilityAudit.mlflow_trace_id` carry the id end-to-end. |
+| Foundation Model serving | Substitution for the 10k run | Databricks Foundation Models hit a free-tier rate ceiling on a 10k-row extraction; the active 10k pass used OpenRouter Anthropic Haiku 4.5. The agent code is provider-agnostic — flip `SEAHEALTH_LLM_HEAVY_MODEL` to a Databricks model id to revert. |
+| Agent Bricks | Substitution by intent | Heavy agents are Python tool-calling loops over OpenAI-compatible endpoints; the same agents would deploy as Agent Bricks runtimes. We did not migrate before submission to keep the demo a single-binary `uvicorn` deploy. |
+| Genie Code | Out of scope | We do not run Genie in the product loop; it remains the recommended operator surface for ad-hoc Naomi-style explorations. |
+
+Substitution rationales live in `docs/DECISIONS.md`; this section is the judge-facing summary.
