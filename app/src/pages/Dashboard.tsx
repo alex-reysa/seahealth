@@ -775,17 +775,18 @@ export function Dashboard() {
               : ([event.lngLat.lng, event.lngLat.lat] as [number, number]);
             Promise.resolve(source?.getClusterExpansionZoom?.(clusterId))
               .then((zoom: number | undefined) => {
-                map.easeTo({ center: coords, zoom: zoom ?? 8, duration: 600 });
+                const target = Math.max((zoom ?? 8) + 1.5, 9);
+                map.easeTo({ center: coords, zoom: target, duration: 600 });
               })
               .catch(() => {
-                map.easeTo({ center: coords, zoom: 8, duration: 600 });
+                map.easeTo({ center: coords, zoom: 9, duration: 600 });
               });
             return;
           }
 
           const dotFeature = features.find((f: any) => f?.layer?.id === 'facility-dots');
           if (dotFeature?.properties?.id) {
-            navigate(`/facilities/${dotFeature.properties.id}?from=map-workbench`);
+            setSelectedFacilityId(dotFeature.properties.id);
             return;
           }
 
