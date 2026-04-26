@@ -20,7 +20,9 @@ import importlib
 import json
 import logging
 import os
+import threading
 from collections.abc import Iterable
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from contextlib import contextmanager, nullcontext
 from pathlib import Path
 from typing import Any
@@ -189,6 +191,7 @@ def main(
     start_index: int = 0,
     flush_every: int = 50,
     resume: bool = False,
+    workers: int = 1,
     tables_dir: str | Path | None = None,
     subset_path: str | Path | None = None,
     chunks_path: str | Path | None = None,
@@ -250,51 +253,77 @@ def main(
     failed_count = 0
     skipped_done_count = 0
     total = len(facility_ids)
-    for idx, facility_id in enumerate(facility_ids, start=1):
-        if facility_id in already_done:
+
+    # Build the pending-work list once. Skip facilities already in the resume set
+    # AND facilities with zero chunks (handle them inline so they're counted).
+    pending: list[tuple[int, str, list[dict[str, Any]]]] = []
+    for idx, fid in enumerate(facility_ids, start=1):
+        if fid in already_done:
             skipped_done_count += 1
             continue
-        chunks = _chunks_for_facility(chunks_df, facility_id)
+        chunks = _chunks_for_facility(chunks_df, fid)
         if not chunks:
             skipped_zero_chunk_count += 1
-            print(f"[extract {idx}/{total}] skip {facility_id} (no chunks)", flush=True)
-            logger.warning("skipping %s: no chunks found", facility_id)
+            print(f"[extract {idx}/{total}] skip {fid} (no chunks)", flush=True)
+            logger.warning("skipping %s: no chunks found", fid)
             continue
+        pending.append((idx, fid, chunks))
+
+    workers = max(1, int(workers))
+    state_lock = threading.Lock()
+    completed_total = len(already_done) + skipped_zero_chunk_count + skipped_done_count
+
+    def _do_one(item: tuple[int, str, list[dict[str, Any]]]):
+        idx, fid, chunks = item
         with _maybe_mlflow_span(
             "extract_capabilities",
-            attributes={"facility_id": facility_id, "chunk_count": len(chunks)},
+            attributes={"facility_id": fid, "chunk_count": len(chunks)},
         ):
             try:
-                extracted: ExtractedCapabilities = extract_fn(
-                    facility_id, chunks, model=model
-                )
-            except Exception as exc:  # pragma: no cover — agent failure must not halt
+                extracted: ExtractedCapabilities = extract_fn(fid, chunks, model=model)
+                return ("ok", idx, fid, [_capability_to_row(c) for c in extracted.capabilities])
+            except Exception as exc:  # pragma: no cover
+                return ("fail", idx, fid, str(exc))
+
+    def _on_result(kind: str, idx: int, fid: str, payload: Any) -> None:
+        nonlocal facility_count, capability_count, failed_count, completed_total
+        with state_lock:
+            completed_total += 1
+            if kind == "ok":
+                facility_count += 1
+                rows = payload  # list[dict]
+                all_rows.extend(rows)
+                capability_count += len(rows)
+                already_done.add(fid)
+                print(f"[extract {completed_total}/{total}] {fid} caps={len(rows)}", flush=True)
+            else:
                 failed_count += 1
                 print(
-                    f"[extract {idx}/{total}] FAIL {facility_id}: {str(exc)[:120]}",
+                    f"[extract {completed_total}/{total}] FAIL {fid}: {str(payload)[:120]}",
                     flush=True,
                 )
-                logger.warning("extract failed for %s: %s", facility_id, exc)
-                continue
-        facility_count += 1
-        new_caps = 0
-        for cap in extracted.capabilities:
-            all_rows.append(_capability_to_row(cap))
-            capability_count += 1
-            new_caps += 1
-        already_done.add(facility_id)
-        print(
-            f"[extract {idx}/{total}] {facility_id} caps={new_caps}",
-            flush=True,
-        )
+                logger.warning("extract failed for %s: %s", fid, payload)
+            if flush_every and (completed_total % flush_every == 0):
+                _write_parquet(all_rows, out_p)
+                print(
+                    f"[extract {completed_total}/{total}] flushed {len(all_rows)} rows -> {out_p}",
+                    flush=True,
+                )
 
-        # Periodic atomic flush so a crash mid-10k doesn't blow up the spend.
-        if flush_every and (idx % flush_every == 0):
-            _write_parquet(all_rows, out_p)
-            print(
-                f"[extract {idx}/{total}] flushed {len(all_rows)} rows -> {out_p}",
-                flush=True,
-            )
+    if workers == 1:
+        # Sequential path — preserves the original ordering and behavior.
+        for item in pending:
+            kind, idx, fid, payload = _do_one(item)
+            _on_result(kind, idx, fid, payload)
+    else:
+        # Parallel path — N concurrent in-flight LLM calls. The OpenAI SDK
+        # client is thread-safe (httpx connection pool); _on_result holds a
+        # lock around shared mutable state so flush + counters stay coherent.
+        with ThreadPoolExecutor(max_workers=workers) as ex:
+            futures = [ex.submit(_do_one, item) for item in pending]
+            for fut in as_completed(futures):
+                kind, idx, fid, payload = fut.result()
+                _on_result(kind, idx, fid, payload)
 
     _write_parquet(all_rows, out_p)
     delta_written = _maybe_write_delta(all_rows)
@@ -331,6 +360,8 @@ def _build_parser() -> argparse.ArgumentParser:
                    help="Write the partial parquet every N facilities so a crash mid-run doesn't lose progress (default: 50).")
     p.add_argument("--resume", action="store_true",
                    help="Skip facility_ids already present in the output parquet.")
+    p.add_argument("--workers", type=int, default=1,
+                   help="Concurrent in-flight LLM calls (default 1). 8-12 is a good range for OpenRouter Haiku 4.5; ~5x wall-time vs. sequential.")
     p.add_argument("--tables-dir", type=str, default=None)
     p.add_argument("--model", type=str, default=DEFAULT_EXTRACTOR_MODEL)
     return p
@@ -344,6 +375,7 @@ def _cli(argv: Iterable[str] | None = None) -> None:
         start_index=args.start_index,
         flush_every=args.flush_every,
         resume=args.resume,
+        workers=args.workers,
         tables_dir=args.tables_dir,
         model=args.model,
     )
