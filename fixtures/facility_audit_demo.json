@@ -1,275 +1,212 @@
 {
-  "facility_id": "vf_00042_patna_general_hospi",
-  "name": "Patna General Hospital",
-  "location": {
-    "lat": 25.6121,
-    "lng": 85.1418,
-    "pin_code": "800001"
-  },
-  "capabilities": [
-    {
-      "facility_id": "vf_00042_patna_general_hospi",
-      "capability_type": "SURGERY_APPENDECTOMY",
-      "claimed": true,
-      "evidence_refs": [
+    "facility_id": "vf_02239_cims-hospital-patna-a-un",
+    "name": "CIMS Hospital Patna A Unit of Charaka Institute of Medical Sciences",
+    "location": {
+        "lat": 25.59433174,
+        "lng": 85.15483093,
+        "pin_code": "800001"
+    },
+    "capabilities": [
         {
-          "source_doc_id": "doc_pgh_facility_note_2025",
-          "facility_id": "vf_00042_patna_general_hospi",
-          "chunk_id": "chunk_3",
-          "row_id": null,
-          "span": [0, 96],
-          "snippet": "Patna General Hospital advertises 24/7 emergency appendectomy services on its public website.",
-          "source_type": "facility_note",
-          "source_observed_at": "2025-09-12T10:00:00Z",
-          "retrieved_at": "2026-04-25T18:00:00Z"
+            "facility_id": "vf_02239_cims-hospital-patna-a-un",
+            "capability_type": "EMERGENCY_24_7",
+            "claimed": true,
+            "evidence_refs": [],
+            "source_doc_id": "vf_02239_cims-hospital-patna-a-un",
+            "extracted_at": "2026-04-26T00:17:05.262518Z",
+            "extractor_model": "moonshotai/kimi-k2.5"
         },
         {
-          "source_doc_id": "doc_pgh_volume_q4_2025",
-          "facility_id": "vf_00042_patna_general_hospi",
-          "chunk_id": "chunk_1",
-          "row_id": "row_17",
-          "span": [12, 84],
-          "snippet": "Q4 2025: 38 appendectomy procedures performed (avg 13/month).",
-          "source_type": "volume_report",
-          "source_observed_at": "2026-01-08T00:00:00Z",
-          "retrieved_at": "2026-04-25T18:00:00Z"
+            "facility_id": "vf_02239_cims-hospital-patna-a-un",
+            "capability_type": "ICU",
+            "claimed": true,
+            "evidence_refs": [],
+            "source_doc_id": "vf_02239_cims-hospital-patna-a-un",
+            "extracted_at": "2026-04-26T00:17:05.262518Z",
+            "extractor_model": "moonshotai/kimi-k2.5"
+        },
+        {
+            "facility_id": "vf_02239_cims-hospital-patna-a-un",
+            "capability_type": "NEONATAL",
+            "claimed": true,
+            "evidence_refs": [],
+            "source_doc_id": "vf_02239_cims-hospital-patna-a-un",
+            "extracted_at": "2026-04-26T00:17:05.262518Z",
+            "extractor_model": "moonshotai/kimi-k2.5"
+        },
+        {
+            "facility_id": "vf_02239_cims-hospital-patna-a-un",
+            "capability_type": "MATERNAL",
+            "claimed": true,
+            "evidence_refs": [],
+            "source_doc_id": "vf_02239_cims-hospital-patna-a-un",
+            "extracted_at": "2026-04-26T00:17:05.262518Z",
+            "extractor_model": "moonshotai/kimi-k2.5"
+        },
+        {
+            "facility_id": "vf_02239_cims-hospital-patna-a-un",
+            "capability_type": "SURGERY_GENERAL",
+            "claimed": true,
+            "evidence_refs": [],
+            "source_doc_id": "vf_02239_cims-hospital-patna-a-un",
+            "extracted_at": "2026-04-26T00:17:05.262518Z",
+            "extractor_model": "moonshotai/kimi-k2.5"
+        },
+        {
+            "facility_id": "vf_02239_cims-hospital-patna-a-un",
+            "capability_type": "ONCOLOGY",
+            "claimed": true,
+            "evidence_refs": [],
+            "source_doc_id": "vf_02239_cims-hospital-patna-a-un",
+            "extracted_at": "2026-04-26T00:17:05.262518Z",
+            "extractor_model": "moonshotai/kimi-k2.5"
         }
-      ],
-      "source_doc_id": "doc_pgh_facility_note_2025",
-      "extracted_at": "2026-04-25T18:00:00Z",
-      "extractor_model": "claude-sonnet-4-6"
+    ],
+    "trust_scores": {
+        "EMERGENCY_24_7": {
+            "capability_type": "EMERGENCY_24_7",
+            "claimed": true,
+            "evidence": [],
+            "contradictions": [],
+            "confidence": 0.05,
+            "confidence_interval": [
+                0.05,
+                0.05
+            ],
+            "score": 5,
+            "reasoning": "Score 5 based on 0 evidence sources and no contradictions.",
+            "computed_at": "2026-04-26T00:31:20.151964Z"
+        },
+        "ICU": {
+            "capability_type": "ICU",
+            "claimed": true,
+            "evidence": [],
+            "contradictions": [
+                {
+                    "contradiction_type": "MISSING_EQUIPMENT",
+                    "capability_type": "ICU",
+                    "facility_id": "vf_02239_cims-hospital-patna-a-un",
+                    "evidence_for": [],
+                    "evidence_against": [],
+                    "severity": "HIGH",
+                    "reasoning": "No equipment recorded for facility while ICU requires core gear (ventilator, monitor).",
+                    "detected_by": "validator.v1.heuristics",
+                    "detected_at": "2026-04-26T00:31:20.151944Z"
+                },
+                {
+                    "contradiction_type": "MISSING_STAFF",
+                    "capability_type": "ICU",
+                    "facility_id": "vf_02239_cims-hospital-patna-a-un",
+                    "evidence_for": [],
+                    "evidence_against": [],
+                    "severity": "HIGH",
+                    "reasoning": "Staff roster reports no staff for ICU (requires at least 3).",
+                    "detected_by": "validator.v1.heuristics",
+                    "detected_at": "2026-04-26T00:31:20.151947Z"
+                }
+            ],
+            "confidence": 0.05,
+            "confidence_interval": [
+                0.0,
+                0.05
+            ],
+            "score": 0,
+            "reasoning": "Score 0 based on 0 evidence sources and 2 contradictions: MISSING_EQUIPMENT, MISSING_STAFF.",
+            "computed_at": "2026-04-26T00:31:20.152090Z"
+        },
+        "NEONATAL": {
+            "capability_type": "NEONATAL",
+            "claimed": true,
+            "evidence": [],
+            "contradictions": [
+                {
+                    "contradiction_type": "MISSING_STAFF",
+                    "capability_type": "NEONATAL",
+                    "facility_id": "vf_02239_cims-hospital-patna-a-un",
+                    "evidence_for": [],
+                    "evidence_against": [],
+                    "severity": "HIGH",
+                    "reasoning": "Staff roster reports no staff for NEONATAL (requires at least 2).",
+                    "detected_by": "validator.v1.heuristics",
+                    "detected_at": "2026-04-26T00:31:20.151950Z"
+                }
+            ],
+            "confidence": 0.05,
+            "confidence_interval": [
+                0.0,
+                0.05
+            ],
+            "score": 0,
+            "reasoning": "Score 0 based on 0 evidence sources and 1 contradictions: MISSING_STAFF.",
+            "computed_at": "2026-04-26T00:31:20.152179Z"
+        },
+        "MATERNAL": {
+            "capability_type": "MATERNAL",
+            "claimed": true,
+            "evidence": [],
+            "contradictions": [],
+            "confidence": 0.05,
+            "confidence_interval": [
+                0.05,
+                0.05
+            ],
+            "score": 5,
+            "reasoning": "Score 5 based on 0 evidence sources and no contradictions.",
+            "computed_at": "2026-04-26T00:31:20.152187Z"
+        },
+        "SURGERY_GENERAL": {
+            "capability_type": "SURGERY_GENERAL",
+            "claimed": true,
+            "evidence": [],
+            "contradictions": [
+                {
+                    "contradiction_type": "MISSING_EQUIPMENT",
+                    "capability_type": "SURGERY_GENERAL",
+                    "facility_id": "vf_02239_cims-hospital-patna-a-un",
+                    "evidence_for": [],
+                    "evidence_against": [],
+                    "severity": "HIGH",
+                    "reasoning": "No equipment recorded for facility while SURGERY_GENERAL requires core gear (anesthesia, laparoscopy).",
+                    "detected_by": "validator.v1.heuristics",
+                    "detected_at": "2026-04-26T00:31:20.151953Z"
+                },
+                {
+                    "contradiction_type": "MISSING_STAFF",
+                    "capability_type": "SURGERY_GENERAL",
+                    "facility_id": "vf_02239_cims-hospital-patna-a-un",
+                    "evidence_for": [],
+                    "evidence_against": [],
+                    "severity": "HIGH",
+                    "reasoning": "Staff roster reports no staff for SURGERY_GENERAL (requires at least 2).",
+                    "detected_by": "validator.v1.heuristics",
+                    "detected_at": "2026-04-26T00:31:20.151955Z"
+                }
+            ],
+            "confidence": 0.05,
+            "confidence_interval": [
+                0.0,
+                0.05
+            ],
+            "score": 0,
+            "reasoning": "Score 0 based on 0 evidence sources and 2 contradictions: MISSING_EQUIPMENT, MISSING_STAFF.",
+            "computed_at": "2026-04-26T00:31:20.152309Z"
+        },
+        "ONCOLOGY": {
+            "capability_type": "ONCOLOGY",
+            "claimed": true,
+            "evidence": [],
+            "contradictions": [],
+            "confidence": 0.05,
+            "confidence_interval": [
+                0.05,
+                0.05
+            ],
+            "score": 5,
+            "reasoning": "Score 5 based on 0 evidence sources and no contradictions.",
+            "computed_at": "2026-04-26T00:31:20.152317Z"
+        }
     },
-    {
-      "facility_id": "vf_00042_patna_general_hospi",
-      "capability_type": "EMERGENCY_24_7",
-      "claimed": true,
-      "evidence_refs": [
-        {
-          "source_doc_id": "doc_pgh_facility_note_2025",
-          "facility_id": "vf_00042_patna_general_hospi",
-          "chunk_id": "chunk_2",
-          "row_id": null,
-          "span": [120, 200],
-          "snippet": "Emergency department open 24/7 with on-call physician coverage every shift.",
-          "source_type": "facility_note",
-          "source_observed_at": "2025-09-12T10:00:00Z",
-          "retrieved_at": "2026-04-25T18:00:00Z"
-        }
-      ],
-      "source_doc_id": "doc_pgh_facility_note_2025",
-      "extracted_at": "2026-04-25T18:00:00Z",
-      "extractor_model": "claude-sonnet-4-6"
-    },
-    {
-      "facility_id": "vf_00042_patna_general_hospi",
-      "capability_type": "RADIOLOGY",
-      "claimed": true,
-      "evidence_refs": [
-        {
-          "source_doc_id": "doc_pgh_inventory_2025",
-          "facility_id": "vf_00042_patna_general_hospi",
-          "chunk_id": "chunk_5",
-          "row_id": "row_22",
-          "span": [4, 70],
-          "snippet": "Imaging suite includes one CT scanner and two ultrasound machines.",
-          "source_type": "equipment_inventory",
-          "source_observed_at": "2025-12-01T00:00:00Z",
-          "retrieved_at": "2026-04-25T18:00:00Z"
-        }
-      ],
-      "source_doc_id": "doc_pgh_inventory_2025",
-      "extracted_at": "2026-04-25T18:00:00Z",
-      "extractor_model": "claude-sonnet-4-6"
-    },
-    {
-      "facility_id": "vf_00042_patna_general_hospi",
-      "capability_type": "ICU",
-      "claimed": true,
-      "evidence_refs": [
-        {
-          "source_doc_id": "doc_pgh_inventory_2025",
-          "facility_id": "vf_00042_patna_general_hospi",
-          "chunk_id": "chunk_7",
-          "row_id": "row_31",
-          "span": [0, 64],
-          "snippet": "ICU has 8 beds with ventilator support; 1 of 2 ventilators currently out for service.",
-          "source_type": "equipment_inventory",
-          "source_observed_at": "2025-12-01T00:00:00Z",
-          "retrieved_at": "2026-04-25T18:00:00Z"
-        }
-      ],
-      "source_doc_id": "doc_pgh_inventory_2025",
-      "extracted_at": "2026-04-25T18:00:00Z",
-      "extractor_model": "claude-sonnet-4-6"
-    }
-  ],
-  "trust_scores": {
-    "SURGERY_APPENDECTOMY": {
-      "capability_type": "SURGERY_APPENDECTOMY",
-      "claimed": true,
-      "evidence": [
-        {
-          "source_doc_id": "doc_pgh_facility_note_2025",
-          "facility_id": "vf_00042_patna_general_hospi",
-          "chunk_id": "chunk_3",
-          "row_id": null,
-          "span": [0, 96],
-          "snippet": "Patna General Hospital advertises 24/7 emergency appendectomy services on its public website.",
-          "source_type": "facility_note",
-          "source_observed_at": "2025-09-12T10:00:00Z",
-          "retrieved_at": "2026-04-25T18:00:00Z"
-        }
-      ],
-      "contradictions": [
-        {
-          "contradiction_type": "MISSING_STAFF",
-          "capability_type": "SURGERY_APPENDECTOMY",
-          "facility_id": "vf_00042_patna_general_hospi",
-          "evidence_for": [
-            {
-              "source_doc_id": "doc_pgh_facility_note_2025",
-              "facility_id": "vf_00042_patna_general_hospi",
-              "chunk_id": "chunk_3",
-              "row_id": null,
-              "span": [0, 96],
-              "snippet": "Patna General Hospital advertises 24/7 emergency appendectomy services on its public website.",
-              "source_type": "facility_note",
-              "source_observed_at": "2025-09-12T10:00:00Z",
-              "retrieved_at": "2026-04-25T18:00:00Z"
-            }
-          ],
-          "evidence_against": [
-            {
-              "source_doc_id": "doc_pgh_staff_roster_2026q1",
-              "facility_id": "vf_00042_patna_general_hospi",
-              "chunk_id": "chunk_2",
-              "row_id": "row_4",
-              "span": [10, 120],
-              "snippet": "Q1 2026 staff roster lists no anesthesiologist on payroll; only one surgical resident is on the schedule.",
-              "source_type": "staff_roster",
-              "source_observed_at": "2026-03-30T00:00:00Z",
-              "retrieved_at": "2026-04-25T18:00:00Z"
-            }
-          ],
-          "severity": "HIGH",
-          "reasoning": "Facility claims 24/7 appendectomy capability, but the Q1 2026 staff roster lists no anesthesiologist on payroll, which is required for safe surgical anesthesia.",
-          "detected_by": "validator.staff_v1",
-          "detected_at": "2026-04-25T18:00:00Z"
-        }
-      ],
-      "confidence": 0.95,
-      "confidence_interval": [0.9, 0.98],
-      "score": 65,
-      "reasoning": "Public-facing claim and procedure volume support the capability, but a critical anesthesia staffing gap reduces confidence.",
-      "computed_at": "2026-04-25T18:00:00Z"
-    },
-    "EMERGENCY_24_7": {
-      "capability_type": "EMERGENCY_24_7",
-      "claimed": true,
-      "evidence": [
-        {
-          "source_doc_id": "doc_pgh_facility_note_2025",
-          "facility_id": "vf_00042_patna_general_hospi",
-          "chunk_id": "chunk_2",
-          "row_id": null,
-          "span": [120, 200],
-          "snippet": "Emergency department open 24/7 with on-call physician coverage every shift.",
-          "source_type": "facility_note",
-          "source_observed_at": "2025-09-12T10:00:00Z",
-          "retrieved_at": "2026-04-25T18:00:00Z"
-        }
-      ],
-      "contradictions": [],
-      "confidence": 0.93,
-      "confidence_interval": [0.88, 0.96],
-      "score": 93,
-      "reasoning": "Facility note clearly asserts 24/7 emergency coverage with no contradicting evidence.",
-      "computed_at": "2026-04-25T18:00:00Z"
-    },
-    "RADIOLOGY": {
-      "capability_type": "RADIOLOGY",
-      "claimed": true,
-      "evidence": [
-        {
-          "source_doc_id": "doc_pgh_inventory_2025",
-          "facility_id": "vf_00042_patna_general_hospi",
-          "chunk_id": "chunk_5",
-          "row_id": "row_22",
-          "span": [4, 70],
-          "snippet": "Imaging suite includes one CT scanner and two ultrasound machines.",
-          "source_type": "equipment_inventory",
-          "source_observed_at": "2025-12-01T00:00:00Z",
-          "retrieved_at": "2026-04-25T18:00:00Z"
-        }
-      ],
-      "contradictions": [],
-      "confidence": 0.88,
-      "confidence_interval": [0.82, 0.92],
-      "score": 88,
-      "reasoning": "Equipment inventory enumerates imaging hardware on-site.",
-      "computed_at": "2026-04-25T18:00:00Z"
-    },
-    "ICU": {
-      "capability_type": "ICU",
-      "claimed": true,
-      "evidence": [
-        {
-          "source_doc_id": "doc_pgh_inventory_2025",
-          "facility_id": "vf_00042_patna_general_hospi",
-          "chunk_id": "chunk_7",
-          "row_id": "row_31",
-          "span": [0, 64],
-          "snippet": "ICU has 8 beds with ventilator support; 1 of 2 ventilators currently out for service.",
-          "source_type": "equipment_inventory",
-          "source_observed_at": "2025-12-01T00:00:00Z",
-          "retrieved_at": "2026-04-25T18:00:00Z"
-        }
-      ],
-      "contradictions": [
-        {
-          "contradiction_type": "MISSING_EQUIPMENT",
-          "capability_type": "ICU",
-          "facility_id": "vf_00042_patna_general_hospi",
-          "evidence_for": [
-            {
-              "source_doc_id": "doc_pgh_inventory_2025",
-              "facility_id": "vf_00042_patna_general_hospi",
-              "chunk_id": "chunk_7",
-              "row_id": "row_31",
-              "span": [0, 64],
-              "snippet": "ICU has 8 beds with ventilator support; 1 of 2 ventilators currently out for service.",
-              "source_type": "equipment_inventory",
-              "source_observed_at": "2025-12-01T00:00:00Z",
-              "retrieved_at": "2026-04-25T18:00:00Z"
-            }
-          ],
-          "evidence_against": [
-            {
-              "source_doc_id": "doc_pgh_maintenance_log_2026",
-              "facility_id": "vf_00042_patna_general_hospi",
-              "chunk_id": "chunk_1",
-              "row_id": "row_2",
-              "span": [0, 88],
-              "snippet": "Maintenance log: ventilator serial PGH-VENT-002 has been offline awaiting parts since 2026-02-14.",
-              "source_type": "equipment_inventory",
-              "source_observed_at": "2026-04-01T00:00:00Z",
-              "retrieved_at": "2026-04-25T18:00:00Z"
-            }
-          ],
-          "severity": "MEDIUM",
-          "reasoning": "Half of the ICU ventilator fleet is documented as offline, which materially reduces effective ICU surge capacity.",
-          "detected_by": "validator.equipment_v1",
-          "detected_at": "2026-04-25T18:00:00Z"
-        }
-      ],
-      "confidence": 0.9,
-      "confidence_interval": [0.84, 0.94],
-      "score": 75,
-      "reasoning": "ICU is staffed and equipped, but documented ventilator outage reduces the effective capability.",
-      "computed_at": "2026-04-25T18:00:00Z"
-    }
-  },
-  "total_contradictions": 2,
-  "last_audited_at": "2026-04-25T18:00:00Z",
-  "mlflow_trace_id": "01HXYZK4N6PQRSTV8WABCDEFGH"
+    "total_contradictions": 5,
+    "last_audited_at": "2026-04-26T00:31:20.152317Z",
+    "mlflow_trace_id": null
 }
