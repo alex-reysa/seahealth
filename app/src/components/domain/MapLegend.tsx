@@ -45,40 +45,37 @@ export function MapLegend({
   const showUnavailablePill = populationSource === 'unavailable';
   return (
     <div
-      className={`pointer-events-auto rounded-2xl border border-border-subtle bg-white/82 p-3 shadow-elevation-1 backdrop-blur-xl ${className}`}
+      className={`pointer-events-auto w-[174px] rounded-2xl border border-white/55 bg-white/48 p-2.5 text-caption text-content-secondary opacity-85 backdrop-blur-xl transition-opacity hover:opacity-100 ${className}`}
     >
-      <div className="flex items-center justify-between gap-3">
-        <div>
-          <div className="text-caption font-semibold text-content-primary">{title}</div>
-          {caption && <div className="text-mono-s text-content-tertiary">{caption}</div>}
-        </div>
-        {showUnavailablePill && (
-          <span
-            className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-mono-s font-medium text-amber-800"
-            title="Backend did not return a population denominator for this query."
-          >
-            <Info className="h-3 w-3" /> population unavailable
-          </span>
-        )}
+      <div>
+        <div className="text-mono-s font-semibold uppercase tracking-wider text-content-secondary">{title}</div>
+        {caption && <div className="mt-0.5 text-mono-s text-content-tertiary">{caption}</div>}
       </div>
 
       <ul className="mt-2 flex flex-col gap-1">
         {stops.map((stop, index) => (
-          <li key={`${stop.threshold}-${index}`} className="flex items-center gap-2 text-caption text-content-secondary">
+          <li key={`${stop.threshold}-${index}`} className="flex items-center justify-between gap-2 text-mono-s text-content-secondary">
+            <span>{stop.label ?? `≥ ${stop.threshold}`}</span>
             <span
               aria-hidden="true"
-              className="h-3 w-5 rounded border border-border-subtle"
+              className="h-2 w-10 rounded-full"
               style={{ backgroundColor: stop.color }}
             />
-            <span className="font-mono text-mono-s text-content-secondary">
-              {stop.label ?? `≥ ${stop.threshold}`}
-            </span>
           </li>
         ))}
       </ul>
 
+      {showUnavailablePill && (
+        <span
+          className="mt-2 inline-flex items-center gap-1 rounded-full bg-amber-100/70 px-2 py-0.5 text-mono-s font-medium text-amber-800"
+          title="Backend did not return a population denominator for this query."
+        >
+          <Info className="h-3 w-3" /> population unavailable
+        </span>
+      )}
+
       {typeof unmatchedCount === 'number' && unmatchedCount > 0 && (
-        <div className="mt-2 border-t border-border-subtle pt-2 text-mono-s text-content-tertiary">
+        <div className="mt-2 text-mono-s text-content-tertiary">
           {unmatchedCount} aggregate row{unmatchedCount === 1 ? '' : 's'} unmatched
         </div>
       )}

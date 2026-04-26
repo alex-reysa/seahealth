@@ -17,13 +17,11 @@ import {
   Search,
   ShieldAlert,
   Target,
-  Terminal,
   X,
 } from 'lucide-react';
 import 'maplibre-gl/dist/maplibre-gl.css';
 
 import { Breadcrumbs } from '@/src/components/domain/Breadcrumbs';
-import { DataModeBanner } from '@/src/components/domain/DataModeBanner';
 import { MapLegend } from '@/src/components/domain/MapLegend';
 import { TrustScore } from '@/src/components/domain/TrustScore';
 import { Button } from '@/src/components/ui/Button';
@@ -150,18 +148,11 @@ const regionCentroidsById = new globalThis.Map<string, [number, number]>(
   ]),
 );
 
-const VERIFIED_LEGEND_STOPS = [
-  { threshold: 0, color: '#E4F3EC', label: '0 verified' },
-  { threshold: 1, color: '#A4D2BB', label: '1–9' },
-  { threshold: 10, color: '#3D9D89', label: '10–49' },
-  { threshold: 50, color: '#176D6A', label: '≥ 50' },
-];
-
 const FLAGGED_LEGEND_STOPS = [
-  { threshold: 0, color: '#F5EFE5', label: '0 flagged' },
-  { threshold: 1, color: '#F1C7A6', label: '1–9' },
-  { threshold: 10, color: '#D88975', label: '10–49' },
-  { threshold: 50, color: '#A4473E', label: '≥ 50' },
+  { threshold: 0, color: '#E4F3EC', label: '0 flagged' },
+  { threshold: 1, color: '#B7DFC9', label: '1–9' },
+  { threshold: 10, color: '#72B7A8', label: '10–49' },
+  { threshold: 50, color: '#2F7F72', label: '≥ 50' },
 ];
 
 function getOverlayFillColor(overlayMode: MapOverlayMode, visibleLayers: PlanningLayerVisibility): any {
@@ -455,6 +446,8 @@ export function Dashboard() {
   const [selectedFacilityId, setSelectedFacilityId] = React.useState<string | null>(null);
   const [selectedFacilityCapabilityId, setSelectedFacilityCapabilityId] = React.useState<CapabilityType | null>(null);
   const [overlayMode, setOverlayMode] = React.useState<MapOverlayMode>('priority_score');
+  const [isPlanningLayersOpen, setIsPlanningLayersOpen] = React.useState(false);
+  const [isPriorityZoneOpen, setIsPriorityZoneOpen] = React.useState(true);
   const [visibleLayers, setVisibleLayers] = React.useState<PlanningLayerVisibility>(DEFAULT_PLANNING_LAYER_VISIBILITY);
 
   const parsed = parseDemoCommand(command);
@@ -564,6 +557,7 @@ export function Dashboard() {
     const params = new URLSearchParams(searchParams);
     params.set('region_id', nextRegionId);
     setSearchParams(params);
+    setIsPriorityZoneOpen(true);
     focusMap(nextRegionId);
   };
 
@@ -582,6 +576,7 @@ export function Dashboard() {
     timersRef.current = [];
     setCommand(nextCommand);
     setActiveResult(nextResult);
+    setIsPriorityZoneOpen(true);
     if (animate) setAgentPanelView('trace');
     setSearchParams({
       q: nextCommand,
@@ -627,6 +622,7 @@ export function Dashboard() {
     setCommand(nextCommand);
     setActiveResult(getQueryResultForCommand(nextCommand));
     setAgentPanelView('facilities');
+    setIsPriorityZoneOpen(true);
     setSearchParams({
       q: nextCommand,
       capability: nextFundingRegion.capability,
@@ -644,7 +640,10 @@ export function Dashboard() {
     if (next.regionId) params.set('region_id', next.regionId);
     if (next.pinCode) params.set('pin_code', next.pinCode);
     setSearchParams(params);
-    if (next.regionId) focusMap(next.regionId);
+    if (next.regionId) {
+      setIsPriorityZoneOpen(true);
+      focusMap(next.regionId);
+    }
   };
 
   const onCommandSubmit = (event: React.FormEvent) => {
@@ -726,81 +725,77 @@ export function Dashboard() {
           </Marker>
         )}
 
-        {selectedRegionCentroid && (
-          <Marker
-            longitude={selectedRegionCentroid[0]}
-            latitude={selectedRegionCentroid[1]}
-            anchor="top-left"
-            offset={[14, 12]}
+      </Map>
+
+      {selectedRegionCentroid && isPriorityZoneOpen && (
+        <div className="pointer-events-auto absolute left-1/2 top-[44%] z-40 w-[460px] -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-border-subtle bg-white/90 p-4 pr-10 shadow-elevation-4 backdrop-blur-xl">
+          <button
+            type="button"
+            onClick={() => setIsPriorityZoneOpen(false)}
+            className="absolute right-3 top-3 rounded-full border border-border-subtle bg-white/70 p-1.5 text-content-tertiary transition-colors hover:text-content-primary"
+            aria-label="Close selected priority zone"
           >
-            <div
-              className="pointer-events-auto w-[300px] rounded-2xl border border-border-subtle bg-white/86 p-4 shadow-elevation-3 backdrop-blur-xl"
-              onClick={(event) => event.stopPropagation()}
-            >
+            <X className="h-3.5 w-3.5" />
+          </button>
+          <div className="grid grid-cols-[1.15fr_0.85fr] gap-4">
+            <div>
               <div className="text-caption font-semibold uppercase tracking-wider text-content-secondary">Selected priority zone</div>
               <h2 className="mt-1 text-heading-m text-content-primary">{fundingRegion.name}</h2>
               <p className="mt-2 text-caption text-content-secondary">{fundingRegion.regionSummary}</p>
-
-              <div className="mt-4 grid grid-cols-2 gap-2">
-                <div className="rounded-xl bg-white/70 p-3">
-                  <div className="text-mono-s uppercase text-content-tertiary">Priority score</div>
-                  <div className="mt-1 text-heading-m text-accent-primary">{Math.round(fundingRegion.priorityScore * 100)}/100</div>
-                </div>
-                {populationUnavailable ? (
-                  <div className="rounded-xl bg-white/70 p-3">
-                    <div className="text-mono-s uppercase text-content-tertiary">Verified / flagged</div>
-                    <div className="mt-1 text-heading-m text-content-primary">
-                      {selectedAggregate?.verified_facilities_count ?? 0}
-                      <span className="text-content-tertiary"> / </span>
-                      {selectedAggregate?.flagged_facilities_count ?? 0}
-                    </div>
-                    <div className="mt-1 inline-flex items-center gap-1 rounded-full bg-amber-100 px-1.5 py-0.5 text-mono-s text-amber-800">
-                      population unavailable
-                    </div>
-                  </div>
-                ) : (
-                  <div className="rounded-xl bg-white/70 p-3">
-                    <div className="text-mono-s uppercase text-content-tertiary">Gap population</div>
-                    <div className="mt-1 text-heading-m text-content-primary">{formatNumber(fundingRegion.gapPopulation)}</div>
-                  </div>
-                )}
-                <div className="rounded-xl bg-white/70 p-3">
-                  <div className="text-mono-s uppercase text-content-tertiary">Need signal</div>
-                  <div className="mt-1 text-caption font-semibold text-content-primary">
-                    {getMetricLabel(fundingRegion.needSignal, ['Low', 'Moderate', 'High'])} ({formatPercentMetric(fundingRegion.needSignal)})
-                  </div>
-                  <div className="mt-1 text-mono-s text-content-tertiary">{fundingRegion.needLayerLabel}</div>
-                </div>
-                <div className="rounded-xl bg-white/70 p-3">
-                  <div className="text-mono-s uppercase text-content-tertiary">Verified access</div>
-                  <div className="mt-1 text-caption font-semibold text-content-primary">
-                    {getMetricLabel(fundingRegion.verifiedAccessScore, ['Low', 'Mixed', 'High'])} ({formatPercentMetric(fundingRegion.verifiedAccessScore)})
-                  </div>
-                  <div className="mt-1 text-mono-s text-content-tertiary">{fundingRegion.supplyLayerLabel}</div>
-                </div>
-              </div>
-
-              <div className="mt-3 rounded-xl border border-border-subtle bg-white/62 p-3">
-                <div className="flex items-center justify-between gap-3 text-caption">
-                  <span className="text-content-secondary">Nearest verified {getCapabilityLabel(fundingRegion.capability).toLowerCase()}</span>
-                  <span className="font-semibold text-content-primary">{fundingRegion.nearestVerifiedKm}km</span>
-                </div>
-                <div className="mt-2 flex items-center justify-between gap-3 text-caption">
-                  <span className="text-content-secondary">Contradiction risk</span>
-                  <span className="font-semibold text-semantic-critical">
-                    {getMetricLabel(fundingRegion.contradictionRisk, ['Low', 'Moderate', 'High'])} ({formatPercentMetric(fundingRegion.contradictionRisk)})
-                  </span>
-                </div>
-              </div>
-
-              <p className="mt-3 text-caption font-medium text-content-primary">{fundingRegion.recommendedAction}</p>
             </div>
-          </Marker>
-        )}
-      </Map>
+            <div className="grid grid-cols-2 gap-2">
+              <div className="rounded-xl bg-white/70 p-2.5">
+                <div className="text-mono-s uppercase text-content-tertiary">Priority</div>
+                <div className="mt-1 text-heading-s text-accent-primary">{Math.round(fundingRegion.priorityScore * 100)}/100</div>
+              </div>
+              {populationUnavailable ? (
+                <div className="rounded-xl bg-white/70 p-2.5">
+                  <div className="text-mono-s uppercase text-content-tertiary">Verified / flagged</div>
+                  <div className="mt-1 text-heading-s text-content-primary">
+                    {selectedAggregate?.verified_facilities_count ?? 0}
+                    <span className="text-content-tertiary"> / </span>
+                    {selectedAggregate?.flagged_facilities_count ?? 0}
+                  </div>
+                </div>
+              ) : (
+                <div className="rounded-xl bg-white/70 p-2.5">
+                  <div className="text-mono-s uppercase text-content-tertiary">Gap pop.</div>
+                  <div className="mt-1 text-heading-s text-content-primary">{formatNumber(fundingRegion.gapPopulation)}</div>
+                </div>
+              )}
+              <div className="rounded-xl bg-white/70 p-2.5">
+                <div className="text-mono-s uppercase text-content-tertiary">Need</div>
+                <div className="mt-1 text-caption font-semibold text-content-primary">
+                  {getMetricLabel(fundingRegion.needSignal, ['Low', 'Moderate', 'High'])} ({formatPercentMetric(fundingRegion.needSignal)})
+                </div>
+              </div>
+              <div className="rounded-xl bg-white/70 p-2.5">
+                <div className="text-mono-s uppercase text-content-tertiary">Access</div>
+                <div className="mt-1 text-caption font-semibold text-content-primary">
+                  {getMetricLabel(fundingRegion.verifiedAccessScore, ['Low', 'Mixed', 'High'])} ({formatPercentMetric(fundingRegion.verifiedAccessScore)})
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-3 grid grid-cols-2 gap-2 rounded-xl border border-border-subtle bg-white/62 p-3">
+            <div className="flex items-center justify-between gap-3 text-caption">
+              <span className="text-content-secondary">Nearest verified care</span>
+              <span className="font-semibold text-content-primary">{fundingRegion.nearestVerifiedKm}km</span>
+            </div>
+            <div className="flex items-center justify-between gap-3 text-caption">
+              <span className="text-content-secondary">Contradiction risk</span>
+              <span className="font-semibold text-semantic-critical">
+                {getMetricLabel(fundingRegion.contradictionRisk, ['Low', 'Moderate', 'High'])} ({formatPercentMetric(fundingRegion.contradictionRisk)})
+              </span>
+            </div>
+          </div>
+
+          <p className="mt-3 text-caption font-medium text-content-primary">{fundingRegion.recommendedAction}</p>
+        </div>
+      )}
 
       <div className={`pointer-events-none absolute left-6 ${isAgentPanelOpen ? 'right-[500px]' : 'right-6'} top-5 z-20 flex flex-col gap-2 transition-all duration-300`}>
-        <Breadcrumbs regionId={regionId} onSelect={setRegionInUrl} />
         <div className="pointer-events-auto flex flex-wrap items-center gap-2">
           <Card variant="glass" className="flex items-center gap-3 rounded-2xl bg-white/58 px-3 py-2 shadow-elevation-1">
             <div>
@@ -828,72 +823,87 @@ export function Dashboard() {
               <div className="text-body font-semibold text-content-primary">{new Date(activeResult.generatedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</div>
               <div className="text-mono-s uppercase text-content-secondary">Generated</div>
             </div>
-            <div className="h-7 w-px bg-border-default" />
-            <DataModeBanner />
           </Card>
         </div>
       </div>
 
       <div className="pointer-events-auto absolute left-6 top-24 z-20 flex max-h-[calc(100vh-190px)] w-[350px] flex-col gap-3 overflow-y-auto pr-1">
-        <Card variant="glass-control" className="pointer-events-auto rounded-2xl p-4">
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <div className="text-caption font-semibold uppercase tracking-wider text-content-secondary">Planning layers</div>
-              <div className="mt-1 text-heading-s text-content-primary">{activeOverlayOption.label}</div>
-            </div>
-            <span className="rounded-full bg-white/70 px-2 py-1 text-mono-s text-content-secondary">{activeOverlayOption.legend}</span>
-          </div>
+        <Card variant="glass-control" className="pointer-events-auto rounded-2xl p-2.5">
+          <button
+            type="button"
+            onClick={() => setIsPlanningLayersOpen((isOpen) => !isOpen)}
+            aria-expanded={isPlanningLayersOpen}
+            className="flex w-full items-center justify-between gap-3 rounded-xl px-1.5 py-1 text-left transition-colors hover:bg-white/40"
+          >
+            <span>
+              <span className="block text-caption font-semibold uppercase tracking-wider text-content-secondary">Planning layers</span>
+              <span className="mt-0.5 block text-heading-s text-content-primary">{activeOverlayOption.label}</span>
+            </span>
+            <span className="flex items-center gap-2">
+              <span className="rounded-full bg-white/70 px-2 py-1 text-mono-s text-content-secondary">{activeOverlayOption.legend}</span>
+              <ChevronRight className={`h-4 w-4 text-content-tertiary transition-transform ${isPlanningLayersOpen ? 'rotate-90' : ''}`} />
+            </span>
+          </button>
 
-          <div className="mt-4">
-            <div className="mb-2 text-mono-s uppercase text-content-tertiary">Color map by</div>
-            <div className="grid grid-cols-2 gap-1 rounded-xl bg-surface-sunken p-1">
-              {OVERLAY_MODE_OPTIONS.map((option) => (
-                <button
-                  key={option.id}
-                  type="button"
-                  onClick={() => setOverlayMode(option.id)}
-                  className={`rounded-lg px-2 py-1.5 text-left text-caption font-semibold transition-colors ${
-                    overlayMode === option.id ? 'bg-white text-content-primary shadow-elevation-1' : 'text-content-secondary hover:text-content-primary'
-                  }`}
-                >
-                  {option.label}
-                </button>
-              ))}
-            </div>
-          </div>
+          {isPlanningLayersOpen && (
+            <div className="mt-3 border-t border-border-subtle pt-3">
+              <div>
+                <div className="mb-2 text-mono-s uppercase text-content-tertiary">Color map by</div>
+                <div className="grid grid-cols-2 gap-1 rounded-xl bg-surface-sunken p-1">
+                  {OVERLAY_MODE_OPTIONS.map((option) => (
+                    <button
+                      key={option.id}
+                      type="button"
+                      onClick={() => setOverlayMode(option.id)}
+                      className={`rounded-lg px-2 py-1.5 text-left text-caption font-semibold transition-colors ${
+                        overlayMode === option.id ? 'bg-white text-content-primary shadow-elevation-1' : 'text-content-secondary hover:text-content-primary'
+                      }`}
+                    >
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
 
-          <div className="mt-4 flex flex-col gap-2">
-            {PLANNING_LAYER_OPTIONS.map((layer) => {
-              const isVisible = visibleLayers[layer.id];
-              return (
-                <button
-                  key={layer.id}
-                  type="button"
-                  aria-pressed={isVisible}
-                  onClick={() => setVisibleLayers((current) => ({ ...current, [layer.id]: !current[layer.id] }))}
-                  className="flex items-center justify-between gap-3 rounded-xl border border-border-subtle bg-white/62 px-3 py-2 text-left transition-colors hover:border-accent-primary-soft hover:bg-white"
-                >
-                  <span>
-                    <span className="block text-caption font-semibold text-content-primary">{layer.label}</span>
-                    <span className="block text-mono-s text-content-tertiary">{layer.detail}</span>
-                  </span>
-                  <span className={`h-5 w-9 rounded-full p-0.5 transition-colors ${isVisible ? 'bg-accent-primary' : 'bg-content-tertiary/25'}`}>
-                    <span className={`block h-4 w-4 rounded-full bg-white shadow-elevation-1 transition-transform ${isVisible ? 'translate-x-4' : ''}`} />
-                  </span>
-                </button>
-              );
-            })}
-          </div>
+              <div className="mt-4 flex flex-col gap-2">
+                {PLANNING_LAYER_OPTIONS.map((layer) => {
+                  const isVisible = visibleLayers[layer.id];
+                  return (
+                    <button
+                      key={layer.id}
+                      type="button"
+                      aria-pressed={isVisible}
+                      onClick={() => setVisibleLayers((current) => ({ ...current, [layer.id]: !current[layer.id] }))}
+                      className="flex items-center justify-between gap-3 rounded-xl border border-border-subtle bg-white/62 px-3 py-2 text-left transition-colors hover:border-accent-primary-soft hover:bg-white"
+                    >
+                      <span>
+                        <span className="block text-caption font-semibold text-content-primary">{layer.label}</span>
+                        <span className="block text-mono-s text-content-tertiary">{layer.detail}</span>
+                      </span>
+                      <span className={`h-5 w-9 rounded-full p-0.5 transition-colors ${isVisible ? 'bg-accent-primary' : 'bg-content-tertiary/25'}`}>
+                        <span className={`block h-4 w-4 rounded-full bg-white shadow-elevation-1 transition-transform ${isVisible ? 'translate-x-4' : ''}`} />
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </Card>
 
+      </div>
+
+      <div
+        className="absolute bottom-12 z-20 transition-all duration-300"
+        style={{ right: isAgentPanelOpen ? '500px' : '24px' }}
+      >
         <MapLegend
-          title={overlayMode === 'verified_access' ? 'Verified facilities (live)' : 'Flagged facilities (live)'}
-          caption="from /map/aggregates"
-          stops={overlayMode === 'verified_access' ? VERIFIED_LEGEND_STOPS : FLAGGED_LEGEND_STOPS}
+          title="Flagged facilities"
+          caption="live"
+          stops={FLAGGED_LEGEND_STOPS}
           populationSource={populationSource}
           unmatchedCount={join.unmatched.length}
         />
-
       </div>
 
       <div
@@ -999,16 +1009,12 @@ export function Dashboard() {
         Reset map
       </button>
 
-      <div className="absolute bottom-0 inset-x-0 z-10 flex h-8 items-center gap-4 border-t border-border-default bg-surface-raised px-4 text-mono-s text-content-tertiary">
-        <span className="flex items-center gap-1">
-          <CheckCircle2 className="h-3 w-3" /> Map Workbench active
-        </span>
-        <span className="flex items-center gap-1">
-          <Terminal className="h-3 w-3" /> Query trace {activeResult.queryTraceId}
-        </span>
-        <span className="flex items-center gap-1">
-          <AlertCircle className="h-3 w-3" /> Backend detached mock events
-        </span>
+      <div className="pointer-events-none absolute inset-x-0 bottom-2 z-10 flex justify-center">
+        <Breadcrumbs
+          regionId={regionId}
+          onSelect={setRegionInUrl}
+          className="pointer-events-auto border-white/50 bg-white/45 px-2 py-0.5 opacity-80 shadow-none"
+        />
       </div>
 
       {!isAgentPanelOpen && (
