@@ -50,6 +50,9 @@ tables/
 
 # But DO commit small synthetic fixtures used by tests
 !tests/fixtures/**/*.csv
+
+# Hackathon: Layer-2 desert-score inputs are checked in for clone-and-run reproducibility
+!topoJson/*.csv
 !tests/fixtures/**/*.parquet
 !tests/fixtures/**/*.xlsx
 
