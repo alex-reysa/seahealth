@@ -7,7 +7,8 @@
             "lng": 85.14,
             "pin_code": "800001"
         },
-        "radius_km": 50.0
+        "radius_km": 50.0,
+        "staffing_qualifier": null
     },
     "ranked_facilities": [
         {
@@ -22,43 +23,351 @@
             "trust_score": {
                 "capability_type": "SURGERY_GENERAL",
                 "claimed": true,
-                "evidence": [],
+                "evidence": [
+                    {
+                        "source_doc_id": "vf_03988_dr-nitesh-kumar-ajenya-d",
+                        "facility_id": "vf_03988_dr-nitesh-kumar-ajenya-d",
+                        "chunk_id": "vf_03988_dr-nitesh-kumar-ajenya-d::facility_note",
+                        "row_id": null,
+                        "span": [
+                            238,
+                            369
+                        ],
+                        "snippet": "using advanced Surgical Treatments including Digital Imaging, Ultrasound Technology, Robotic Surgery and Minimally Invasive Surgery",
+                        "source_type": "facility_note",
+                        "source_observed_at": null,
+                        "retrieved_at": "2024-12-19T10:30:00Z"
+                    },
+                    {
+                        "source_doc_id": "vf_03988_dr-nitesh-kumar-ajenya-d",
+                        "facility_id": "vf_03988_dr-nitesh-kumar-ajenya-d",
+                        "chunk_id": "vf_03988_dr-nitesh-kumar-ajenya-d::equipment_inventory",
+                        "row_id": null,
+                        "span": [
+                            39,
+                            61
+                        ],
+                        "snippet": "Robotic surgery system",
+                        "source_type": "equipment_inventory",
+                        "source_observed_at": null,
+                        "retrieved_at": "2024-12-19T10:30:00Z"
+                    },
+                    {
+                        "source_doc_id": "vf_03988_dr-nitesh-kumar-ajenya-d",
+                        "facility_id": "vf_03988_dr-nitesh-kumar-ajenya-d",
+                        "chunk_id": "vf_03988_dr-nitesh-kumar-ajenya-d::volume_report",
+                        "row_id": null,
+                        "span": [
+                            186,
+                            264
+                        ],
+                        "snippet": "Urology centre in Patna offering urology consultations and surgical treatments",
+                        "source_type": "volume_report",
+                        "source_observed_at": null,
+                        "retrieved_at": "2024-12-19T10:30:00Z"
+                    }
+                ],
                 "contradictions": [
                     {
                         "contradiction_type": "MISSING_EQUIPMENT",
                         "capability_type": "SURGERY_GENERAL",
                         "facility_id": "vf_03988_dr-nitesh-kumar-ajenya-d",
-                        "evidence_for": [],
+                        "evidence_for": [
+                            {
+                                "source_doc_id": "vf_03988_dr-nitesh-kumar-ajenya-d",
+                                "facility_id": "vf_03988_dr-nitesh-kumar-ajenya-d",
+                                "chunk_id": "vf_03988_dr-nitesh-kumar-ajenya-d::facility_note",
+                                "row_id": null,
+                                "span": [
+                                    238,
+                                    369
+                                ],
+                                "snippet": "using advanced Surgical Treatments including Digital Imaging, Ultrasound Technology, Robotic Surgery and Minimally Invasive Surgery",
+                                "source_type": "facility_note",
+                                "source_observed_at": null,
+                                "retrieved_at": "2024-12-19T10:30:00Z"
+                            },
+                            {
+                                "source_doc_id": "vf_03988_dr-nitesh-kumar-ajenya-d",
+                                "facility_id": "vf_03988_dr-nitesh-kumar-ajenya-d",
+                                "chunk_id": "vf_03988_dr-nitesh-kumar-ajenya-d::equipment_inventory",
+                                "row_id": null,
+                                "span": [
+                                    39,
+                                    61
+                                ],
+                                "snippet": "Robotic surgery system",
+                                "source_type": "equipment_inventory",
+                                "source_observed_at": null,
+                                "retrieved_at": "2024-12-19T10:30:00Z"
+                            },
+                            {
+                                "source_doc_id": "vf_03988_dr-nitesh-kumar-ajenya-d",
+                                "facility_id": "vf_03988_dr-nitesh-kumar-ajenya-d",
+                                "chunk_id": "vf_03988_dr-nitesh-kumar-ajenya-d::volume_report",
+                                "row_id": null,
+                                "span": [
+                                    186,
+                                    264
+                                ],
+                                "snippet": "Urology centre in Patna offering urology consultations and surgical treatments",
+                                "source_type": "volume_report",
+                                "source_observed_at": null,
+                                "retrieved_at": "2024-12-19T10:30:00Z"
+                            }
+                        ],
                         "evidence_against": [],
                         "severity": "HIGH",
                         "reasoning": "No equipment recorded for facility while SURGERY_GENERAL requires core gear (anesthesia, laparoscopy).",
                         "detected_by": "validator.v1.heuristics",
-                        "detected_at": "2026-04-26T00:31:20.152538Z"
+                        "detected_at": "2026-04-26T02:44:57.255064Z"
                     },
                     {
                         "contradiction_type": "MISSING_STAFF",
                         "capability_type": "SURGERY_GENERAL",
                         "facility_id": "vf_03988_dr-nitesh-kumar-ajenya-d",
-                        "evidence_for": [],
+                        "evidence_for": [
+                            {
+                                "source_doc_id": "vf_03988_dr-nitesh-kumar-ajenya-d",
+                                "facility_id": "vf_03988_dr-nitesh-kumar-ajenya-d",
+                                "chunk_id": "vf_03988_dr-nitesh-kumar-ajenya-d::facility_note",
+                                "row_id": null,
+                                "span": [
+                                    238,
+                                    369
+                                ],
+                                "snippet": "using advanced Surgical Treatments including Digital Imaging, Ultrasound Technology, Robotic Surgery and Minimally Invasive Surgery",
+                                "source_type": "facility_note",
+                                "source_observed_at": null,
+                                "retrieved_at": "2024-12-19T10:30:00Z"
+                            },
+                            {
+                                "source_doc_id": "vf_03988_dr-nitesh-kumar-ajenya-d",
+                                "facility_id": "vf_03988_dr-nitesh-kumar-ajenya-d",
+                                "chunk_id": "vf_03988_dr-nitesh-kumar-ajenya-d::equipment_inventory",
+                                "row_id": null,
+                                "span": [
+                                    39,
+                                    61
+                                ],
+                                "snippet": "Robotic surgery system",
+                                "source_type": "equipment_inventory",
+                                "source_observed_at": null,
+                                "retrieved_at": "2024-12-19T10:30:00Z"
+                            },
+                            {
+                                "source_doc_id": "vf_03988_dr-nitesh-kumar-ajenya-d",
+                                "facility_id": "vf_03988_dr-nitesh-kumar-ajenya-d",
+                                "chunk_id": "vf_03988_dr-nitesh-kumar-ajenya-d::volume_report",
+                                "row_id": null,
+                                "span": [
+                                    186,
+                                    264
+                                ],
+                                "snippet": "Urology centre in Patna offering urology consultations and surgical treatments",
+                                "source_type": "volume_report",
+                                "source_observed_at": null,
+                                "retrieved_at": "2024-12-19T10:30:00Z"
+                            }
+                        ],
                         "evidence_against": [],
                         "severity": "HIGH",
                         "reasoning": "Staff roster reports no staff for SURGERY_GENERAL (requires at least 2).",
                         "detected_by": "validator.v1.heuristics",
-                        "detected_at": "2026-04-26T00:31:20.152540Z"
+                        "detected_at": "2026-04-26T02:44:57.255067Z"
                     }
                 ],
-                "confidence": 0.05,
+                "confidence": 0.95,
                 "confidence_interval": [
-                    0.0,
-                    0.05
+                    0.35,
+                    0.95
                 ],
-                "score": 0,
-                "reasoning": "Score 0 based on 0 evidence sources and 2 contradictions: MISSING_EQUIPMENT, MISSING_STAFF.",
-                "computed_at": "2026-04-26T00:31:20.152679Z"
+                "score": 35,
+                "reasoning": "Score 35 based on 3 evidence sources and 2 contradictions: MISSING_EQUIPMENT, MISSING_STAFF.",
+                "computed_at": "2026-04-26T02:44:57.255197Z"
             },
             "contradictions_flagged": 2,
-            "evidence_count": 0,
+            "evidence_count": 3,
             "rank": 1
+        },
+        {
+            "facility_id": "vf_07731_neuron-hospital-patna",
+            "name": "Neuron Hospital Patna",
+            "location": {
+                "lat": 25.62817383,
+                "lng": 85.08605957,
+                "pin_code": "800001"
+            },
+            "distance_km": 5.77,
+            "trust_score": {
+                "capability_type": "SURGERY_GENERAL",
+                "claimed": true,
+                "evidence": [
+                    {
+                        "source_doc_id": "vf_07731_neuron-hospital-patna",
+                        "facility_id": "vf_07731_neuron-hospital-patna",
+                        "chunk_id": "vf_07731_neuron-hospital-patna::facility_note",
+                        "row_id": null,
+                        "span": [
+                            127,
+                            199
+                        ],
+                        "snippet": "advance center for Urology, Neurology, Cardiac, Surgery, Plastic Surgery",
+                        "source_type": "facility_note",
+                        "source_observed_at": null,
+                        "retrieved_at": "2024-01-15T10:30:00Z"
+                    },
+                    {
+                        "source_doc_id": "vf_07731_neuron-hospital-patna",
+                        "facility_id": "vf_07731_neuron-hospital-patna",
+                        "chunk_id": "vf_07731_neuron-hospital-patna::facility_note",
+                        "row_id": null,
+                        "span": [
+                            387,
+                            401
+                        ],
+                        "snippet": "generalSurgery",
+                        "source_type": "facility_note",
+                        "source_observed_at": null,
+                        "retrieved_at": "2024-01-15T10:30:00Z"
+                    },
+                    {
+                        "source_doc_id": "vf_07731_neuron-hospital-patna",
+                        "facility_id": "vf_07731_neuron-hospital-patna",
+                        "chunk_id": "vf_07731_neuron-hospital-patna::volume_report",
+                        "row_id": null,
+                        "span": [
+                            140,
+                            147
+                        ],
+                        "snippet": "Surgery",
+                        "source_type": "volume_report",
+                        "source_observed_at": null,
+                        "retrieved_at": "2024-01-15T10:30:00Z"
+                    }
+                ],
+                "contradictions": [
+                    {
+                        "contradiction_type": "MISSING_EQUIPMENT",
+                        "capability_type": "SURGERY_GENERAL",
+                        "facility_id": "vf_07731_neuron-hospital-patna",
+                        "evidence_for": [
+                            {
+                                "source_doc_id": "vf_07731_neuron-hospital-patna",
+                                "facility_id": "vf_07731_neuron-hospital-patna",
+                                "chunk_id": "vf_07731_neuron-hospital-patna::facility_note",
+                                "row_id": null,
+                                "span": [
+                                    127,
+                                    199
+                                ],
+                                "snippet": "advance center for Urology, Neurology, Cardiac, Surgery, Plastic Surgery",
+                                "source_type": "facility_note",
+                                "source_observed_at": null,
+                                "retrieved_at": "2024-01-15T10:30:00Z"
+                            },
+                            {
+                                "source_doc_id": "vf_07731_neuron-hospital-patna",
+                                "facility_id": "vf_07731_neuron-hospital-patna",
+                                "chunk_id": "vf_07731_neuron-hospital-patna::facility_note",
+                                "row_id": null,
+                                "span": [
+                                    387,
+                                    401
+                                ],
+                                "snippet": "generalSurgery",
+                                "source_type": "facility_note",
+                                "source_observed_at": null,
+                                "retrieved_at": "2024-01-15T10:30:00Z"
+                            },
+                            {
+                                "source_doc_id": "vf_07731_neuron-hospital-patna",
+                                "facility_id": "vf_07731_neuron-hospital-patna",
+                                "chunk_id": "vf_07731_neuron-hospital-patna::volume_report",
+                                "row_id": null,
+                                "span": [
+                                    140,
+                                    147
+                                ],
+                                "snippet": "Surgery",
+                                "source_type": "volume_report",
+                                "source_observed_at": null,
+                                "retrieved_at": "2024-01-15T10:30:00Z"
+                            }
+                        ],
+                        "evidence_against": [],
+                        "severity": "HIGH",
+                        "reasoning": "No equipment recorded for facility while SURGERY_GENERAL requires core gear (anesthesia, laparoscopy).",
+                        "detected_by": "validator.v1.heuristics",
+                        "detected_at": "2026-04-26T02:44:57.341983Z"
+                    },
+                    {
+                        "contradiction_type": "MISSING_STAFF",
+                        "capability_type": "SURGERY_GENERAL",
+                        "facility_id": "vf_07731_neuron-hospital-patna",
+                        "evidence_for": [
+                            {
+                                "source_doc_id": "vf_07731_neuron-hospital-patna",
+                                "facility_id": "vf_07731_neuron-hospital-patna",
+                                "chunk_id": "vf_07731_neuron-hospital-patna::facility_note",
+                                "row_id": null,
+                                "span": [
+                                    127,
+                                    199
+                                ],
+                                "snippet": "advance center for Urology, Neurology, Cardiac, Surgery, Plastic Surgery",
+                                "source_type": "facility_note",
+                                "source_observed_at": null,
+                                "retrieved_at": "2024-01-15T10:30:00Z"
+                            },
+                            {
+                                "source_doc_id": "vf_07731_neuron-hospital-patna",
+                                "facility_id": "vf_07731_neuron-hospital-patna",
+                                "chunk_id": "vf_07731_neuron-hospital-patna::facility_note",
+                                "row_id": null,
+                                "span": [
+                                    387,
+                                    401
+                                ],
+                                "snippet": "generalSurgery",
+                                "source_type": "facility_note",
+                                "source_observed_at": null,
+                                "retrieved_at": "2024-01-15T10:30:00Z"
+                            },
+                            {
+                                "source_doc_id": "vf_07731_neuron-hospital-patna",
+                                "facility_id": "vf_07731_neuron-hospital-patna",
+                                "chunk_id": "vf_07731_neuron-hospital-patna::volume_report",
+                                "row_id": null,
+                                "span": [
+                                    140,
+                                    147
+                                ],
+                                "snippet": "Surgery",
+                                "source_type": "volume_report",
+                                "source_observed_at": null,
+                                "retrieved_at": "2024-01-15T10:30:00Z"
+                            }
+                        ],
+                        "evidence_against": [],
+                        "severity": "HIGH",
+                        "reasoning": "Staff roster reports no staff for SURGERY_GENERAL (requires at least 2).",
+                        "detected_by": "validator.v1.heuristics",
+                        "detected_at": "2026-04-26T02:44:57.341985Z"
+                    }
+                ],
+                "confidence": 0.85,
+                "confidence_interval": [
+                    0.25,
+                    0.85
+                ],
+                "score": 25,
+                "reasoning": "Score 25 based on 3 evidence sources and 2 contradictions: MISSING_EQUIPMENT, MISSING_STAFF.",
+                "computed_at": "2026-04-26T02:44:57.342342Z"
+            },
+            "contradictions_flagged": 2,
+            "evidence_count": 3,
+            "rank": 2
         },
         {
             "facility_id": "vf_00245_abhinav-dental-solutions",
@@ -72,193 +381,130 @@
             "trust_score": {
                 "capability_type": "SURGERY_GENERAL",
                 "claimed": true,
-                "evidence": [],
+                "evidence": [
+                    {
+                        "source_doc_id": "vf_00245_abhinav-dental-solutions",
+                        "facility_id": "vf_00245_abhinav-dental-solutions",
+                        "chunk_id": "vf_00245_abhinav-dental-solutions::facility_note",
+                        "row_id": null,
+                        "span": [
+                            517,
+                            699
+                        ],
+                        "snippet": "Specialties: familyMedicine, generalDentistry, orthodontics, prosthodontics, oralAndMaxillofacialSurgery, periodontics, endodontics, pediatricDentistry, dentistry, aestheticDentistry",
+                        "source_type": "facility_note",
+                        "source_observed_at": null,
+                        "retrieved_at": "2024-12-18T10:30:00Z"
+                    },
+                    {
+                        "source_doc_id": "vf_00245_abhinav-dental-solutions",
+                        "facility_id": "vf_00245_abhinav-dental-solutions",
+                        "chunk_id": "vf_00245_abhinav-dental-solutions::volume_report",
+                        "row_id": null,
+                        "span": [
+                            2317,
+                            2351
+                        ],
+                        "snippet": "Provides dental and oral surgeries",
+                        "source_type": "volume_report",
+                        "source_observed_at": null,
+                        "retrieved_at": "2024-12-18T10:30:00Z"
+                    }
+                ],
                 "contradictions": [
                     {
                         "contradiction_type": "MISSING_EQUIPMENT",
                         "capability_type": "SURGERY_GENERAL",
                         "facility_id": "vf_00245_abhinav-dental-solutions",
-                        "evidence_for": [],
+                        "evidence_for": [
+                            {
+                                "source_doc_id": "vf_00245_abhinav-dental-solutions",
+                                "facility_id": "vf_00245_abhinav-dental-solutions",
+                                "chunk_id": "vf_00245_abhinav-dental-solutions::facility_note",
+                                "row_id": null,
+                                "span": [
+                                    517,
+                                    699
+                                ],
+                                "snippet": "Specialties: familyMedicine, generalDentistry, orthodontics, prosthodontics, oralAndMaxillofacialSurgery, periodontics, endodontics, pediatricDentistry, dentistry, aestheticDentistry",
+                                "source_type": "facility_note",
+                                "source_observed_at": null,
+                                "retrieved_at": "2024-12-18T10:30:00Z"
+                            },
+                            {
+                                "source_doc_id": "vf_00245_abhinav-dental-solutions",
+                                "facility_id": "vf_00245_abhinav-dental-solutions",
+                                "chunk_id": "vf_00245_abhinav-dental-solutions::volume_report",
+                                "row_id": null,
+                                "span": [
+                                    2317,
+                                    2351
+                                ],
+                                "snippet": "Provides dental and oral surgeries",
+                                "source_type": "volume_report",
+                                "source_observed_at": null,
+                                "retrieved_at": "2024-12-18T10:30:00Z"
+                            }
+                        ],
                         "evidence_against": [],
                         "severity": "HIGH",
                         "reasoning": "No equipment recorded for facility while SURGERY_GENERAL requires core gear (anesthesia, laparoscopy).",
                         "detected_by": "validator.v1.heuristics",
-                        "detected_at": "2026-04-26T00:31:20.151075Z"
+                        "detected_at": "2026-04-26T02:44:57.170639Z"
                     },
                     {
                         "contradiction_type": "MISSING_STAFF",
                         "capability_type": "SURGERY_GENERAL",
                         "facility_id": "vf_00245_abhinav-dental-solutions",
-                        "evidence_for": [],
+                        "evidence_for": [
+                            {
+                                "source_doc_id": "vf_00245_abhinav-dental-solutions",
+                                "facility_id": "vf_00245_abhinav-dental-solutions",
+                                "chunk_id": "vf_00245_abhinav-dental-solutions::facility_note",
+                                "row_id": null,
+                                "span": [
+                                    517,
+                                    699
+                                ],
+                                "snippet": "Specialties: familyMedicine, generalDentistry, orthodontics, prosthodontics, oralAndMaxillofacialSurgery, periodontics, endodontics, pediatricDentistry, dentistry, aestheticDentistry",
+                                "source_type": "facility_note",
+                                "source_observed_at": null,
+                                "retrieved_at": "2024-12-18T10:30:00Z"
+                            },
+                            {
+                                "source_doc_id": "vf_00245_abhinav-dental-solutions",
+                                "facility_id": "vf_00245_abhinav-dental-solutions",
+                                "chunk_id": "vf_00245_abhinav-dental-solutions::volume_report",
+                                "row_id": null,
+                                "span": [
+                                    2317,
+                                    2351
+                                ],
+                                "snippet": "Provides dental and oral surgeries",
+                                "source_type": "volume_report",
+                                "source_observed_at": null,
+                                "retrieved_at": "2024-12-18T10:30:00Z"
+                            }
+                        ],
                         "evidence_against": [],
                         "severity": "HIGH",
                         "reasoning": "Staff roster reports no staff for SURGERY_GENERAL (requires at least 2).",
                         "detected_by": "validator.v1.heuristics",
-                        "detected_at": "2026-04-26T00:31:20.151082Z"
+                        "detected_at": "2026-04-26T02:44:57.170641Z"
                     }
                 ],
-                "confidence": 0.05,
+                "confidence": 0.7999999999999999,
                 "confidence_interval": [
-                    0.0,
-                    0.05
+                    0.2,
+                    0.7999999999999999
                 ],
-                "score": 0,
-                "reasoning": "Score 0 based on 0 evidence sources and 2 contradictions: MISSING_EQUIPMENT, MISSING_STAFF.",
-                "computed_at": "2026-04-26T00:31:20.151237Z"
+                "score": 20,
+                "reasoning": "Score 20 based on 2 evidence sources and 2 contradictions: MISSING_EQUIPMENT, MISSING_STAFF.",
+                "computed_at": "2026-04-26T02:44:57.170775Z"
             },
             "contradictions_flagged": 2,
-            "evidence_count": 0,
-            "rank": 2
-        },
-        {
-            "facility_id": "vf_05626_ila-sinha-multispecialit",
-            "name": "Ila Sinha Multispeciality & Maternity Nursing Home",
-            "location": {
-                "lat": 25.60639191,
-                "lng": 85.16130066,
-                "pin_code": "800016"
-            },
-            "distance_km": 2.17,
-            "trust_score": {
-                "capability_type": "SURGERY_GENERAL",
-                "claimed": true,
-                "evidence": [],
-                "contradictions": [
-                    {
-                        "contradiction_type": "MISSING_EQUIPMENT",
-                        "capability_type": "SURGERY_GENERAL",
-                        "facility_id": "vf_05626_ila-sinha-multispecialit",
-                        "evidence_for": [],
-                        "evidence_against": [],
-                        "severity": "HIGH",
-                        "reasoning": "No equipment recorded for facility while SURGERY_GENERAL requires core gear (anesthesia, laparoscopy).",
-                        "detected_by": "validator.v1.heuristics",
-                        "detected_at": "2026-04-26T00:31:20.153232Z"
-                    },
-                    {
-                        "contradiction_type": "MISSING_STAFF",
-                        "capability_type": "SURGERY_GENERAL",
-                        "facility_id": "vf_05626_ila-sinha-multispecialit",
-                        "evidence_for": [],
-                        "evidence_against": [],
-                        "severity": "HIGH",
-                        "reasoning": "Staff roster reports no staff for SURGERY_GENERAL (requires at least 2).",
-                        "detected_by": "validator.v1.heuristics",
-                        "detected_at": "2026-04-26T00:31:20.153234Z"
-                    }
-                ],
-                "confidence": 0.05,
-                "confidence_interval": [
-                    0.0,
-                    0.05
-                ],
-                "score": 0,
-                "reasoning": "Score 0 based on 0 evidence sources and 2 contradictions: MISSING_EQUIPMENT, MISSING_STAFF.",
-                "computed_at": "2026-04-26T00:31:20.153365Z"
-            },
-            "contradictions_flagged": 2,
-            "evidence_count": 0,
+            "evidence_count": 2,
             "rank": 3
-        },
-        {
-            "facility_id": "vf_07264_maa-durga-surgical",
-            "name": "Maa Durga Surgical",
-            "location": {
-                "lat": 25.61908531,
-                "lng": 85.15986633,
-                "pin_code": "800004"
-            },
-            "distance_km": 2.23,
-            "trust_score": {
-                "capability_type": "SURGERY_GENERAL",
-                "claimed": true,
-                "evidence": [],
-                "contradictions": [
-                    {
-                        "contradiction_type": "MISSING_EQUIPMENT",
-                        "capability_type": "SURGERY_GENERAL",
-                        "facility_id": "vf_07264_maa-durga-surgical",
-                        "evidence_for": [],
-                        "evidence_against": [],
-                        "severity": "HIGH",
-                        "reasoning": "No equipment recorded for facility while SURGERY_GENERAL requires core gear (anesthesia, laparoscopy).",
-                        "detected_by": "validator.v1.heuristics",
-                        "detected_at": "2026-04-26T00:31:20.154163Z"
-                    },
-                    {
-                        "contradiction_type": "MISSING_STAFF",
-                        "capability_type": "SURGERY_GENERAL",
-                        "facility_id": "vf_07264_maa-durga-surgical",
-                        "evidence_for": [],
-                        "evidence_against": [],
-                        "severity": "HIGH",
-                        "reasoning": "Staff roster reports no staff for SURGERY_GENERAL (requires at least 2).",
-                        "detected_by": "validator.v1.heuristics",
-                        "detected_at": "2026-04-26T00:31:20.154165Z"
-                    }
-                ],
-                "confidence": 0.05,
-                "confidence_interval": [
-                    0.0,
-                    0.05
-                ],
-                "score": 0,
-                "reasoning": "Score 0 based on 0 evidence sources and 2 contradictions: MISSING_EQUIPMENT, MISSING_STAFF.",
-                "computed_at": "2026-04-26T00:31:20.154289Z"
-            },
-            "contradictions_flagged": 2,
-            "evidence_count": 0,
-            "rank": 4
-        },
-        {
-            "facility_id": "vf_02239_cims-hospital-patna-a-un",
-            "name": "CIMS Hospital Patna A Unit of Charaka Institute of Medical Sciences",
-            "location": {
-                "lat": 25.59433174,
-                "lng": 85.15483093,
-                "pin_code": "800001"
-            },
-            "distance_km": 2.29,
-            "trust_score": {
-                "capability_type": "SURGERY_GENERAL",
-                "claimed": true,
-                "evidence": [],
-                "contradictions": [
-                    {
-                        "contradiction_type": "MISSING_EQUIPMENT",
-                        "capability_type": "SURGERY_GENERAL",
-                        "facility_id": "vf_02239_cims-hospital-patna-a-un",
-                        "evidence_for": [],
-                        "evidence_against": [],
-                        "severity": "HIGH",
-                        "reasoning": "No equipment recorded for facility while SURGERY_GENERAL requires core gear (anesthesia, laparoscopy).",
-                        "detected_by": "validator.v1.heuristics",
-                        "detected_at": "2026-04-26T00:31:20.151953Z"
-                    },
-                    {
-                        "contradiction_type": "MISSING_STAFF",
-                        "capability_type": "SURGERY_GENERAL",
-                        "facility_id": "vf_02239_cims-hospital-patna-a-un",
-                        "evidence_for": [],
-                        "evidence_against": [],
-                        "severity": "HIGH",
-                        "reasoning": "Staff roster reports no staff for SURGERY_GENERAL (requires at least 2).",
-                        "detected_by": "validator.v1.heuristics",
-                        "detected_at": "2026-04-26T00:31:20.151955Z"
-                    }
-                ],
-                "confidence": 0.05,
-                "confidence_interval": [
-                    0.0,
-                    0.05
-                ],
-                "score": 0,
-                "reasoning": "Score 0 based on 0 evidence sources and 2 contradictions: MISSING_EQUIPMENT, MISSING_STAFF.",
-                "computed_at": "2026-04-26T00:31:20.152309Z"
-            },
-            "contradictions_flagged": 2,
-            "evidence_count": 0,
-            "rank": 5
         },
         {
             "facility_id": "vf_09810_venus-emergency-hospital",
@@ -272,43 +518,1438 @@
             "trust_score": {
                 "capability_type": "SURGERY_GENERAL",
                 "claimed": true,
-                "evidence": [],
+                "evidence": [
+                    {
+                        "source_doc_id": "vf_09810_venus-emergency-hospital",
+                        "facility_id": "vf_09810_venus-emergency-hospital",
+                        "chunk_id": "vf_09810_venus-emergency-hospital::equipment_inventory",
+                        "row_id": null,
+                        "span": [
+                            22,
+                            168
+                        ],
+                        "snippet": "Equipment items: Storage cabinet with medical supplies in the operating room, Overhead surgical lighting in the operating theatre, Operating table",
+                        "source_type": "equipment_inventory",
+                        "source_observed_at": null,
+                        "retrieved_at": "2024-01-15T10:00:00Z"
+                    },
+                    {
+                        "source_doc_id": "vf_09810_venus-emergency-hospital",
+                        "facility_id": "vf_09810_venus-emergency-hospital",
+                        "chunk_id": "vf_09810_venus-emergency-hospital::volume_report",
+                        "row_id": null,
+                        "span": [
+                            184,
+                            341
+                        ],
+                        "snippet": "Claimed procedures: Operates in an operating theatre with a surgical team performing procedures, Performs emergency surgical procedures in the operating room",
+                        "source_type": "volume_report",
+                        "source_observed_at": null,
+                        "retrieved_at": "2024-01-15T10:00:00Z"
+                    }
+                ],
                 "contradictions": [
                     {
                         "contradiction_type": "MISSING_EQUIPMENT",
                         "capability_type": "SURGERY_GENERAL",
                         "facility_id": "vf_09810_venus-emergency-hospital",
-                        "evidence_for": [],
+                        "evidence_for": [
+                            {
+                                "source_doc_id": "vf_09810_venus-emergency-hospital",
+                                "facility_id": "vf_09810_venus-emergency-hospital",
+                                "chunk_id": "vf_09810_venus-emergency-hospital::equipment_inventory",
+                                "row_id": null,
+                                "span": [
+                                    22,
+                                    168
+                                ],
+                                "snippet": "Equipment items: Storage cabinet with medical supplies in the operating room, Overhead surgical lighting in the operating theatre, Operating table",
+                                "source_type": "equipment_inventory",
+                                "source_observed_at": null,
+                                "retrieved_at": "2024-01-15T10:00:00Z"
+                            },
+                            {
+                                "source_doc_id": "vf_09810_venus-emergency-hospital",
+                                "facility_id": "vf_09810_venus-emergency-hospital",
+                                "chunk_id": "vf_09810_venus-emergency-hospital::volume_report",
+                                "row_id": null,
+                                "span": [
+                                    184,
+                                    341
+                                ],
+                                "snippet": "Claimed procedures: Operates in an operating theatre with a surgical team performing procedures, Performs emergency surgical procedures in the operating room",
+                                "source_type": "volume_report",
+                                "source_observed_at": null,
+                                "retrieved_at": "2024-01-15T10:00:00Z"
+                            }
+                        ],
                         "evidence_against": [],
                         "severity": "HIGH",
                         "reasoning": "No equipment recorded for facility while SURGERY_GENERAL requires core gear (anesthesia, laparoscopy).",
                         "detected_by": "validator.v1.heuristics",
-                        "detected_at": "2026-04-26T00:31:20.155790Z"
+                        "detected_at": "2026-04-26T02:44:57.392114Z"
                     },
                     {
                         "contradiction_type": "MISSING_STAFF",
                         "capability_type": "SURGERY_GENERAL",
                         "facility_id": "vf_09810_venus-emergency-hospital",
-                        "evidence_for": [],
+                        "evidence_for": [
+                            {
+                                "source_doc_id": "vf_09810_venus-emergency-hospital",
+                                "facility_id": "vf_09810_venus-emergency-hospital",
+                                "chunk_id": "vf_09810_venus-emergency-hospital::equipment_inventory",
+                                "row_id": null,
+                                "span": [
+                                    22,
+                                    168
+                                ],
+                                "snippet": "Equipment items: Storage cabinet with medical supplies in the operating room, Overhead surgical lighting in the operating theatre, Operating table",
+                                "source_type": "equipment_inventory",
+                                "source_observed_at": null,
+                                "retrieved_at": "2024-01-15T10:00:00Z"
+                            },
+                            {
+                                "source_doc_id": "vf_09810_venus-emergency-hospital",
+                                "facility_id": "vf_09810_venus-emergency-hospital",
+                                "chunk_id": "vf_09810_venus-emergency-hospital::volume_report",
+                                "row_id": null,
+                                "span": [
+                                    184,
+                                    341
+                                ],
+                                "snippet": "Claimed procedures: Operates in an operating theatre with a surgical team performing procedures, Performs emergency surgical procedures in the operating room",
+                                "source_type": "volume_report",
+                                "source_observed_at": null,
+                                "retrieved_at": "2024-01-15T10:00:00Z"
+                            }
+                        ],
                         "evidence_against": [],
                         "severity": "HIGH",
                         "reasoning": "Staff roster reports no staff for SURGERY_GENERAL (requires at least 2).",
                         "detected_by": "validator.v1.heuristics",
-                        "detected_at": "2026-04-26T00:31:20.155793Z"
+                        "detected_at": "2026-04-26T02:44:57.392116Z"
                     }
                 ],
-                "confidence": 0.05,
+                "confidence": 0.7999999999999999,
                 "confidence_interval": [
-                    0.0,
-                    0.05
+                    0.2,
+                    0.7999999999999999
                 ],
-                "score": 0,
-                "reasoning": "Score 0 based on 0 evidence sources and 2 contradictions: MISSING_EQUIPMENT, MISSING_STAFF.",
-                "computed_at": "2026-04-26T00:31:20.155927Z"
+                "score": 20,
+                "reasoning": "Score 20 based on 2 evidence sources and 2 contradictions: MISSING_EQUIPMENT, MISSING_STAFF.",
+                "computed_at": "2026-04-26T02:44:57.392253Z"
             },
             "contradictions_flagged": 2,
-            "evidence_count": 0,
+            "evidence_count": 2,
+            "rank": 4
+        },
+        {
+            "facility_id": "vf_05204_happy-family-nursing-hom",
+            "name": "Happy Family Nursing Home",
+            "location": {
+                "lat": 25.57632446,
+                "lng": 85.06116486,
+                "pin_code": "801505"
+            },
+            "distance_km": 8.75,
+            "trust_score": {
+                "capability_type": "SURGERY_GENERAL",
+                "claimed": true,
+                "evidence": [
+                    {
+                        "source_doc_id": "vf_05204_happy-family-nursing-hom",
+                        "facility_id": "vf_05204_happy-family-nursing-hom",
+                        "chunk_id": "vf_05204_happy-family-nursing-hom::facility_note",
+                        "row_id": null,
+                        "span": [
+                            106,
+                            164
+                        ],
+                        "snippet": "A Multi-Specialty Hospital with ultra Modern O.T and I.C.U",
+                        "source_type": "facility_note",
+                        "source_observed_at": null,
+                        "retrieved_at": "2025-01-01T00:00:00Z"
+                    },
+                    {
+                        "source_doc_id": "vf_05204_happy-family-nursing-hom",
+                        "facility_id": "vf_05204_happy-family-nursing-hom",
+                        "chunk_id": "vf_05204_happy-family-nursing-hom::equipment_inventory",
+                        "row_id": null,
+                        "span": [
+                            39,
+                            79
+                        ],
+                        "snippet": "Has ultra-modern operating theater (OT).",
+                        "source_type": "equipment_inventory",
+                        "source_observed_at": null,
+                        "retrieved_at": "2025-01-01T00:00:00Z"
+                    }
+                ],
+                "contradictions": [
+                    {
+                        "contradiction_type": "MISSING_EQUIPMENT",
+                        "capability_type": "SURGERY_GENERAL",
+                        "facility_id": "vf_05204_happy-family-nursing-hom",
+                        "evidence_for": [
+                            {
+                                "source_doc_id": "vf_05204_happy-family-nursing-hom",
+                                "facility_id": "vf_05204_happy-family-nursing-hom",
+                                "chunk_id": "vf_05204_happy-family-nursing-hom::facility_note",
+                                "row_id": null,
+                                "span": [
+                                    106,
+                                    164
+                                ],
+                                "snippet": "A Multi-Specialty Hospital with ultra Modern O.T and I.C.U",
+                                "source_type": "facility_note",
+                                "source_observed_at": null,
+                                "retrieved_at": "2025-01-01T00:00:00Z"
+                            },
+                            {
+                                "source_doc_id": "vf_05204_happy-family-nursing-hom",
+                                "facility_id": "vf_05204_happy-family-nursing-hom",
+                                "chunk_id": "vf_05204_happy-family-nursing-hom::equipment_inventory",
+                                "row_id": null,
+                                "span": [
+                                    39,
+                                    79
+                                ],
+                                "snippet": "Has ultra-modern operating theater (OT).",
+                                "source_type": "equipment_inventory",
+                                "source_observed_at": null,
+                                "retrieved_at": "2025-01-01T00:00:00Z"
+                            }
+                        ],
+                        "evidence_against": [],
+                        "severity": "HIGH",
+                        "reasoning": "No equipment recorded for facility while SURGERY_GENERAL requires core gear (anesthesia, laparoscopy).",
+                        "detected_by": "validator.v1.heuristics",
+                        "detected_at": "2026-04-26T02:44:57.278207Z"
+                    },
+                    {
+                        "contradiction_type": "MISSING_STAFF",
+                        "capability_type": "SURGERY_GENERAL",
+                        "facility_id": "vf_05204_happy-family-nursing-hom",
+                        "evidence_for": [
+                            {
+                                "source_doc_id": "vf_05204_happy-family-nursing-hom",
+                                "facility_id": "vf_05204_happy-family-nursing-hom",
+                                "chunk_id": "vf_05204_happy-family-nursing-hom::facility_note",
+                                "row_id": null,
+                                "span": [
+                                    106,
+                                    164
+                                ],
+                                "snippet": "A Multi-Specialty Hospital with ultra Modern O.T and I.C.U",
+                                "source_type": "facility_note",
+                                "source_observed_at": null,
+                                "retrieved_at": "2025-01-01T00:00:00Z"
+                            },
+                            {
+                                "source_doc_id": "vf_05204_happy-family-nursing-hom",
+                                "facility_id": "vf_05204_happy-family-nursing-hom",
+                                "chunk_id": "vf_05204_happy-family-nursing-hom::equipment_inventory",
+                                "row_id": null,
+                                "span": [
+                                    39,
+                                    79
+                                ],
+                                "snippet": "Has ultra-modern operating theater (OT).",
+                                "source_type": "equipment_inventory",
+                                "source_observed_at": null,
+                                "retrieved_at": "2025-01-01T00:00:00Z"
+                            }
+                        ],
+                        "evidence_against": [],
+                        "severity": "HIGH",
+                        "reasoning": "Staff roster reports no staff for SURGERY_GENERAL (requires at least 2).",
+                        "detected_by": "validator.v1.heuristics",
+                        "detected_at": "2026-04-26T02:44:57.278209Z"
+                    }
+                ],
+                "confidence": 0.7999999999999999,
+                "confidence_interval": [
+                    0.2,
+                    0.7999999999999999
+                ],
+                "score": 20,
+                "reasoning": "Score 20 based on 2 evidence sources and 2 contradictions: MISSING_EQUIPMENT, MISSING_STAFF.",
+                "computed_at": "2026-04-26T02:44:57.278481Z"
+            },
+            "contradictions_flagged": 2,
+            "evidence_count": 2,
+            "rank": 5
+        },
+        {
+            "facility_id": "vf_05878_jagdeesh-seva-sadan-shya",
+            "name": "Jagdeesh Seva Sadan ,Shyamchak ,Chapra,Bihar",
+            "location": {
+                "lat": 25.78796959,
+                "lng": 84.7122345,
+                "pin_code": "841300"
+            },
+            "distance_km": 47.21,
+            "trust_score": {
+                "capability_type": "SURGERY_GENERAL",
+                "claimed": true,
+                "evidence": [
+                    {
+                        "source_doc_id": "vf_05878_jagdeesh-seva-sadan-shya",
+                        "facility_id": "vf_05878_jagdeesh-seva-sadan-shya",
+                        "chunk_id": "vf_05878_jagdeesh-seva-sadan-shya::facility_note",
+                        "row_id": null,
+                        "span": [
+                            124,
+                            182
+                        ],
+                        "snippet": "A Clinic for all type of general ,ortho, urolgical surgery",
+                        "source_type": "facility_note",
+                        "source_observed_at": null,
+                        "retrieved_at": "2025-01-01T00:00:00Z"
+                    },
+                    {
+                        "source_doc_id": "vf_05878_jagdeesh-seva-sadan-shya",
+                        "facility_id": "vf_05878_jagdeesh-seva-sadan-shya",
+                        "chunk_id": "vf_05878_jagdeesh-seva-sadan-shya::volume_report",
+                        "row_id": null,
+                        "span": [
+                            125,
+                            186
+                        ],
+                        "snippet": "Provides general, orthopedic, and urological surgery services",
+                        "source_type": "volume_report",
+                        "source_observed_at": null,
+                        "retrieved_at": "2025-01-01T00:00:00Z"
+                    }
+                ],
+                "contradictions": [
+                    {
+                        "contradiction_type": "MISSING_EQUIPMENT",
+                        "capability_type": "SURGERY_GENERAL",
+                        "facility_id": "vf_05878_jagdeesh-seva-sadan-shya",
+                        "evidence_for": [
+                            {
+                                "source_doc_id": "vf_05878_jagdeesh-seva-sadan-shya",
+                                "facility_id": "vf_05878_jagdeesh-seva-sadan-shya",
+                                "chunk_id": "vf_05878_jagdeesh-seva-sadan-shya::facility_note",
+                                "row_id": null,
+                                "span": [
+                                    124,
+                                    182
+                                ],
+                                "snippet": "A Clinic for all type of general ,ortho, urolgical surgery",
+                                "source_type": "facility_note",
+                                "source_observed_at": null,
+                                "retrieved_at": "2025-01-01T00:00:00Z"
+                            },
+                            {
+                                "source_doc_id": "vf_05878_jagdeesh-seva-sadan-shya",
+                                "facility_id": "vf_05878_jagdeesh-seva-sadan-shya",
+                                "chunk_id": "vf_05878_jagdeesh-seva-sadan-shya::volume_report",
+                                "row_id": null,
+                                "span": [
+                                    125,
+                                    186
+                                ],
+                                "snippet": "Provides general, orthopedic, and urological surgery services",
+                                "source_type": "volume_report",
+                                "source_observed_at": null,
+                                "retrieved_at": "2025-01-01T00:00:00Z"
+                            }
+                        ],
+                        "evidence_against": [],
+                        "severity": "HIGH",
+                        "reasoning": "No equipment recorded for facility while SURGERY_GENERAL requires core gear (anesthesia, laparoscopy).",
+                        "detected_by": "validator.v1.heuristics",
+                        "detected_at": "2026-04-26T02:44:57.293826Z"
+                    },
+                    {
+                        "contradiction_type": "MISSING_STAFF",
+                        "capability_type": "SURGERY_GENERAL",
+                        "facility_id": "vf_05878_jagdeesh-seva-sadan-shya",
+                        "evidence_for": [
+                            {
+                                "source_doc_id": "vf_05878_jagdeesh-seva-sadan-shya",
+                                "facility_id": "vf_05878_jagdeesh-seva-sadan-shya",
+                                "chunk_id": "vf_05878_jagdeesh-seva-sadan-shya::facility_note",
+                                "row_id": null,
+                                "span": [
+                                    124,
+                                    182
+                                ],
+                                "snippet": "A Clinic for all type of general ,ortho, urolgical surgery",
+                                "source_type": "facility_note",
+                                "source_observed_at": null,
+                                "retrieved_at": "2025-01-01T00:00:00Z"
+                            },
+                            {
+                                "source_doc_id": "vf_05878_jagdeesh-seva-sadan-shya",
+                                "facility_id": "vf_05878_jagdeesh-seva-sadan-shya",
+                                "chunk_id": "vf_05878_jagdeesh-seva-sadan-shya::volume_report",
+                                "row_id": null,
+                                "span": [
+                                    125,
+                                    186
+                                ],
+                                "snippet": "Provides general, orthopedic, and urological surgery services",
+                                "source_type": "volume_report",
+                                "source_observed_at": null,
+                                "retrieved_at": "2025-01-01T00:00:00Z"
+                            }
+                        ],
+                        "evidence_against": [],
+                        "severity": "HIGH",
+                        "reasoning": "Staff roster reports no staff for SURGERY_GENERAL (requires at least 2).",
+                        "detected_by": "validator.v1.heuristics",
+                        "detected_at": "2026-04-26T02:44:57.293828Z"
+                    }
+                ],
+                "confidence": 0.7999999999999999,
+                "confidence_interval": [
+                    0.2,
+                    0.7999999999999999
+                ],
+                "score": 20,
+                "reasoning": "Score 20 based on 2 evidence sources and 2 contradictions: MISSING_EQUIPMENT, MISSING_STAFF.",
+                "computed_at": "2026-04-26T02:44:57.293949Z"
+            },
+            "contradictions_flagged": 2,
+            "evidence_count": 2,
             "rank": 6
+        },
+        {
+            "facility_id": "vf_09217_spine-care-clinic",
+            "name": "Spine Care Clinic",
+            "location": {
+                "lat": 25.5796833,
+                "lng": 85.0814209,
+                "pin_code": "801505"
+            },
+            "distance_km": 6.77,
+            "trust_score": {
+                "capability_type": "SURGERY_GENERAL",
+                "claimed": true,
+                "evidence": [
+                    {
+                        "source_doc_id": "vf_09217_spine-care-clinic",
+                        "facility_id": "vf_09217_spine-care-clinic",
+                        "chunk_id": "vf_09217_spine-care-clinic::volume_report",
+                        "row_id": null,
+                        "span": [
+                            418,
+                            447
+                        ],
+                        "snippet": "Offers spine surgery services",
+                        "source_type": "volume_report",
+                        "source_observed_at": null,
+                        "retrieved_at": "2025-01-01T00:00:00Z"
+                    },
+                    {
+                        "source_doc_id": "vf_09217_spine-care-clinic",
+                        "facility_id": "vf_09217_spine-care-clinic",
+                        "chunk_id": "vf_09217_spine-care-clinic::volume_report",
+                        "row_id": null,
+                        "span": [
+                            576,
+                            598
+                        ],
+                        "snippet": "Performs spine surgery",
+                        "source_type": "volume_report",
+                        "source_observed_at": null,
+                        "retrieved_at": "2025-01-01T00:00:00Z"
+                    }
+                ],
+                "contradictions": [
+                    {
+                        "contradiction_type": "MISSING_EQUIPMENT",
+                        "capability_type": "SURGERY_GENERAL",
+                        "facility_id": "vf_09217_spine-care-clinic",
+                        "evidence_for": [
+                            {
+                                "source_doc_id": "vf_09217_spine-care-clinic",
+                                "facility_id": "vf_09217_spine-care-clinic",
+                                "chunk_id": "vf_09217_spine-care-clinic::volume_report",
+                                "row_id": null,
+                                "span": [
+                                    418,
+                                    447
+                                ],
+                                "snippet": "Offers spine surgery services",
+                                "source_type": "volume_report",
+                                "source_observed_at": null,
+                                "retrieved_at": "2025-01-01T00:00:00Z"
+                            },
+                            {
+                                "source_doc_id": "vf_09217_spine-care-clinic",
+                                "facility_id": "vf_09217_spine-care-clinic",
+                                "chunk_id": "vf_09217_spine-care-clinic::volume_report",
+                                "row_id": null,
+                                "span": [
+                                    576,
+                                    598
+                                ],
+                                "snippet": "Performs spine surgery",
+                                "source_type": "volume_report",
+                                "source_observed_at": null,
+                                "retrieved_at": "2025-01-01T00:00:00Z"
+                            }
+                        ],
+                        "evidence_against": [],
+                        "severity": "HIGH",
+                        "reasoning": "No equipment recorded for facility while SURGERY_GENERAL requires core gear (anesthesia, laparoscopy).",
+                        "detected_by": "validator.v1.heuristics",
+                        "detected_at": "2026-04-26T02:44:57.380375Z"
+                    },
+                    {
+                        "contradiction_type": "MISSING_STAFF",
+                        "capability_type": "SURGERY_GENERAL",
+                        "facility_id": "vf_09217_spine-care-clinic",
+                        "evidence_for": [
+                            {
+                                "source_doc_id": "vf_09217_spine-care-clinic",
+                                "facility_id": "vf_09217_spine-care-clinic",
+                                "chunk_id": "vf_09217_spine-care-clinic::volume_report",
+                                "row_id": null,
+                                "span": [
+                                    418,
+                                    447
+                                ],
+                                "snippet": "Offers spine surgery services",
+                                "source_type": "volume_report",
+                                "source_observed_at": null,
+                                "retrieved_at": "2025-01-01T00:00:00Z"
+                            },
+                            {
+                                "source_doc_id": "vf_09217_spine-care-clinic",
+                                "facility_id": "vf_09217_spine-care-clinic",
+                                "chunk_id": "vf_09217_spine-care-clinic::volume_report",
+                                "row_id": null,
+                                "span": [
+                                    576,
+                                    598
+                                ],
+                                "snippet": "Performs spine surgery",
+                                "source_type": "volume_report",
+                                "source_observed_at": null,
+                                "retrieved_at": "2025-01-01T00:00:00Z"
+                            }
+                        ],
+                        "evidence_against": [],
+                        "severity": "HIGH",
+                        "reasoning": "Staff roster reports no staff for SURGERY_GENERAL (requires at least 2).",
+                        "detected_by": "validator.v1.heuristics",
+                        "detected_at": "2026-04-26T02:44:57.380377Z"
+                    }
+                ],
+                "confidence": 0.7,
+                "confidence_interval": [
+                    0.1,
+                    0.7
+                ],
+                "score": 10,
+                "reasoning": "Score 10 based on 2 evidence sources and 2 contradictions: MISSING_EQUIPMENT, MISSING_STAFF.",
+                "computed_at": "2026-04-26T02:44:57.380513Z"
+            },
+            "contradictions_flagged": 2,
+            "evidence_count": 2,
+            "rank": 7
+        },
+        {
+            "facility_id": "vf_06196_joint-sports-injury-clin",
+            "name": "Joint & Sports Injury Clinic",
+            "location": {
+                "lat": 25.61658669,
+                "lng": 85.05396271,
+                "pin_code": "801503"
+            },
+            "distance_km": 8.66,
+            "trust_score": {
+                "capability_type": "SURGERY_GENERAL",
+                "claimed": true,
+                "evidence": [
+                    {
+                        "source_doc_id": "vf_06196_joint-sports-injury-clin",
+                        "facility_id": "vf_06196_joint-sports-injury-clin",
+                        "chunk_id": "vf_06196_joint-sports-injury-clin::volume_report",
+                        "row_id": null,
+                        "span": [
+                            724,
+                            751
+                        ],
+                        "snippet": "Provides orthopedic surgery",
+                        "source_type": "volume_report",
+                        "source_observed_at": null,
+                        "retrieved_at": "2025-01-10T00:00:00Z"
+                    },
+                    {
+                        "source_doc_id": "vf_06196_joint-sports-injury-clin",
+                        "facility_id": "vf_06196_joint-sports-injury-clin",
+                        "chunk_id": "vf_06196_joint-sports-injury-clin::volume_report",
+                        "row_id": null,
+                        "span": [
+                            0,
+                            0
+                        ],
+                        "snippet": "Dr. Kumar Gaurav performs more than 500 surgeries per year",
+                        "source_type": "volume_report",
+                        "source_observed_at": null,
+                        "retrieved_at": "2025-01-10T00:00:00Z"
+                    }
+                ],
+                "contradictions": [
+                    {
+                        "contradiction_type": "MISSING_EQUIPMENT",
+                        "capability_type": "SURGERY_GENERAL",
+                        "facility_id": "vf_06196_joint-sports-injury-clin",
+                        "evidence_for": [
+                            {
+                                "source_doc_id": "vf_06196_joint-sports-injury-clin",
+                                "facility_id": "vf_06196_joint-sports-injury-clin",
+                                "chunk_id": "vf_06196_joint-sports-injury-clin::volume_report",
+                                "row_id": null,
+                                "span": [
+                                    724,
+                                    751
+                                ],
+                                "snippet": "Provides orthopedic surgery",
+                                "source_type": "volume_report",
+                                "source_observed_at": null,
+                                "retrieved_at": "2025-01-10T00:00:00Z"
+                            },
+                            {
+                                "source_doc_id": "vf_06196_joint-sports-injury-clin",
+                                "facility_id": "vf_06196_joint-sports-injury-clin",
+                                "chunk_id": "vf_06196_joint-sports-injury-clin::volume_report",
+                                "row_id": null,
+                                "span": [
+                                    0,
+                                    0
+                                ],
+                                "snippet": "Dr. Kumar Gaurav performs more than 500 surgeries per year",
+                                "source_type": "volume_report",
+                                "source_observed_at": null,
+                                "retrieved_at": "2025-01-10T00:00:00Z"
+                            }
+                        ],
+                        "evidence_against": [],
+                        "severity": "HIGH",
+                        "reasoning": "No equipment recorded for facility while SURGERY_GENERAL requires core gear (anesthesia, laparoscopy).",
+                        "detected_by": "validator.v1.heuristics",
+                        "detected_at": "2026-04-26T02:44:57.303436Z"
+                    },
+                    {
+                        "contradiction_type": "MISSING_STAFF",
+                        "capability_type": "SURGERY_GENERAL",
+                        "facility_id": "vf_06196_joint-sports-injury-clin",
+                        "evidence_for": [
+                            {
+                                "source_doc_id": "vf_06196_joint-sports-injury-clin",
+                                "facility_id": "vf_06196_joint-sports-injury-clin",
+                                "chunk_id": "vf_06196_joint-sports-injury-clin::volume_report",
+                                "row_id": null,
+                                "span": [
+                                    724,
+                                    751
+                                ],
+                                "snippet": "Provides orthopedic surgery",
+                                "source_type": "volume_report",
+                                "source_observed_at": null,
+                                "retrieved_at": "2025-01-10T00:00:00Z"
+                            },
+                            {
+                                "source_doc_id": "vf_06196_joint-sports-injury-clin",
+                                "facility_id": "vf_06196_joint-sports-injury-clin",
+                                "chunk_id": "vf_06196_joint-sports-injury-clin::volume_report",
+                                "row_id": null,
+                                "span": [
+                                    0,
+                                    0
+                                ],
+                                "snippet": "Dr. Kumar Gaurav performs more than 500 surgeries per year",
+                                "source_type": "volume_report",
+                                "source_observed_at": null,
+                                "retrieved_at": "2025-01-10T00:00:00Z"
+                            }
+                        ],
+                        "evidence_against": [],
+                        "severity": "HIGH",
+                        "reasoning": "Staff roster reports no staff for SURGERY_GENERAL (requires at least 2).",
+                        "detected_by": "validator.v1.heuristics",
+                        "detected_at": "2026-04-26T02:44:57.303438Z"
+                    }
+                ],
+                "confidence": 0.7,
+                "confidence_interval": [
+                    0.1,
+                    0.7
+                ],
+                "score": 10,
+                "reasoning": "Score 10 based on 2 evidence sources and 2 contradictions: MISSING_EQUIPMENT, MISSING_STAFF.",
+                "computed_at": "2026-04-26T02:44:57.303574Z"
+            },
+            "contradictions_flagged": 2,
+            "evidence_count": 2,
+            "rank": 8
+        },
+        {
+            "facility_id": "vf_05626_ila-sinha-multispecialit",
+            "name": "Ila Sinha Multispeciality & Maternity Nursing Home",
+            "location": {
+                "lat": 25.60639191,
+                "lng": 85.16130066,
+                "pin_code": "800016"
+            },
+            "distance_km": 2.17,
+            "trust_score": {
+                "capability_type": "SURGERY_GENERAL",
+                "claimed": true,
+                "evidence": [
+                    {
+                        "source_doc_id": "vf_05626_ila-sinha-multispecialit",
+                        "facility_id": "vf_05626_ila-sinha-multispecialit",
+                        "chunk_id": "vf_05626_ila-sinha-multispecialit::facility_note",
+                        "row_id": null,
+                        "span": [
+                            318,
+                            356
+                        ],
+                        "snippet": "minimallyInvasiveSurgeryAndEndourology",
+                        "source_type": "facility_note",
+                        "source_observed_at": null,
+                        "retrieved_at": "2024-12-19T10:00:00Z"
+                    }
+                ],
+                "contradictions": [
+                    {
+                        "contradiction_type": "MISSING_EQUIPMENT",
+                        "capability_type": "SURGERY_GENERAL",
+                        "facility_id": "vf_05626_ila-sinha-multispecialit",
+                        "evidence_for": [
+                            {
+                                "source_doc_id": "vf_05626_ila-sinha-multispecialit",
+                                "facility_id": "vf_05626_ila-sinha-multispecialit",
+                                "chunk_id": "vf_05626_ila-sinha-multispecialit::facility_note",
+                                "row_id": null,
+                                "span": [
+                                    318,
+                                    356
+                                ],
+                                "snippet": "minimallyInvasiveSurgeryAndEndourology",
+                                "source_type": "facility_note",
+                                "source_observed_at": null,
+                                "retrieved_at": "2024-12-19T10:00:00Z"
+                            }
+                        ],
+                        "evidence_against": [],
+                        "severity": "HIGH",
+                        "reasoning": "No equipment recorded for facility while SURGERY_GENERAL requires core gear (anesthesia, laparoscopy).",
+                        "detected_by": "validator.v1.heuristics",
+                        "detected_at": "2026-04-26T02:44:57.287072Z"
+                    },
+                    {
+                        "contradiction_type": "MISSING_STAFF",
+                        "capability_type": "SURGERY_GENERAL",
+                        "facility_id": "vf_05626_ila-sinha-multispecialit",
+                        "evidence_for": [
+                            {
+                                "source_doc_id": "vf_05626_ila-sinha-multispecialit",
+                                "facility_id": "vf_05626_ila-sinha-multispecialit",
+                                "chunk_id": "vf_05626_ila-sinha-multispecialit::facility_note",
+                                "row_id": null,
+                                "span": [
+                                    318,
+                                    356
+                                ],
+                                "snippet": "minimallyInvasiveSurgeryAndEndourology",
+                                "source_type": "facility_note",
+                                "source_observed_at": null,
+                                "retrieved_at": "2024-12-19T10:00:00Z"
+                            }
+                        ],
+                        "evidence_against": [],
+                        "severity": "HIGH",
+                        "reasoning": "Staff roster reports no staff for SURGERY_GENERAL (requires at least 2).",
+                        "detected_by": "validator.v1.heuristics",
+                        "detected_at": "2026-04-26T02:44:57.287074Z"
+                    }
+                ],
+                "confidence": 0.65,
+                "confidence_interval": [
+                    0.05,
+                    0.65
+                ],
+                "score": 5,
+                "reasoning": "Score 5 based on 1 evidence sources and 2 contradictions: MISSING_EQUIPMENT, MISSING_STAFF.",
+                "computed_at": "2026-04-26T02:44:57.287210Z"
+            },
+            "contradictions_flagged": 2,
+            "evidence_count": 1,
+            "rank": 9
+        },
+        {
+            "facility_id": "vf_07264_maa-durga-surgical",
+            "name": "Maa Durga Surgical",
+            "location": {
+                "lat": 25.61908531,
+                "lng": 85.15986633,
+                "pin_code": "800004"
+            },
+            "distance_km": 2.23,
+            "trust_score": {
+                "capability_type": "SURGERY_GENERAL",
+                "claimed": true,
+                "evidence": [
+                    {
+                        "source_doc_id": "vf_07264_maa-durga-surgical",
+                        "facility_id": "vf_07264_maa-durga-surgical",
+                        "chunk_id": "vf_07264_maa-durga-surgical::facility_note",
+                        "row_id": null,
+                        "span": [
+                            16,
+                            40
+                        ],
+                        "snippet": "Name: Maa Durga Surgical",
+                        "source_type": "facility_note",
+                        "source_observed_at": null,
+                        "retrieved_at": "2025-01-21T10:15:30Z"
+                    }
+                ],
+                "contradictions": [
+                    {
+                        "contradiction_type": "MISSING_EQUIPMENT",
+                        "capability_type": "SURGERY_GENERAL",
+                        "facility_id": "vf_07264_maa-durga-surgical",
+                        "evidence_for": [
+                            {
+                                "source_doc_id": "vf_07264_maa-durga-surgical",
+                                "facility_id": "vf_07264_maa-durga-surgical",
+                                "chunk_id": "vf_07264_maa-durga-surgical::facility_note",
+                                "row_id": null,
+                                "span": [
+                                    16,
+                                    40
+                                ],
+                                "snippet": "Name: Maa Durga Surgical",
+                                "source_type": "facility_note",
+                                "source_observed_at": null,
+                                "retrieved_at": "2025-01-21T10:15:30Z"
+                            }
+                        ],
+                        "evidence_against": [],
+                        "severity": "HIGH",
+                        "reasoning": "No equipment recorded for facility while SURGERY_GENERAL requires core gear (anesthesia, laparoscopy).",
+                        "detected_by": "validator.v1.heuristics",
+                        "detected_at": "2026-04-26T02:44:57.332476Z"
+                    },
+                    {
+                        "contradiction_type": "MISSING_STAFF",
+                        "capability_type": "SURGERY_GENERAL",
+                        "facility_id": "vf_07264_maa-durga-surgical",
+                        "evidence_for": [
+                            {
+                                "source_doc_id": "vf_07264_maa-durga-surgical",
+                                "facility_id": "vf_07264_maa-durga-surgical",
+                                "chunk_id": "vf_07264_maa-durga-surgical::facility_note",
+                                "row_id": null,
+                                "span": [
+                                    16,
+                                    40
+                                ],
+                                "snippet": "Name: Maa Durga Surgical",
+                                "source_type": "facility_note",
+                                "source_observed_at": null,
+                                "retrieved_at": "2025-01-21T10:15:30Z"
+                            }
+                        ],
+                        "evidence_against": [],
+                        "severity": "HIGH",
+                        "reasoning": "Staff roster reports no staff for SURGERY_GENERAL (requires at least 2).",
+                        "detected_by": "validator.v1.heuristics",
+                        "detected_at": "2026-04-26T02:44:57.332478Z"
+                    }
+                ],
+                "confidence": 0.65,
+                "confidence_interval": [
+                    0.05,
+                    0.65
+                ],
+                "score": 5,
+                "reasoning": "Score 5 based on 1 evidence sources and 2 contradictions: MISSING_EQUIPMENT, MISSING_STAFF.",
+                "computed_at": "2026-04-26T02:44:57.332613Z"
+            },
+            "contradictions_flagged": 2,
+            "evidence_count": 1,
+            "rank": 10
+        },
+        {
+            "facility_id": "vf_02239_cims-hospital-patna-a-un",
+            "name": "CIMS Hospital Patna A Unit of Charaka Institute of Medical Sciences",
+            "location": {
+                "lat": 25.59433174,
+                "lng": 85.15483093,
+                "pin_code": "800001"
+            },
+            "distance_km": 2.29,
+            "trust_score": {
+                "capability_type": "SURGERY_GENERAL",
+                "claimed": true,
+                "evidence": [
+                    {
+                        "source_doc_id": "vf_02239_cims-hospital-patna-a-un",
+                        "facility_id": "vf_02239_cims-hospital-patna-a-un",
+                        "chunk_id": "vf_02239_cims-hospital-patna-a-un::facility_note",
+                        "row_id": null,
+                        "span": [
+                            261,
+                            279
+                        ],
+                        "snippet": "Gen/Laparo surgery",
+                        "source_type": "facility_note",
+                        "source_observed_at": null,
+                        "retrieved_at": "2025-01-21T10:30:00Z"
+                    }
+                ],
+                "contradictions": [
+                    {
+                        "contradiction_type": "MISSING_EQUIPMENT",
+                        "capability_type": "SURGERY_GENERAL",
+                        "facility_id": "vf_02239_cims-hospital-patna-a-un",
+                        "evidence_for": [
+                            {
+                                "source_doc_id": "vf_02239_cims-hospital-patna-a-un",
+                                "facility_id": "vf_02239_cims-hospital-patna-a-un",
+                                "chunk_id": "vf_02239_cims-hospital-patna-a-un::facility_note",
+                                "row_id": null,
+                                "span": [
+                                    261,
+                                    279
+                                ],
+                                "snippet": "Gen/Laparo surgery",
+                                "source_type": "facility_note",
+                                "source_observed_at": null,
+                                "retrieved_at": "2025-01-21T10:30:00Z"
+                            }
+                        ],
+                        "evidence_against": [],
+                        "severity": "HIGH",
+                        "reasoning": "No equipment recorded for facility while SURGERY_GENERAL requires core gear (anesthesia, laparoscopy).",
+                        "detected_by": "validator.v1.heuristics",
+                        "detected_at": "2026-04-26T02:44:57.223182Z"
+                    },
+                    {
+                        "contradiction_type": "MISSING_STAFF",
+                        "capability_type": "SURGERY_GENERAL",
+                        "facility_id": "vf_02239_cims-hospital-patna-a-un",
+                        "evidence_for": [
+                            {
+                                "source_doc_id": "vf_02239_cims-hospital-patna-a-un",
+                                "facility_id": "vf_02239_cims-hospital-patna-a-un",
+                                "chunk_id": "vf_02239_cims-hospital-patna-a-un::facility_note",
+                                "row_id": null,
+                                "span": [
+                                    261,
+                                    279
+                                ],
+                                "snippet": "Gen/Laparo surgery",
+                                "source_type": "facility_note",
+                                "source_observed_at": null,
+                                "retrieved_at": "2025-01-21T10:30:00Z"
+                            }
+                        ],
+                        "evidence_against": [],
+                        "severity": "HIGH",
+                        "reasoning": "Staff roster reports no staff for SURGERY_GENERAL (requires at least 2).",
+                        "detected_by": "validator.v1.heuristics",
+                        "detected_at": "2026-04-26T02:44:57.223183Z"
+                    }
+                ],
+                "confidence": 0.65,
+                "confidence_interval": [
+                    0.05,
+                    0.65
+                ],
+                "score": 5,
+                "reasoning": "Score 5 based on 1 evidence sources and 2 contradictions: MISSING_EQUIPMENT, MISSING_STAFF.",
+                "computed_at": "2026-04-26T02:44:57.223537Z"
+            },
+            "contradictions_flagged": 2,
+            "evidence_count": 1,
+            "rank": 11
+        },
+        {
+            "facility_id": "vf_09987_yuvaan-kidney-urology-ce",
+            "name": "Yuvaan Kidney & Urology Centre",
+            "location": {
+                "lat": 25.589674,
+                "lng": 85.1572113,
+                "pin_code": "800020"
+            },
+            "distance_km": 2.84,
+            "trust_score": {
+                "capability_type": "SURGERY_GENERAL",
+                "claimed": true,
+                "evidence": [
+                    {
+                        "source_doc_id": "vf_09987_yuvaan-kidney-urology-ce",
+                        "facility_id": "vf_09987_yuvaan-kidney-urology-ce",
+                        "chunk_id": "vf_09987_yuvaan-kidney-urology-ce::facility_note",
+                        "row_id": null,
+                        "span": [
+                            214,
+                            316
+                        ],
+                        "snippet": "The hospital is empanelled and activated with PMJAY (Ayushman Bharat) for general surgery and Urology.",
+                        "source_type": "facility_note",
+                        "source_observed_at": null,
+                        "retrieved_at": "2025-01-01T00:00:00Z"
+                    }
+                ],
+                "contradictions": [
+                    {
+                        "contradiction_type": "MISSING_EQUIPMENT",
+                        "capability_type": "SURGERY_GENERAL",
+                        "facility_id": "vf_09987_yuvaan-kidney-urology-ce",
+                        "evidence_for": [
+                            {
+                                "source_doc_id": "vf_09987_yuvaan-kidney-urology-ce",
+                                "facility_id": "vf_09987_yuvaan-kidney-urology-ce",
+                                "chunk_id": "vf_09987_yuvaan-kidney-urology-ce::facility_note",
+                                "row_id": null,
+                                "span": [
+                                    214,
+                                    316
+                                ],
+                                "snippet": "The hospital is empanelled and activated with PMJAY (Ayushman Bharat) for general surgery and Urology.",
+                                "source_type": "facility_note",
+                                "source_observed_at": null,
+                                "retrieved_at": "2025-01-01T00:00:00Z"
+                            }
+                        ],
+                        "evidence_against": [],
+                        "severity": "HIGH",
+                        "reasoning": "No equipment recorded for facility while SURGERY_GENERAL requires core gear (anesthesia, laparoscopy).",
+                        "detected_by": "validator.v1.heuristics",
+                        "detected_at": "2026-04-26T02:44:57.396084Z"
+                    },
+                    {
+                        "contradiction_type": "MISSING_STAFF",
+                        "capability_type": "SURGERY_GENERAL",
+                        "facility_id": "vf_09987_yuvaan-kidney-urology-ce",
+                        "evidence_for": [
+                            {
+                                "source_doc_id": "vf_09987_yuvaan-kidney-urology-ce",
+                                "facility_id": "vf_09987_yuvaan-kidney-urology-ce",
+                                "chunk_id": "vf_09987_yuvaan-kidney-urology-ce::facility_note",
+                                "row_id": null,
+                                "span": [
+                                    214,
+                                    316
+                                ],
+                                "snippet": "The hospital is empanelled and activated with PMJAY (Ayushman Bharat) for general surgery and Urology.",
+                                "source_type": "facility_note",
+                                "source_observed_at": null,
+                                "retrieved_at": "2025-01-01T00:00:00Z"
+                            }
+                        ],
+                        "evidence_against": [],
+                        "severity": "HIGH",
+                        "reasoning": "Staff roster reports no staff for SURGERY_GENERAL (requires at least 2).",
+                        "detected_by": "validator.v1.heuristics",
+                        "detected_at": "2026-04-26T02:44:57.396086Z"
+                    }
+                ],
+                "confidence": 0.65,
+                "confidence_interval": [
+                    0.05,
+                    0.65
+                ],
+                "score": 5,
+                "reasoning": "Score 5 based on 1 evidence sources and 2 contradictions: MISSING_EQUIPMENT, MISSING_STAFF.",
+                "computed_at": "2026-04-26T02:44:57.396226Z"
+            },
+            "contradictions_flagged": 2,
+            "evidence_count": 1,
+            "rank": 12
+        },
+        {
+            "facility_id": "vf_00172_aastha-cancer-institute",
+            "name": "Aastha Cancer Institute",
+            "location": {
+                "lat": 25.60146713,
+                "lng": 85.16751099,
+                "pin_code": "800020"
+            },
+            "distance_km": 2.92,
+            "trust_score": {
+                "capability_type": "SURGERY_GENERAL",
+                "claimed": true,
+                "evidence": [
+                    {
+                        "source_doc_id": "vf_00172_aastha-cancer-institute",
+                        "facility_id": "vf_00172_aastha-cancer-institute",
+                        "chunk_id": "vf_00172_aastha-cancer-institute::facility_note",
+                        "row_id": null,
+                        "span": [
+                            354,
+                            673
+                        ],
+                        "snippet": "Specialties: surgicalOncology, psychiatry, urologicOncology, radiology, generalSurgery, familyMedicine, urology, internalMedicine, hospiceAndPalliativeInternalMedicine, physicalMedicineAndRehabilitation, radiationOncology, painMedicinePMR, emergencyMedicine, pathology, medicalOncology, dentistry, gynecologicalOncology",
+                        "source_type": "facility_note",
+                        "source_observed_at": null,
+                        "retrieved_at": "2024-12-19T10:30:00Z"
+                    }
+                ],
+                "contradictions": [
+                    {
+                        "contradiction_type": "MISSING_EQUIPMENT",
+                        "capability_type": "SURGERY_GENERAL",
+                        "facility_id": "vf_00172_aastha-cancer-institute",
+                        "evidence_for": [
+                            {
+                                "source_doc_id": "vf_00172_aastha-cancer-institute",
+                                "facility_id": "vf_00172_aastha-cancer-institute",
+                                "chunk_id": "vf_00172_aastha-cancer-institute::facility_note",
+                                "row_id": null,
+                                "span": [
+                                    354,
+                                    673
+                                ],
+                                "snippet": "Specialties: surgicalOncology, psychiatry, urologicOncology, radiology, generalSurgery, familyMedicine, urology, internalMedicine, hospiceAndPalliativeInternalMedicine, physicalMedicineAndRehabilitation, radiationOncology, painMedicinePMR, emergencyMedicine, pathology, medicalOncology, dentistry, gynecologicalOncology",
+                                "source_type": "facility_note",
+                                "source_observed_at": null,
+                                "retrieved_at": "2024-12-19T10:30:00Z"
+                            }
+                        ],
+                        "evidence_against": [],
+                        "severity": "HIGH",
+                        "reasoning": "No equipment recorded for facility while SURGERY_GENERAL requires core gear (anesthesia, laparoscopy).",
+                        "detected_by": "validator.v1.heuristics",
+                        "detected_at": "2026-04-26T02:44:57.168244Z"
+                    },
+                    {
+                        "contradiction_type": "MISSING_STAFF",
+                        "capability_type": "SURGERY_GENERAL",
+                        "facility_id": "vf_00172_aastha-cancer-institute",
+                        "evidence_for": [
+                            {
+                                "source_doc_id": "vf_00172_aastha-cancer-institute",
+                                "facility_id": "vf_00172_aastha-cancer-institute",
+                                "chunk_id": "vf_00172_aastha-cancer-institute::facility_note",
+                                "row_id": null,
+                                "span": [
+                                    354,
+                                    673
+                                ],
+                                "snippet": "Specialties: surgicalOncology, psychiatry, urologicOncology, radiology, generalSurgery, familyMedicine, urology, internalMedicine, hospiceAndPalliativeInternalMedicine, physicalMedicineAndRehabilitation, radiationOncology, painMedicinePMR, emergencyMedicine, pathology, medicalOncology, dentistry, gynecologicalOncology",
+                                "source_type": "facility_note",
+                                "source_observed_at": null,
+                                "retrieved_at": "2024-12-19T10:30:00Z"
+                            }
+                        ],
+                        "evidence_against": [],
+                        "severity": "HIGH",
+                        "reasoning": "Staff roster reports no staff for SURGERY_GENERAL (requires at least 2).",
+                        "detected_by": "validator.v1.heuristics",
+                        "detected_at": "2026-04-26T02:44:57.168246Z"
+                    }
+                ],
+                "confidence": 0.65,
+                "confidence_interval": [
+                    0.05,
+                    0.65
+                ],
+                "score": 5,
+                "reasoning": "Score 5 based on 1 evidence sources and 2 contradictions: MISSING_EQUIPMENT, MISSING_STAFF.",
+                "computed_at": "2026-04-26T02:44:57.168396Z"
+            },
+            "contradictions_flagged": 2,
+            "evidence_count": 1,
+            "rank": 13
+        },
+        {
+            "facility_id": "vf_08726_shambhavi-ortho-and-dent",
+            "name": "Shambhavi Ortho and Dental Clinic",
+            "location": {
+                "lat": 25.61670303,
+                "lng": 85.17619324,
+                "pin_code": "800001"
+            },
+            "distance_km": 3.7,
+            "trust_score": {
+                "capability_type": "SURGERY_GENERAL",
+                "claimed": true,
+                "evidence": [
+                    {
+                        "source_doc_id": "vf_08726_shambhavi-ortho-and-dent",
+                        "facility_id": "vf_08726_shambhavi-ortho-and-dent",
+                        "chunk_id": "vf_08726_shambhavi-ortho-and-dent::facility_note",
+                        "row_id": null,
+                        "span": [
+                            179,
+                            236
+                        ],
+                        "snippet": "Specialties: orthopedicSurgery, dentistry, familyMedicine",
+                        "source_type": "facility_note",
+                        "source_observed_at": null,
+                        "retrieved_at": "2025-01-21T12:00:00Z"
+                    }
+                ],
+                "contradictions": [
+                    {
+                        "contradiction_type": "MISSING_EQUIPMENT",
+                        "capability_type": "SURGERY_GENERAL",
+                        "facility_id": "vf_08726_shambhavi-ortho-and-dent",
+                        "evidence_for": [
+                            {
+                                "source_doc_id": "vf_08726_shambhavi-ortho-and-dent",
+                                "facility_id": "vf_08726_shambhavi-ortho-and-dent",
+                                "chunk_id": "vf_08726_shambhavi-ortho-and-dent::facility_note",
+                                "row_id": null,
+                                "span": [
+                                    179,
+                                    236
+                                ],
+                                "snippet": "Specialties: orthopedicSurgery, dentistry, familyMedicine",
+                                "source_type": "facility_note",
+                                "source_observed_at": null,
+                                "retrieved_at": "2025-01-21T12:00:00Z"
+                            }
+                        ],
+                        "evidence_against": [],
+                        "severity": "HIGH",
+                        "reasoning": "No equipment recorded for facility while SURGERY_GENERAL requires core gear (anesthesia, laparoscopy).",
+                        "detected_by": "validator.v1.heuristics",
+                        "detected_at": "2026-04-26T02:44:57.363558Z"
+                    },
+                    {
+                        "contradiction_type": "MISSING_STAFF",
+                        "capability_type": "SURGERY_GENERAL",
+                        "facility_id": "vf_08726_shambhavi-ortho-and-dent",
+                        "evidence_for": [
+                            {
+                                "source_doc_id": "vf_08726_shambhavi-ortho-and-dent",
+                                "facility_id": "vf_08726_shambhavi-ortho-and-dent",
+                                "chunk_id": "vf_08726_shambhavi-ortho-and-dent::facility_note",
+                                "row_id": null,
+                                "span": [
+                                    179,
+                                    236
+                                ],
+                                "snippet": "Specialties: orthopedicSurgery, dentistry, familyMedicine",
+                                "source_type": "facility_note",
+                                "source_observed_at": null,
+                                "retrieved_at": "2025-01-21T12:00:00Z"
+                            }
+                        ],
+                        "evidence_against": [],
+                        "severity": "HIGH",
+                        "reasoning": "Staff roster reports no staff for SURGERY_GENERAL (requires at least 2).",
+                        "detected_by": "validator.v1.heuristics",
+                        "detected_at": "2026-04-26T02:44:57.363560Z"
+                    }
+                ],
+                "confidence": 0.65,
+                "confidence_interval": [
+                    0.05,
+                    0.65
+                ],
+                "score": 5,
+                "reasoning": "Score 5 based on 1 evidence sources and 2 contradictions: MISSING_EQUIPMENT, MISSING_STAFF.",
+                "computed_at": "2026-04-26T02:44:57.363691Z"
+            },
+            "contradictions_flagged": 2,
+            "evidence_count": 1,
+            "rank": 14
+        },
+        {
+            "facility_id": "vf_05699_indo-hiroshima-hospital",
+            "name": "Indo Hiroshima Hospital",
+            "location": {
+                "lat": 25.62182236,
+                "lng": 85.04178619,
+                "pin_code": "801503"
+            },
+            "distance_km": 9.93,
+            "trust_score": {
+                "capability_type": "SURGERY_GENERAL",
+                "claimed": true,
+                "evidence": [
+                    {
+                        "source_doc_id": "vf_05699_indo-hiroshima-hospital",
+                        "facility_id": "vf_05699_indo-hiroshima-hospital",
+                        "chunk_id": "vf_05699_indo-hiroshima-hospital::facility_note",
+                        "row_id": null,
+                        "span": [
+                            524,
+                            538
+                        ],
+                        "snippet": "generalSurgery",
+                        "source_type": "facility_note",
+                        "source_observed_at": null,
+                        "retrieved_at": "2025-01-10T00:00:00Z"
+                    }
+                ],
+                "contradictions": [
+                    {
+                        "contradiction_type": "MISSING_EQUIPMENT",
+                        "capability_type": "SURGERY_GENERAL",
+                        "facility_id": "vf_05699_indo-hiroshima-hospital",
+                        "evidence_for": [
+                            {
+                                "source_doc_id": "vf_05699_indo-hiroshima-hospital",
+                                "facility_id": "vf_05699_indo-hiroshima-hospital",
+                                "chunk_id": "vf_05699_indo-hiroshima-hospital::facility_note",
+                                "row_id": null,
+                                "span": [
+                                    524,
+                                    538
+                                ],
+                                "snippet": "generalSurgery",
+                                "source_type": "facility_note",
+                                "source_observed_at": null,
+                                "retrieved_at": "2025-01-10T00:00:00Z"
+                            }
+                        ],
+                        "evidence_against": [],
+                        "severity": "HIGH",
+                        "reasoning": "No equipment recorded for facility while SURGERY_GENERAL requires core gear (anesthesia, laparoscopy).",
+                        "detected_by": "validator.v1.heuristics",
+                        "detected_at": "2026-04-26T02:44:57.289223Z"
+                    },
+                    {
+                        "contradiction_type": "MISSING_STAFF",
+                        "capability_type": "SURGERY_GENERAL",
+                        "facility_id": "vf_05699_indo-hiroshima-hospital",
+                        "evidence_for": [
+                            {
+                                "source_doc_id": "vf_05699_indo-hiroshima-hospital",
+                                "facility_id": "vf_05699_indo-hiroshima-hospital",
+                                "chunk_id": "vf_05699_indo-hiroshima-hospital::facility_note",
+                                "row_id": null,
+                                "span": [
+                                    524,
+                                    538
+                                ],
+                                "snippet": "generalSurgery",
+                                "source_type": "facility_note",
+                                "source_observed_at": null,
+                                "retrieved_at": "2025-01-10T00:00:00Z"
+                            }
+                        ],
+                        "evidence_against": [],
+                        "severity": "HIGH",
+                        "reasoning": "Staff roster reports no staff for SURGERY_GENERAL (requires at least 2).",
+                        "detected_by": "validator.v1.heuristics",
+                        "detected_at": "2026-04-26T02:44:57.289225Z"
+                    }
+                ],
+                "confidence": 0.65,
+                "confidence_interval": [
+                    0.05,
+                    0.65
+                ],
+                "score": 5,
+                "reasoning": "Score 5 based on 1 evidence sources and 2 contradictions: MISSING_EQUIPMENT, MISSING_STAFF.",
+                "computed_at": "2026-04-26T02:44:57.289348Z"
+            },
+            "contradictions_flagged": 2,
+            "evidence_count": 1,
+            "rank": 15
+        },
+        {
+            "facility_id": "vf_08983_shriram-singh-memorial-s",
+            "name": "Shriram Singh Memorial Shahabad Hospital",
+            "location": {
+                "lat": 25.56103516,
+                "lng": 84.66850281,
+                "pin_code": "802300"
+            },
+            "distance_km": 47.6,
+            "trust_score": {
+                "capability_type": "SURGERY_GENERAL",
+                "claimed": true,
+                "evidence": [
+                    {
+                        "source_doc_id": "vf_08983_shriram-singh-memorial-s",
+                        "facility_id": "vf_08983_shriram-singh-memorial-s",
+                        "chunk_id": "vf_08983_shriram-singh-memorial-s::facility_note",
+                        "row_id": null,
+                        "span": [
+                            232,
+                            310
+                        ],
+                        "snippet": "expanding to a 25 bed state of the art hospital with modular operation theatre",
+                        "source_type": "facility_note",
+                        "source_observed_at": null,
+                        "retrieved_at": "2025-01-16T00:00:00Z"
+                    }
+                ],
+                "contradictions": [
+                    {
+                        "contradiction_type": "MISSING_EQUIPMENT",
+                        "capability_type": "SURGERY_GENERAL",
+                        "facility_id": "vf_08983_shriram-singh-memorial-s",
+                        "evidence_for": [
+                            {
+                                "source_doc_id": "vf_08983_shriram-singh-memorial-s",
+                                "facility_id": "vf_08983_shriram-singh-memorial-s",
+                                "chunk_id": "vf_08983_shriram-singh-memorial-s::facility_note",
+                                "row_id": null,
+                                "span": [
+                                    232,
+                                    310
+                                ],
+                                "snippet": "expanding to a 25 bed state of the art hospital with modular operation theatre",
+                                "source_type": "facility_note",
+                                "source_observed_at": null,
+                                "retrieved_at": "2025-01-16T00:00:00Z"
+                            }
+                        ],
+                        "evidence_against": [],
+                        "severity": "HIGH",
+                        "reasoning": "No equipment recorded for facility while SURGERY_GENERAL requires core gear (anesthesia, laparoscopy).",
+                        "detected_by": "validator.v1.heuristics",
+                        "detected_at": "2026-04-26T02:44:57.368681Z"
+                    },
+                    {
+                        "contradiction_type": "MISSING_STAFF",
+                        "capability_type": "SURGERY_GENERAL",
+                        "facility_id": "vf_08983_shriram-singh-memorial-s",
+                        "evidence_for": [
+                            {
+                                "source_doc_id": "vf_08983_shriram-singh-memorial-s",
+                                "facility_id": "vf_08983_shriram-singh-memorial-s",
+                                "chunk_id": "vf_08983_shriram-singh-memorial-s::facility_note",
+                                "row_id": null,
+                                "span": [
+                                    232,
+                                    310
+                                ],
+                                "snippet": "expanding to a 25 bed state of the art hospital with modular operation theatre",
+                                "source_type": "facility_note",
+                                "source_observed_at": null,
+                                "retrieved_at": "2025-01-16T00:00:00Z"
+                            }
+                        ],
+                        "evidence_against": [],
+                        "severity": "HIGH",
+                        "reasoning": "Staff roster reports no staff for SURGERY_GENERAL (requires at least 2).",
+                        "detected_by": "validator.v1.heuristics",
+                        "detected_at": "2026-04-26T02:44:57.368683Z"
+                    }
+                ],
+                "confidence": 0.65,
+                "confidence_interval": [
+                    0.05,
+                    0.65
+                ],
+                "score": 5,
+                "reasoning": "Score 5 based on 1 evidence sources and 2 contradictions: MISSING_EQUIPMENT, MISSING_STAFF.",
+                "computed_at": "2026-04-26T02:44:57.368804Z"
+            },
+            "contradictions_flagged": 2,
+            "evidence_count": 1,
+            "rank": 16
         },
         {
             "facility_id": "vf_06291_k-b-surgical-clinic",
@@ -333,7 +1974,7 @@
                         "severity": "HIGH",
                         "reasoning": "No equipment recorded for facility while SURGERY_GENERAL requires core gear (anesthesia, laparoscopy).",
                         "detected_by": "validator.v1.heuristics",
-                        "detected_at": "2026-04-26T00:31:20.153630Z"
+                        "detected_at": "2026-04-26T02:44:57.306637Z"
                     },
                     {
                         "contradiction_type": "MISSING_STAFF",
@@ -344,7 +1985,7 @@
                         "severity": "HIGH",
                         "reasoning": "Staff roster reports no staff for SURGERY_GENERAL (requires at least 2).",
                         "detected_by": "validator.v1.heuristics",
-                        "detected_at": "2026-04-26T00:31:20.153632Z"
+                        "detected_at": "2026-04-26T02:44:57.306639Z"
                     }
                 ],
                 "confidence": 0.05,
@@ -354,11 +1995,11 @@
                 ],
                 "score": 0,
                 "reasoning": "Score 0 based on 0 evidence sources and 2 contradictions: MISSING_EQUIPMENT, MISSING_STAFF.",
-                "computed_at": "2026-04-26T00:31:20.153885Z"
+                "computed_at": "2026-04-26T02:44:57.306780Z"
             },
             "contradictions_flagged": 2,
             "evidence_count": 0,
-            "rank": 7
+            "rank": 17
         },
         {
             "facility_id": "vf_04220_dr-rushmika-s-cornea-cli",
@@ -383,7 +2024,7 @@
                         "severity": "HIGH",
                         "reasoning": "No equipment recorded for facility while SURGERY_GENERAL requires core gear (anesthesia, laparoscopy).",
                         "detected_by": "validator.v1.heuristics",
-                        "detected_at": "2026-04-26T00:31:20.152706Z"
+                        "detected_at": "2026-04-26T02:44:57.259046Z"
                     },
                     {
                         "contradiction_type": "MISSING_STAFF",
@@ -394,7 +2035,7 @@
                         "severity": "HIGH",
                         "reasoning": "Staff roster reports no staff for SURGERY_GENERAL (requires at least 2).",
                         "detected_by": "validator.v1.heuristics",
-                        "detected_at": "2026-04-26T00:31:20.152708Z"
+                        "detected_at": "2026-04-26T02:44:57.259048Z"
                     }
                 ],
                 "confidence": 0.05,
@@ -404,61 +2045,11 @@
                 ],
                 "score": 0,
                 "reasoning": "Score 0 based on 0 evidence sources and 2 contradictions: MISSING_EQUIPMENT, MISSING_STAFF.",
-                "computed_at": "2026-04-26T00:31:20.152836Z"
+                "computed_at": "2026-04-26T02:44:57.259186Z"
             },
             "contradictions_flagged": 2,
             "evidence_count": 0,
-            "rank": 8
-        },
-        {
-            "facility_id": "vf_08726_shambhavi-ortho-and-dent",
-            "name": "Shambhavi Ortho and Dental Clinic",
-            "location": {
-                "lat": 25.61670303,
-                "lng": 85.17619324,
-                "pin_code": "800001"
-            },
-            "distance_km": 3.7,
-            "trust_score": {
-                "capability_type": "SURGERY_GENERAL",
-                "claimed": true,
-                "evidence": [],
-                "contradictions": [
-                    {
-                        "contradiction_type": "MISSING_EQUIPMENT",
-                        "capability_type": "SURGERY_GENERAL",
-                        "facility_id": "vf_08726_shambhavi-ortho-and-dent",
-                        "evidence_for": [],
-                        "evidence_against": [],
-                        "severity": "HIGH",
-                        "reasoning": "No equipment recorded for facility while SURGERY_GENERAL requires core gear (anesthesia, laparoscopy).",
-                        "detected_by": "validator.v1.heuristics",
-                        "detected_at": "2026-04-26T00:31:20.155151Z"
-                    },
-                    {
-                        "contradiction_type": "MISSING_STAFF",
-                        "capability_type": "SURGERY_GENERAL",
-                        "facility_id": "vf_08726_shambhavi-ortho-and-dent",
-                        "evidence_for": [],
-                        "evidence_against": [],
-                        "severity": "HIGH",
-                        "reasoning": "Staff roster reports no staff for SURGERY_GENERAL (requires at least 2).",
-                        "detected_by": "validator.v1.heuristics",
-                        "detected_at": "2026-04-26T00:31:20.155154Z"
-                    }
-                ],
-                "confidence": 0.05,
-                "confidence_interval": [
-                    0.0,
-                    0.05
-                ],
-                "score": 0,
-                "reasoning": "Score 0 based on 0 evidence sources and 2 contradictions: MISSING_EQUIPMENT, MISSING_STAFF.",
-                "computed_at": "2026-04-26T00:31:20.155277Z"
-            },
-            "contradictions_flagged": 2,
-            "evidence_count": 0,
-            "rank": 9
+            "rank": 18
         },
         {
             "facility_id": "vf_06418_kamy-hospital-and-laparo",
@@ -483,7 +2074,7 @@
                         "severity": "HIGH",
                         "reasoning": "No equipment recorded for facility while SURGERY_GENERAL requires core gear (anesthesia, laparoscopy).",
                         "detected_by": "validator.v1.heuristics",
-                        "detected_at": "2026-04-26T00:31:20.153901Z"
+                        "detected_at": "2026-04-26T02:44:57.310520Z"
                     },
                     {
                         "contradiction_type": "MISSING_STAFF",
@@ -494,7 +2085,7 @@
                         "severity": "HIGH",
                         "reasoning": "Staff roster reports no staff for SURGERY_GENERAL (requires at least 2).",
                         "detected_by": "validator.v1.heuristics",
-                        "detected_at": "2026-04-26T00:31:20.153903Z"
+                        "detected_at": "2026-04-26T02:44:57.310522Z"
                     }
                 ],
                 "confidence": 0.05,
@@ -504,11 +2095,11 @@
                 ],
                 "score": 0,
                 "reasoning": "Score 0 based on 0 evidence sources and 2 contradictions: MISSING_EQUIPMENT, MISSING_STAFF.",
-                "computed_at": "2026-04-26T00:31:20.154040Z"
+                "computed_at": "2026-04-26T02:44:57.310661Z"
             },
             "contradictions_flagged": 2,
             "evidence_count": 0,
-            "rank": 10
+            "rank": 19
         },
         {
             "facility_id": "vf_05714_indrawati-devi-hospital",
@@ -533,7 +2124,7 @@
                         "severity": "HIGH",
                         "reasoning": "No equipment recorded for facility while SURGERY_GENERAL requires core gear (anesthesia, laparoscopy).",
                         "detected_by": "validator.v1.heuristics",
-                        "detected_at": "2026-04-26T00:31:20.153398Z"
+                        "detected_at": "2026-04-26T02:44:57.289746Z"
                     },
                     {
                         "contradiction_type": "MISSING_STAFF",
@@ -544,7 +2135,7 @@
                         "severity": "HIGH",
                         "reasoning": "Staff roster reports no staff for SURGERY_GENERAL (requires at least 2).",
                         "detected_by": "validator.v1.heuristics",
-                        "detected_at": "2026-04-26T00:31:20.153400Z"
+                        "detected_at": "2026-04-26T02:44:57.289749Z"
                     }
                 ],
                 "confidence": 0.05,
@@ -554,114 +2145,14 @@
                 ],
                 "score": 0,
                 "reasoning": "Score 0 based on 0 evidence sources and 2 contradictions: MISSING_EQUIPMENT, MISSING_STAFF.",
-                "computed_at": "2026-04-26T00:31:20.153537Z"
+                "computed_at": "2026-04-26T02:44:57.289874Z"
             },
             "contradictions_flagged": 2,
             "evidence_count": 0,
-            "rank": 11
-        },
-        {
-            "facility_id": "vf_07731_neuron-hospital-patna",
-            "name": "Neuron Hospital Patna",
-            "location": {
-                "lat": 25.62817383,
-                "lng": 85.08605957,
-                "pin_code": "800001"
-            },
-            "distance_km": 5.77,
-            "trust_score": {
-                "capability_type": "SURGERY_GENERAL",
-                "claimed": true,
-                "evidence": [],
-                "contradictions": [
-                    {
-                        "contradiction_type": "MISSING_EQUIPMENT",
-                        "capability_type": "SURGERY_GENERAL",
-                        "facility_id": "vf_07731_neuron-hospital-patna",
-                        "evidence_for": [],
-                        "evidence_against": [],
-                        "severity": "HIGH",
-                        "reasoning": "No equipment recorded for facility while SURGERY_GENERAL requires core gear (anesthesia, laparoscopy).",
-                        "detected_by": "validator.v1.heuristics",
-                        "detected_at": "2026-04-26T00:31:20.154362Z"
-                    },
-                    {
-                        "contradiction_type": "MISSING_STAFF",
-                        "capability_type": "SURGERY_GENERAL",
-                        "facility_id": "vf_07731_neuron-hospital-patna",
-                        "evidence_for": [],
-                        "evidence_against": [],
-                        "severity": "HIGH",
-                        "reasoning": "Staff roster reports no staff for SURGERY_GENERAL (requires at least 2).",
-                        "detected_by": "validator.v1.heuristics",
-                        "detected_at": "2026-04-26T00:31:20.154364Z"
-                    }
-                ],
-                "confidence": 0.05,
-                "confidence_interval": [
-                    0.0,
-                    0.05
-                ],
-                "score": 0,
-                "reasoning": "Score 0 based on 0 evidence sources and 2 contradictions: MISSING_EQUIPMENT, MISSING_STAFF.",
-                "computed_at": "2026-04-26T00:31:20.154755Z"
-            },
-            "contradictions_flagged": 2,
-            "evidence_count": 0,
-            "rank": 12
-        },
-        {
-            "facility_id": "vf_07988_patliputra-ortho-centre-",
-            "name": "Patliputra Ortho Centre Dr Sharjeel Rasheed",
-            "location": {
-                "lat": 25.61167526,
-                "lng": 85.19966125,
-                "pin_code": "800001"
-            },
-            "distance_km": 5.99,
-            "trust_score": {
-                "capability_type": "SURGERY_GENERAL",
-                "claimed": true,
-                "evidence": [],
-                "contradictions": [
-                    {
-                        "contradiction_type": "MISSING_EQUIPMENT",
-                        "capability_type": "SURGERY_GENERAL",
-                        "facility_id": "vf_07988_patliputra-ortho-centre-",
-                        "evidence_for": [],
-                        "evidence_against": [],
-                        "severity": "HIGH",
-                        "reasoning": "No equipment recorded for facility while SURGERY_GENERAL requires core gear (anesthesia, laparoscopy).",
-                        "detected_by": "validator.v1.heuristics",
-                        "detected_at": "2026-04-26T00:31:20.154861Z"
-                    },
-                    {
-                        "contradiction_type": "MISSING_STAFF",
-                        "capability_type": "SURGERY_GENERAL",
-                        "facility_id": "vf_07988_patliputra-ortho-centre-",
-                        "evidence_for": [],
-                        "evidence_against": [],
-                        "severity": "HIGH",
-                        "reasoning": "Staff roster reports no staff for SURGERY_GENERAL (requires at least 2).",
-                        "detected_by": "validator.v1.heuristics",
-                        "detected_at": "2026-04-26T00:31:20.154864Z"
-                    }
-                ],
-                "confidence": 0.05,
-                "confidence_interval": [
-                    0.0,
-                    0.05
-                ],
-                "score": 0,
-                "reasoning": "Score 0 based on 0 evidence sources and 2 contradictions: MISSING_EQUIPMENT, MISSING_STAFF.",
-                "computed_at": "2026-04-26T00:31:20.155006Z"
-            },
-            "contradictions_flagged": 2,
-            "evidence_count": 0,
-            "rank": 13
+            "rank": 20
         }
     ],
-    "total_candidates": 13,
-    "query_trace_id": "q_31a0469995b24460ac1906e02e739d8b",
-    "generated_at": "2026-04-26T00:36:53.404991Z"
+    "total_candidates": 21,
+    "query_trace_id": "q_d35b05439bd7438ab8890bd8d1dce465",
+    "generated_at": "2026-04-26T02:46:45.568701Z"
 }

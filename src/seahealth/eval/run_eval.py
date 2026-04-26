@@ -308,6 +308,18 @@ def main(
     predicted_cap = _read_extractions(extractions_path)
     predicted_contra = _read_audits(audits_path)
 
+    # Scope predictions to the labeled facility universe so precision isn't
+    # diluted by extractor outputs over facilities Naomi never reviewed. Without
+    # this, running the eval over a 10k extraction shows ~99% false positives
+    # purely because most extractor rows are on out-of-scope facilities.
+    labeled_facility_ids: set[str] = set(df["facility_id"].astype(str))
+    predicted_cap = [
+        (fid, cap) for (fid, cap) in predicted_cap if fid in labeled_facility_ids
+    ]
+    predicted_contra = [
+        (fid, cap, ct) for (fid, cap, ct) in predicted_contra if fid in labeled_facility_ids
+    ]
+
     capability_metrics = compute_capability_metrics(expected_cap, predicted_cap)
     contradiction_metrics = compute_contradiction_metrics(expected_contra, predicted_contra)
 

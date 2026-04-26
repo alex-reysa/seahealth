@@ -15,10 +15,10 @@ The following Naomi values are intentionally not mapped to our closed enums. Row
 
 ## Capability extraction
 
-- Precision: **0.196**
-- Recall: **0.345**
-- F1: **0.250**
-- TP=20 FP=82 FN=38
+- Precision: **0.488**
+- Recall: **0.362**
+- F1: **0.416**
+- TP=21 FP=22 FN=37
 
 ## Contradiction detection
 
@@ -32,14 +32,13 @@ The following Naomi values are intentionally not mapped to our closed enums. Row
 | Capability | TP | FP | FN | Precision | Recall | F1 |
 |---|---:|---:|---:|---:|---:|---:|
 | DIALYSIS | 3 | 0 | 3 | 1.000 | 0.500 | 0.667 |
-| EMERGENCY_24_7 | 0 | 17 | 0 | 0.000 | 1.000 | 0.000 |
-| ICU | 3 | 4 | 4 | 0.429 | 0.429 | 0.429 |
-| LAB | 0 | 10 | 0 | 0.000 | 1.000 | 0.000 |
-| MATERNAL | 0 | 9 | 5 | 0.000 | 0.000 | 0.000 |
-| NEONATAL | 2 | 3 | 3 | 0.400 | 0.400 | 0.400 |
-| ONCOLOGY | 5 | 2 | 2 | 0.714 | 0.714 | 0.714 |
-| PHARMACY | 0 | 2 | 0 | 0.000 | 1.000 | 0.000 |
-| RADIOLOGY | 0 | 15 | 0 | 0.000 | 1.000 | 0.000 |
+| EMERGENCY_24_7 | 0 | 11 | 0 | 0.000 | 1.000 | 0.000 |
+| ICU | 3 | 2 | 4 | 0.600 | 0.429 | 0.500 |
+| LAB | 0 | 1 | 0 | 0.000 | 1.000 | 0.000 |
+| MATERNAL | 0 | 1 | 5 | 0.000 | 0.000 | 0.000 |
+| NEONATAL | 2 | 0 | 3 | 1.000 | 0.400 | 0.571 |
+| ONCOLOGY | 5 | 1 | 2 | 0.833 | 0.714 | 0.769 |
+| RADIOLOGY | 0 | 4 | 0 | 0.000 | 1.000 | 0.000 |
 | SURGERY_APPENDECTOMY | 0 | 1 | 0 | 0.000 | 1.000 | 0.000 |
-| SURGERY_GENERAL | 6 | 16 | 9 | 0.273 | 0.400 | 0.324 |
-| TRAUMA | 1 | 3 | 12 | 0.250 | 0.077 | 0.118 |
+| SURGERY_GENERAL | 6 | 1 | 9 | 0.857 | 0.400 | 0.545 |
+| TRAUMA | 2 | 0 | 11 | 1.000 | 0.154 | 0.267 |

@@ -23,8 +23,9 @@ Updated as phases land. ✅ = merged on `integrate/ship-12h`. ⏳ = in flight. �
 | DBX-1 + DBX-2 | LLM backend swap — Anthropic → Databricks Foundation Models → OpenRouter (Kimi K2.5) | ✅ | `8039aca` + `560c23e` | Provider auto-detected by model id |
 | Map Workbench | Home-route Map Workbench + agent run panel + tool-call timeline + demo data | ✅ | `ccbbfc7` | `/` is now the agent surface |
 | 4-L | Live extraction (250 facilities), build_audits, regenerate fixtures from real data | ✅ | `f23b456` | 13 ranked Patna facilities; CIMS demo target |
-| **5** | **Naomi REAL eval — adapter (xlsx → CSV) + run_eval + report** | **⏳** | — | Naomi labels delivered (30 facilities, 25 cols) |
-| 6 | Demo polish + submission (script, video, one-pager, packaging) | ☐ | — | Demo script locked at hour 24 per PHASES.md |
+| 5 | Naomi REAL eval — adapter (xlsx → CSV) + run_eval + report | ✅ | `d2cb4f3` | First pass P=0.196 R=0.345 (250-ext); see Phase 6 for the 10k re-run |
+| **6** | **Gap closure to fully meet `challenge.md` — full 10k extraction (Haiku 4.5), parallel workers, MLflow trace propagation, multi-attribute query** | **✅** | (this commit) | 10k facilities, 2784 with caps, 974 verified, 900 flagged. Eval re-scoped: P=0.488 R=0.362 F1=0.416 |
+| 7 | Demo polish + submission (script, video, one-pager, packaging) | ☐ | — | Demo script locked at hour 24 per PHASES.md |
 | Optional | R-3 Phase 3 reviewer, AUD-R audit-swarm reviewer, AUD-08 tautology cleanup | ☐ | — | Non-blocking; can run post-submission |
 
 ## Current state

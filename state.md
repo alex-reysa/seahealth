@@ -113,14 +113,31 @@ Source of truth for sprint task status. Resume work from the last `Merged` row.
 
 **Merged-branch pytest after Phase 5: 262 passing.**
 
-### Phase 6 — Demo polish + submission — TODO
+### Phase 6 — Gap closure to fully meet challenge.md — MERGED (2026-04-26)
+
+| Task | Status | Commit | Notes |
+|---|---|---|---|
+| Provider swap to Anthropic Haiku 4.5 (via OpenRouter) | Merged | (this commit) | Kimi K2.5 had 33-65% tool-call refusal; Haiku 4.5 had ~1% on the 10k run |
+| extract.py: --workers N for parallel in-flight LLM calls | Merged | `58f6b98` | ~12 RPS at workers=12 (~24x sequential) |
+| extract.py: --resume + --flush-every for crash-safety | Merged | `7541d7b` | atomic flush every N facilities; resumes from existing parquet |
+| Full 10k extraction via Haiku 4.5 (workers=12) | Done | (this commit) | 9646 facilities iterated, 99 FAIL (~1%), 2784 with caps, 4802 cap rows |
+| MLT-1 MLflow trace_id propagation Capability → FacilityAudit | Merged | `560b133` | 7 new tests; graceful fallback for legacy parquet missing the column |
+| MQ-1 multi-attribute query (staffing_qualifier in ParsedIntent) | Merged | `c5ae352` | 10 new tests; closed taxonomy parttime/24-7/fulltime/low_volume; soft tiebreaker re-rank |
+| build_audits over full 10k | Done | (this commit) | 10000 audits, 974 verified, 900 flagged |
+| Naomi eval re-scoping bug fix | Merged | (this commit) | Predictions now scoped to labeled facility universe; P=0.488 R=0.362 F1=0.416 (was 0.196/0.345 unscoped) |
+| Fixtures regenerated from 10k-backed API | Merged | (this commit) | 20 ranked Patna facilities, 8 map regions, 974/900 summary |
+
+**Merged-branch pytest after Phase 6: 279 passing.**
+
+### Phase 7 — Demo polish + submission — TODO
 
 | Task | Status | Notes |
 |---|---|---|
 | Demo script (4 min, scripted) | Pending | Naomi drafts per PHASES.md non-negotiable |
 | Demo video (screen + voiceover) | Pending | Walkthrough: Map Workbench → Planner Query → Facility Audit on CIMS Patna |
-| One-pager PDF | Pending | Eval numbers (P=0.196, R=0.345 + per-cap F1) front and centre |
+| One-pager PDF | Pending | Eval numbers (P=0.488 R=0.362 F1=0.416) front and centre |
 | Submission packaging | Pending | README finalized, runtime verified on clean clone |
+| Optional: re-extract once with MLflow trace_id column populated | Deferred | Currently 0/10000 audits have trace_id (legacy parquet lacks the column); MLT-1's graceful fallback prevents crashes. Future: re-run extraction after MLT-1 to populate. |
 | Optional: AUD-R, R-3, AUD-08 cleanup | Deferred | Non-blocking |
 
 #### Conflict resolution log
