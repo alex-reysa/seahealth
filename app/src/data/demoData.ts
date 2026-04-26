@@ -738,10 +738,11 @@ export function parseDemoCommand(input: string) {
           : 'SURGERY_APPENDECTOMY';
   const radiusMatch = lowered.match(/(\d+)\s?km/);
   const radiusKm = radiusMatch ? Number(radiusMatch[1]) : capability === 'SURGERY_APPENDECTOMY' ? 50 : 60;
-  const regionId = lowered.includes('madhubani') || capability === 'NEONATAL' ? 'BR_MADHUBANI' : 'BR_PATNA';
-  const pinCode = regionId === 'BR_MADHUBANI' ? '847211' : '800001';
+  const pinMatch = input.match(/\b\d{6}\b/);
+  const regionId = lowered.includes('madhubani') || pinMatch?.[0] === '847211' || capability === 'NEONATAL' ? 'BR_MADHUBANI' : 'BR_PATNA';
+  const pinCode = pinMatch?.[0] ?? (regionId === 'BR_MADHUBANI' ? '847211' : '800001');
   const staffingConstraint = lowered.includes('part-time') || lowered.includes('part time') ? 'part_time_doctors' : undefined;
-  const location = lowered.includes('rural bihar') ? 'rural Bihar' : regionId === 'BR_MADHUBANI' ? 'Madhubani' : 'Patna';
+  const location = lowered.includes('rural bihar') ? 'rural Bihar' : pinMatch ? `PIN ${pinMatch[0]}` : regionId === 'BR_MADHUBANI' ? 'Madhubani' : 'Patna';
   return {
     capability,
     radiusKm,

@@ -1,51 +1,25 @@
-import React from 'react';
-import { NavLink, useLocation, useSearchParams } from 'react-router-dom';
-import { Map as MapIcon, Search, Stethoscope, ChevronLeft, ChevronRight } from 'lucide-react';
+import { NavLink } from 'react-router-dom';
+import { Map as MapIcon, Stethoscope } from 'lucide-react';
 import { cn } from '@/src/lib/utils';
 import { motion } from 'motion/react';
 
 const NAV_ITEMS = [
   { id: 'map-workbench', label: 'Map Workbench', icon: MapIcon, path: '/' },
-  { id: 'query', label: 'Planner Query', icon: Search, path: '/planner-query' },
 ];
 
 export function Sidebar() {
-  const [expanded, setExpanded] = React.useState(true);
-  const location = useLocation();
-  const [searchParams] = useSearchParams();
-
-  const getPathWithParams = (path: string) => {
-    if (path === '/planner-query' && location.pathname !== '/planner-query') {
-      const q = searchParams.get('q');
-      if (q) return `${path}?q=${encodeURIComponent(q)}`;
-    }
-    return path;
-  };
-
   return (
-    <div
-      className={cn(
-        "flex flex-col h-full bg-white border-r border-border-subtle shadow-sm transition-all duration-300 z-50 relative",
-        expanded ? "w-64" : "w-16"
-      )}
-    >
-      <button
-        onClick={() => setExpanded(!expanded)}
-        className="absolute -right-3 top-6 bg-white border border-border-subtle rounded-full p-1 shadow-sm hover:bg-surface-sunken z-50"
-      >
-        {expanded ? <ChevronLeft className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
-      </button>
-      
+    <div className="flex h-full w-64 flex-col border-r border-border-subtle bg-white shadow-sm z-50 relative">
       <div className="p-4 flex items-center justify-center border-b border-border-subtle shrink-0">
          <Stethoscope className="w-8 h-8 text-accent-primary" />
-         {expanded && <span className="ml-3 text-heading-s text-content-primary">SeaHealth</span>}
+         <span className="ml-3 text-heading-s text-content-primary">SeaHealth</span>
       </div>
       
       <nav className="flex-1 px-2 py-4 space-y-2">
         {NAV_ITEMS.map((item) => (
           <NavLink
             key={item.id}
-            to={getPathWithParams(item.path)}
+            to={item.path}
             className={({ isActive }) =>
               cn(
                 "relative flex items-center px-3 min-h-[44px] rounded-md transition-colors text-body group",
@@ -63,25 +37,17 @@ export function Sidebar() {
                   />
                 )}
                 <item.icon className="w-5 h-5 shrink-0" />
-                {expanded ? (
-                  <span className="ml-3 whitespace-nowrap">{item.label}</span>
-                ) : (
-                  <div className="absolute left-full ml-2 px-2 py-1 bg-surface-sunken border border-border-subtle rounded text-caption whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-50">
-                    {item.label}
-                  </div>
-                )}
+                <span className="ml-3 whitespace-nowrap">{item.label}</span>
               </>
             )}
           </NavLink>
         ))}
       </nav>
-      {expanded && (
-        <div className="m-3 rounded-lg border border-border-subtle bg-surface-sunken p-3">
-          <div className="text-caption text-content-secondary uppercase tracking-wider">Demo Status</div>
-          <div className="mt-1 text-heading-s text-content-primary">Agentic map workbench</div>
-          <div className="mt-1 text-caption text-content-secondary">Synthetic audits · visible tool calls</div>
-        </div>
-      )}
+      <div className="m-3 rounded-lg border border-border-subtle bg-surface-sunken p-3">
+        <div className="text-caption text-content-secondary uppercase tracking-wider">Demo Status</div>
+        <div className="mt-1 text-heading-s text-content-primary">Agentic map workbench</div>
+        <div className="mt-1 text-caption text-content-secondary">Synthetic audits · visible tool calls</div>
+      </div>
     </div>
   );
 }
