@@ -73,6 +73,19 @@ def build_facility_audit(
     else:
         last_audited_at = _utcnow()
 
+    # Trace id resolution: an explicitly-passed ``mlflow_trace_id`` always wins.
+    # Otherwise we walk the capabilities and pick the FIRST non-null trace id we
+    # find. The extractor stamps the same id onto every Capability emitted in a
+    # single facility run, so "first non-null" is deterministic and avoids the
+    # cost of an agreement check.
+    resolved_trace_id = mlflow_trace_id
+    if resolved_trace_id is None:
+        for cap in capabilities:
+            cap_trace = getattr(cap, "mlflow_trace_id", None)
+            if cap_trace:
+                resolved_trace_id = cap_trace
+                break
+
     return FacilityAudit(
         facility_id=facility_id,
         name=name,
@@ -83,5 +96,5 @@ def build_facility_audit(
             scored_contradiction_count if trust_scores else len(filtered_contradictions)
         ),
         last_audited_at=last_audited_at,
-        mlflow_trace_id=mlflow_trace_id,
+        mlflow_trace_id=resolved_trace_id,
     )

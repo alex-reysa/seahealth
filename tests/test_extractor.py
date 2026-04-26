@@ -21,6 +21,7 @@ from openai import APIError, RateLimitError
 
 from seahealth.agents import extractor, llm_client
 from seahealth.agents.llm_client import StructuredCallError
+from seahealth.schemas import Capability
 
 FIXTURE_DIR = Path(__file__).parent / "fixtures" / "extractor"
 
@@ -370,6 +371,57 @@ def test_span_resolution_falls_back_to_normalized_whitespace(
         expected_idx,
         expected_idx + len("general surgery including appendectomy"),
     )
+
+
+def test_extract_capabilities_stamps_mlflow_trace_id(
+    sample_chunks: list[dict], expected_payload: dict, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """``mlflow_trace_id`` flows from the extractor kwarg onto every Capability."""
+    fake = _FakeClient(lambda: _fake_response_for(expected_payload))
+    monkeypatch.setattr(llm_client, "get_client", lambda: fake)
+
+    trace = "local::vf_00042_janta_hospital_patna::abc123def456"
+    result = extractor.extract_capabilities(
+        "vf_00042_janta_hospital_patna",
+        sample_chunks,
+        mlflow_trace_id=trace,
+    )
+
+    assert result.capabilities, "expected at least one capability"
+    for cap in result.capabilities:
+        assert cap.mlflow_trace_id == trace
+
+
+def test_capability_round_trips_with_mlflow_trace_id() -> None:
+    """A Capability JSON carrying ``mlflow_trace_id`` round-trips through Pydantic."""
+    payload = {
+        "facility_id": "vf_xyz",
+        "capability_type": "ICU",
+        "claimed": True,
+        "evidence_refs": [],
+        "source_doc_id": "vf_xyz",
+        "extracted_at": "2026-04-25T00:00:00+00:00",
+        "extractor_model": "databricks-gpt-5-5",
+        "mlflow_trace_id": "abc",
+    }
+    cap = Capability.model_validate(payload)
+    assert cap.mlflow_trace_id == "abc"
+    assert cap.model_dump(mode="json")["mlflow_trace_id"] == "abc"
+
+
+def test_capability_without_mlflow_trace_id_defaults_to_none() -> None:
+    """Old parquet rows missing the column deserialize to ``mlflow_trace_id=None``."""
+    payload = {
+        "facility_id": "vf_xyz",
+        "capability_type": "ICU",
+        "claimed": True,
+        "evidence_refs": [],
+        "source_doc_id": "vf_xyz",
+        "extracted_at": "2026-04-25T00:00:00+00:00",
+        "extractor_model": "databricks-gpt-5-5",
+    }
+    cap = Capability.model_validate(payload)
+    assert cap.mlflow_trace_id is None
 
 
 def test_evidence_snippet_is_capped_to_512_chars(

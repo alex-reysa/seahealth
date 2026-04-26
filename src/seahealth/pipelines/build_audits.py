@@ -98,6 +98,20 @@ def _row_json_field(row: pd.Series, key: str) -> Any:
 # ---------------------------------------------------------------------------
 
 
+def _row_optional_str(row: pd.Series, key: str) -> str | None:
+    """Pull an optional string column; tolerate absent column or NaN."""
+    if key not in row.index:
+        return None
+    value = row[key]
+    if value is None:
+        return None
+    if isinstance(value, float) and pd.isna(value):
+        return None
+    if isinstance(value, str):
+        return value if value.strip() else None
+    return str(value)
+
+
 def _capability_from_row(row: pd.Series) -> Capability | None:
     payload = _row_json_field(row, "payload")
     if isinstance(payload, dict):
@@ -107,15 +121,21 @@ def _capability_from_row(row: pd.Series) -> Capability | None:
             log.warning("Skipping malformed capability row: %s", exc)
             return None
     # Fallback: explicit columns. Only the minimal set we know how to write.
+    # ``mlflow_trace_id`` is gracefully optional — old parquet rows produced
+    # before the column existed deserialize as None.
+    evidence_payload = _row_json_field(row, "evidence_refs")
+    if not isinstance(evidence_payload, list):
+        evidence_payload = _row_json_field(row, "evidence_refs_json")
     try:
         return Capability(
             facility_id=str(row["facility_id"]),
             capability_type=CapabilityType(row["capability_type"]),
             claimed=bool(row.get("claimed", True)),
-            evidence_refs=_row_json_field(row, "evidence_refs") or [],
+            evidence_refs=evidence_payload or [],
             source_doc_id=str(row.get("source_doc_id", row["facility_id"])),
             extracted_at=pd.to_datetime(row.get("extracted_at", datetime.now(UTC))).to_pydatetime(),
             extractor_model=str(row.get("extractor_model", "unknown")),
+            mlflow_trace_id=_row_optional_str(row, "mlflow_trace_id"),
         )
     except Exception as exc:
         log.warning("Skipping malformed capability row (fallback): %s", exc)

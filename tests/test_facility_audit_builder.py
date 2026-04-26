@@ -204,3 +204,54 @@ def test_mlflow_trace_id_passes_through():
     )
 
     assert audit.mlflow_trace_id == "trace-abc-123"
+
+
+def test_mlflow_trace_id_picked_from_caps_when_not_explicit():
+    """When no explicit trace id is passed, builder picks first non-null from caps."""
+    cap_a = _capability(CapabilityType.SURGERY_APPENDECTOMY).model_copy(
+        update={"mlflow_trace_id": None}
+    )
+    cap_b = _capability(CapabilityType.ICU).model_copy(
+        update={"mlflow_trace_id": "local::vf_00042_janta_hospital_patna::run-uuid-1"}
+    )
+    cap_c = _capability(CapabilityType.LAB).model_copy(
+        update={"mlflow_trace_id": "local::vf_00042_janta_hospital_patna::run-uuid-2"}
+    )
+    ts_a = _trust_score(cap_a.capability_type, [])
+    ts_b = _trust_score(cap_b.capability_type, [])
+    ts_c = _trust_score(cap_c.capability_type, [])
+
+    audit = build_facility_audit(
+        facility_id=FACILITY_ID,
+        name="Janta Hospital",
+        location=GeoPoint(lat=25.61, lng=85.14),
+        capabilities=[cap_a, cap_b, cap_c],
+        contradictions=[],
+        evidence_assessments=[],
+        trust_scores={
+            cap_a.capability_type: ts_a,
+            cap_b.capability_type: ts_b,
+            cap_c.capability_type: ts_c,
+        },
+    )
+
+    # First non-null wins (cap_b's), even though cap_a is first overall.
+    assert audit.mlflow_trace_id == "local::vf_00042_janta_hospital_patna::run-uuid-1"
+
+
+def test_explicit_trace_id_wins_over_caps():
+    """Explicit ``mlflow_trace_id`` takes precedence over capability-borne ones."""
+    cap = _capability().model_copy(update={"mlflow_trace_id": "from-cap"})
+    ts = _trust_score(cap.capability_type, [])
+    audit = build_facility_audit(
+        facility_id=FACILITY_ID,
+        name="Janta Hospital",
+        location=GeoPoint(lat=25.61, lng=85.14),
+        capabilities=[cap],
+        contradictions=[],
+        evidence_assessments=[],
+        trust_scores={cap.capability_type: ts},
+        mlflow_trace_id="explicit-trace",
+    )
+
+    assert audit.mlflow_trace_id == "explicit-trace"

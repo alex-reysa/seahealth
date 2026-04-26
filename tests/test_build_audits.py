@@ -299,6 +299,88 @@ def test_build_audits_threads_trace_and_json_roundtrips(tmp_path: Path):
     assert trust_scores["LAB"]["computed_at"]
 
 
+def test_build_audits_propagates_trace_id_from_capabilities(tmp_path: Path):
+    """When no explicit ``--mlflow-trace-id`` is given, audits inherit the
+    Capability's trace id."""
+    tables_dir = tmp_path / "tables"
+    tables_dir.mkdir()
+
+    fid = "vf_00042_janta_hospital_patna"
+    trace_id = f"local::{fid}::run-uuid-cafe"
+    cap = _capability(fid, CapabilityType.LAB).model_copy(
+        update={"mlflow_trace_id": trace_id}
+    )
+    _write_capabilities(tables_dir / build_audits.CAPABILITIES_FILE, [cap])
+    _write_facilities_index(
+        tables_dir / build_audits.FACILITIES_INDEX_FILE,
+        [
+            {
+                "facility_id": fid,
+                "name": "Janta Hospital, Patna",
+                "latitude": 25.61,
+                "longitude": 85.14,
+                "pin_code": "800001",
+            }
+        ],
+    )
+
+    build_audits.main(tables_dir=tables_dir)
+
+    df = pq.read_table(tables_dir / build_audits.AUDITS_FILE).to_pandas()
+    assert df.iloc[0]["mlflow_trace_id"] == trace_id
+
+
+def test_build_audits_handles_legacy_capabilities_parquet_without_trace_column(
+    tmp_path: Path,
+) -> None:
+    """A capabilities parquet from before MLT-1 (no ``mlflow_trace_id`` column,
+    no ``payload`` column) still produces a valid audit; the audit's trace id
+    falls back to None."""
+    tables_dir = tmp_path / "tables"
+    tables_dir.mkdir()
+
+    fid = "vf_00042_janta_hospital_patna"
+    legacy_rows = [
+        {
+            "facility_id": fid,
+            "capability_type": CapabilityType.LAB.value,
+            "claimed": True,
+            "source_doc_id": fid,
+            "extractor_model": "databricks-gpt-5-5",
+            "extracted_at": "2026-04-25T22:30:00+00:00",
+            "evidence_refs_json": json.dumps(
+                [_evidence(fid).model_dump(mode="json")], ensure_ascii=False
+            ),
+        }
+    ]
+    legacy_df = pd.DataFrame.from_records(legacy_rows)
+    pq.write_table(
+        pa.Table.from_pandas(legacy_df, preserve_index=False),
+        tables_dir / build_audits.CAPABILITIES_FILE,
+    )
+    _write_facilities_index(
+        tables_dir / build_audits.FACILITIES_INDEX_FILE,
+        [
+            {
+                "facility_id": fid,
+                "name": "Janta Hospital, Patna",
+                "latitude": 25.61,
+                "longitude": 85.14,
+                "pin_code": "800001",
+            }
+        ],
+    )
+
+    summary = build_audits.main(tables_dir=tables_dir)
+    assert summary["audit_count"] == 1
+    df = pq.read_table(tables_dir / build_audits.AUDITS_FILE).to_pandas()
+    assert df.iloc[0]["facility_id"] == fid
+    assert df.iloc[0]["mlflow_trace_id"] is None or pd.isna(df.iloc[0]["mlflow_trace_id"])
+    # And capabilities still round-trip.
+    caps = json.loads(df.iloc[0]["capabilities_json"])
+    assert caps and caps[0]["capability_type"] == "LAB"
+
+
 def test_build_audits_respects_limit(tmp_path: Path):
     tables_dir = tmp_path / "tables"
     tables_dir.mkdir()

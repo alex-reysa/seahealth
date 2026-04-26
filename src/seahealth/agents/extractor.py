@@ -147,6 +147,7 @@ def _normalize_capabilities(
     chunk_index: dict[str, dict],
     extractor_model: str,
     extracted_at: datetime,
+    mlflow_trace_id: str | None = None,
 ) -> ExtractedCapabilities:
     """Re-anchor evidence snippets and stamp metadata onto each capability."""
     cleaned: list[Capability] = []
@@ -197,6 +198,7 @@ def _normalize_capabilities(
                     "source_doc_id": primary_source_doc,
                     "extracted_at": extracted_at,
                     "extractor_model": extractor_model,
+                    "mlflow_trace_id": mlflow_trace_id,
                 }
             )
         )
@@ -211,6 +213,7 @@ def extract_capabilities(
     model: str = DEFAULT_EXTRACTOR_MODEL,
     extractor_model_id: str = DEFAULT_EXTRACTOR_MODEL,
     client_factory: Callable[[], object] | None = None,
+    mlflow_trace_id: str | None = None,
 ) -> ExtractedCapabilities:
     """Run a single LLM call summarizing all chunks for one facility.
 
@@ -225,6 +228,9 @@ def extract_capabilities(
             provenance — kept separate so we can A/B against the API model.
         client_factory: Optional callable returning an OpenAI-compatible
             client. Used by tests to inject mocks.
+        mlflow_trace_id: Optional trace id (real MLflow trace id or a
+            ``local::<facility_id>::<run_uuid>`` synthetic id from the
+            pipeline) stamped onto every emitted Capability.
 
     Returns:
         ExtractedCapabilities with re-anchored evidence spans.
@@ -256,4 +262,5 @@ def extract_capabilities(
         chunk_index=chunk_index,
         extractor_model=extractor_model_id,
         extracted_at=extracted_at,
+        mlflow_trace_id=mlflow_trace_id,
     )
