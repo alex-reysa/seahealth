@@ -23,20 +23,17 @@ import {
 import 'maplibre-gl/dist/maplibre-gl.css';
 
 import { Breadcrumbs } from '@/src/components/domain/Breadcrumbs';
-import { MapLegend } from '@/src/components/domain/MapLegend';
 import { TrustScore } from '@/src/components/domain/TrustScore';
 import { Button } from '@/src/components/ui/Button';
 import { Card } from '@/src/components/ui/Card';
 import { Input } from '@/src/components/ui/Input';
 import indiaDistrictsTopoRaw from '@/src/data/indiaDistricts.topojson?raw';
-import mockIndiaRegionsTopologyRaw from '@/src/data/mockIndiaRegions.topojson?raw';
 import { useFacilityAudit } from '@/src/hooks/useFacilityAudit';
 import { useFacilityLocations } from '@/src/hooks/useFacilityLocations';
 import { useMapAggregates } from '@/src/hooks/useMapAggregates';
 import { usePlannerQuery } from '@/src/hooks/usePlannerQuery';
 import { useSummary } from '@/src/hooks/useSummary';
 import { CAPABILITIES, CHALLENGE_QUERY, formatNumber, getCapabilityLabel } from '@/src/lib/capabilities';
-import { decorateFeaturesWithJoin, joinAggregatesToFeatures } from '@/src/lib/mapJoin';
 import { getBounds } from '@/src/lib/regionTree';
 import type {
   CapabilityType,
@@ -45,120 +42,41 @@ import type {
   ExecutionStep,
   FacilityAudit,
   MapRegionAggregate,
-  PopulationSource,
   RankedFacility,
   TrustScore as ApiTrustScore,
 } from '@/src/types/api';
 
 const INDIA_CENTER = [78.9629, 20.5937] as [number, number];
-const PATNA_CENTER = [85.14, 25.61] as [number, number];
-const MADHUBANI_CENTER = [86.07, 26.36] as [number, number];
 const RADIUS_OPTIONS = [30, 50, 60, 120];
 type SearchMode = 'semantic' | 'capability';
 type AgentPanelView = 'facilities' | 'trace';
-type MapOverlayMode = 'priority_score' | 'need_signal' | 'verified_access' | 'contradiction_risk';
-type PlanningLayerId = 'verified_access_gap' | 'need_signal' | 'contradiction_risk' | 'facility_coverage_radius';
-type PlanningLayerVisibility = Record<PlanningLayerId, boolean>;
 
-const DEFAULT_PLANNING_LAYER_VISIBILITY: PlanningLayerVisibility = {
-  verified_access_gap: true,
-  need_signal: true,
-  contradiction_risk: true,
-  facility_coverage_radius: false,
+type DesertRadius = 30 | 60 | 120;
+const DESERT_RADIUS_OPTIONS: DesertRadius[] = [30, 60, 120];
+
+const RISK_TIER_COLORS: Record<string, string> = {
+  critical: '#7E2F2C',
+  high: '#C56556',
+  moderate: '#E5B86F',
+  low: '#72B7A8',
 };
 
-const NEUTRAL_LENS_FILL = '#DDEBE5';
-
-type LensRamp = ReadonlyArray<readonly [number, string]>;
-
-const LENS_CONFIG: Record<MapOverlayMode, {
-  label: string;
-  legend: string;
-  propertyName: string;
-  layerId: PlanningLayerId | null;
-  ramp: LensRamp;
-}> = {
-  priority_score: {
-    label: 'Priority score',
-    legend: 'committee priority',
-    propertyName: 'priorityScore',
-    layerId: null,
-    ramp: [[0, '#E4F3EC'], [0.55, '#B7DFC9'], [0.75, '#72B7A8'], [1, '#2F7F72']],
-  },
-  need_signal: {
-    label: 'Need signal',
-    legend: 'newborn burden',
-    propertyName: 'needSignal',
-    layerId: 'need_signal',
-    ramp: [[0, '#F5EFE5'], [0.55, '#F1C7A6'], [0.78, '#D88975'], [1, '#A4473E']],
-  },
-  verified_access: {
-    label: 'Verified access',
-    legend: 'audited supply',
-    propertyName: 'verifiedAccessScore',
-    layerId: 'verified_access_gap',
-    ramp: [[0, '#A4473E'], [0.35, '#F1C7A6'], [0.72, '#72B7A8'], [1, '#176D6A']],
-  },
-  contradiction_risk: {
-    label: 'Contradiction risk',
-    legend: 'claim reliability',
-    propertyName: 'contradictionRisk',
-    layerId: 'contradiction_risk',
-    ramp: [[0, '#E4F3EC'], [0.5, '#E5B86F'], [0.8, '#C56556'], [1, '#7E2F2C']],
-  },
+const RISK_TIER_OPACITY: Record<string, number> = {
+  critical: 0.75,
+  high: 0.6,
+  moderate: 0.45,
+  low: 0.3,
 };
 
-const OVERLAY_MODE_OPTIONS: Array<{ id: MapOverlayMode; label: string; legend: string }> =
-  (Object.entries(LENS_CONFIG) as Array<[MapOverlayMode, (typeof LENS_CONFIG)[MapOverlayMode]]>).map(([id, cfg]) => ({
-    id,
-    label: cfg.label,
-    legend: cfg.legend,
-  }));
-
-const PLANNING_LAYER_OPTIONS: Array<{ id: PlanningLayerId; label: string; detail: string }> = [
-  { id: 'verified_access_gap', label: 'Verified access gap', detail: 'low audited supply' },
-  { id: 'need_signal', label: 'Need signal', detail: 'population burden' },
-  { id: 'contradiction_risk', label: 'Contradiction risk', detail: 'unreliable claims' },
-  { id: 'facility_coverage_radius', label: 'Facility coverage radius', detail: 'candidate reach' },
+const DESERT_LEGEND_STOPS = [
+  { threshold: 0, color: '#72B7A8', label: 'Low' },
+  { threshold: 1, color: '#E5B86F', label: 'Moderate' },
+  { threshold: 2, color: '#C56556', label: 'High' },
+  { threshold: 3, color: '#7E2F2C', label: 'Critical' },
 ];
-
-function isOverlayModeVisible(overlayMode: MapOverlayMode, visibleLayers: PlanningLayerVisibility) {
-  const layerId = LENS_CONFIG[overlayMode].layerId;
-  return layerId ? visibleLayers[layerId] : true;
-}
 
 const indiaDistrictsTopo = JSON.parse(indiaDistrictsTopoRaw);
-const indiaDistrictsGeoJson = feature(indiaDistrictsTopo, indiaDistrictsTopo.objects.Districts) as any;
-const mockIndiaRegionsTopology = JSON.parse(mockIndiaRegionsTopologyRaw);
-const mockIndiaRegionsGeoJson = feature(mockIndiaRegionsTopology, mockIndiaRegionsTopology.objects.regions) as any;
-const TOPOLOGY_FEATURE_IDS: readonly string[] = mockIndiaRegionsGeoJson.features.map(
-  (regionFeature: any) => regionFeature.properties.regionId as string,
-);
-const regionCentroidsById = new globalThis.Map<string, [number, number]>(
-  mockIndiaRegionsGeoJson.features.map((regionFeature: any) => [
-    regionFeature.properties.regionId as string,
-    regionFeature.properties.centroid as [number, number],
-  ]),
-);
-
-const FLAGGED_LEGEND_STOPS = [
-  { threshold: 0, color: '#E4F3EC', label: '0 flagged' },
-  { threshold: 1, color: '#B7DFC9', label: '1–9' },
-  { threshold: 10, color: '#72B7A8', label: '10–49' },
-  { threshold: 50, color: '#2F7F72', label: '≥ 50' },
-];
-
-function getOverlayFillColor(overlayMode: MapOverlayMode, visibleLayers: PlanningLayerVisibility): any {
-  if (!isOverlayModeVisible(overlayMode, visibleLayers)) {
-    return NEUTRAL_LENS_FILL;
-  }
-  const cfg = LENS_CONFIG[overlayMode];
-  const stops: any[] = [];
-  cfg.ramp.forEach(([stop, color]) => {
-    stops.push(stop, color);
-  });
-  return ['interpolate', ['linear'], ['get', cfg.propertyName], ...stops];
-}
+const indiaDistrictsGeoJson = feature(indiaDistrictsTopo, indiaDistrictsTopo.objects.data) as any;
 
 function geoCircleFeature(lng: number, lat: number, radiusKm: number, steps = 64): any {
   const earthRadiusKm = 6371;
@@ -206,20 +124,12 @@ function facilityDotsGeoJson(locations: Array<{ facility_id: string; name: strin
 }
 
 function getMapStyle(
-  regionId: string,
-  overlayMode: MapOverlayMode,
-  visibleLayers: PlanningLayerVisibility,
+  desertRadius: DesertRadius,
   coverageFeatures: any,
-  fundingRegionsGeoJson: any,
   facilityLocationsGeoJson: any,
+  showCoverageRadius: boolean,
 ) {
-  const overlayVisible = isOverlayModeVisible(overlayMode, visibleLayers);
-  const hasBiharRegion = regionId.startsWith('BR_');
-  const fundingFillOpacity = !hasBiharRegion
-    ? 0.12
-    : overlayVisible
-      ? ['case', ['==', ['get', 'regionId'], regionId], 0.7, 0.5]
-      : ['case', ['==', ['get', 'regionId'], regionId], 0.34, 0.16];
+  const riskProp = `risk_tier_${desertRadius}km`;
 
   return {
     version: 8,
@@ -233,11 +143,6 @@ function getMapStyle(
       'india-districts': {
         type: 'geojson',
         data: indiaDistrictsGeoJson,
-        generateId: true,
-      },
-      'funding-regions': {
-        type: 'geojson',
-        data: fundingRegionsGeoJson,
         generateId: true,
       },
       'coverage-radius': {
@@ -268,13 +173,25 @@ function getMapStyle(
             'case',
             ['boolean', ['feature-state', 'hover'], false],
             '#B7DFC9',
-            '#DDEBE5',
+            ['match', ['get', riskProp],
+              'critical', '#7E2F2C',
+              'high', '#C56556',
+              'moderate', '#E5B86F',
+              'low', '#72B7A8',
+              '#DDEBE5',
+            ],
           ],
           'fill-opacity': [
             'case',
             ['boolean', ['feature-state', 'hover'], false],
-            0.7,
-            0.42,
+            0.8,
+            ['match', ['get', riskProp],
+              'critical', 0.75,
+              'high', 0.6,
+              'moderate', 0.45,
+              'low', 0.3,
+              0.2,
+            ],
           ],
         },
       },
@@ -282,59 +199,13 @@ function getMapStyle(
         id: 'india-lines',
         type: 'line',
         source: 'india-districts',
-        paint: { 'line-color': '#176D6A', 'line-opacity': 0.16, 'line-width': 0.8 },
-      },
-      {
-        id: 'funding-fill',
-        type: 'fill',
-        source: 'funding-regions',
-        paint: {
-          'fill-color': [
-            'case',
-            ['boolean', ['feature-state', 'hover'], false],
-            '#105B58',
-            ['==', ['get', 'regionId'], regionId],
-            '#3D9D89',
-            getOverlayFillColor(overlayMode, visibleLayers),
-          ],
-          'fill-opacity': fundingFillOpacity,
-        },
-      },
-      {
-        id: 'funding-lines',
-        type: 'line',
-        source: 'funding-regions',
-        layout: { visibility: visibleLayers.verified_access_gap ? 'visible' : 'none' },
-        paint: { 'line-color': '#176D6A', 'line-opacity': 0.34, 'line-width': 1.2 },
-      },
-      {
-        id: 'funding-need-lines',
-        type: 'line',
-        source: 'funding-regions',
-        layout: { visibility: visibleLayers.need_signal ? 'visible' : 'none' },
-        paint: {
-          'line-color': '#D88975',
-          'line-opacity': 0.42,
-          'line-width': ['interpolate', ['linear'], ['get', 'needSignal'], 0, 0.4, 1, 2.4],
-        },
-      },
-      {
-        id: 'funding-risk-lines',
-        type: 'line',
-        source: 'funding-regions',
-        layout: { visibility: visibleLayers.contradiction_risk ? 'visible' : 'none' },
-        paint: {
-          'line-color': '#A4473E',
-          'line-opacity': 0.32,
-          'line-width': ['interpolate', ['linear'], ['get', 'contradictionRisk'], 0, 0.4, 1, 2.8],
-          'line-dasharray': [2, 1.4],
-        },
+        paint: { 'line-color': '#176D6A', 'line-opacity': 0.18, 'line-width': 0.8 },
       },
       {
         id: 'coverage-radius-fill',
         type: 'fill',
         source: 'coverage-radius',
-        layout: { visibility: visibleLayers.facility_coverage_radius ? 'visible' : 'none' },
+        layout: { visibility: showCoverageRadius ? 'visible' : 'none' },
         paint: {
           'fill-color': '#3D9D89',
           'fill-opacity': 0.08,
@@ -344,7 +215,7 @@ function getMapStyle(
         id: 'coverage-radius-line',
         type: 'line',
         source: 'coverage-radius',
-        layout: { visibility: visibleLayers.facility_coverage_radius ? 'visible' : 'none' },
+        layout: { visibility: showCoverageRadius ? 'visible' : 'none' },
         paint: {
           'line-color': '#176D6A',
           'line-opacity': 0.45,
@@ -717,10 +588,10 @@ export function Dashboard() {
   const [capabilityDetails, setCapabilityDetails] = React.useState('');
   const [agentPanelView, setAgentPanelView] = React.useState<AgentPanelView>('facilities');
   const [selectedFacilityId, setSelectedFacilityId] = React.useState<string | null>(null);
-  const [overlayMode, setOverlayMode] = React.useState<MapOverlayMode>('priority_score');
-  const [isPlanningLayersOpen, setIsPlanningLayersOpen] = React.useState(false);
-  const [isPriorityZoneOpen, setIsPriorityZoneOpen] = React.useState(false);
-  const [visibleLayers, setVisibleLayers] = React.useState<PlanningLayerVisibility>(DEFAULT_PLANNING_LAYER_VISIBILITY);
+  const [desertRadius, setDesertRadius] = React.useState<DesertRadius>(60);
+  const [isDesertPanelOpen, setIsDesertPanelOpen] = React.useState(false);
+  const [showCoverageRadius, setShowCoverageRadius] = React.useState(false);
+  const [selectedDistrictProps, setSelectedDistrictProps] = React.useState<Record<string, any> | null>(null);
 
   const capability: CapabilityType = (searchParams.get('capability') as CapabilityType) || 'SURGERY_GENERAL';
   const radiusKm = Number(searchParams.get('radius_km') || 50);
@@ -734,21 +605,6 @@ export function Dashboard() {
   const facilityAuditFetch = useFacilityAudit(selectedFacilityId ?? undefined);
 
   const aggregates: MapRegionAggregate[] = aggregatesFetch.data ?? [];
-  const join = React.useMemo(
-    () => joinAggregatesToFeatures(aggregates, TOPOLOGY_FEATURE_IDS),
-    [aggregates],
-  );
-
-  const fundingRegionsGeoJson = React.useMemo(() => {
-    return {
-      ...mockIndiaRegionsGeoJson,
-      features: decorateFeaturesWithJoin(mockIndiaRegionsGeoJson.features, join),
-    };
-  }, [join]);
-
-  const selectedAggregate: MapRegionAggregate | undefined =
-    join.byFeatureId.get(regionId)?.aggregate ?? aggregates[0];
-  const populationSource: PopulationSource | null = selectedAggregate?.population_source ?? null;
 
   const queryResult = plannerQuery.data;
   const rankedFacilities: RankedFacility[] = queryResult?.ranked_facilities ?? [];
@@ -766,15 +622,11 @@ export function Dashboard() {
     [locationsFetch.data],
   );
 
-  const selectedRegionCentroid = regionId ? regionCentroidsById.get(regionId) : undefined;
-
   const summary = summaryFetch.data;
   const auditedCount = summary?.audited_count ?? null;
   const verifiedCount = summary?.verified_count ?? null;
   const flaggedCount = summary?.flagged_count ?? null;
   const isRunning = plannerQuery.status === 'loading';
-
-  const activeOverlayOption = OVERLAY_MODE_OPTIONS.find((option) => option.id === overlayMode) ?? OVERLAY_MODE_OPTIONS[0];
 
   const focusMap = (nextRegionId: string) => {
     const map = mapRef.current?.getMap();
@@ -784,18 +636,13 @@ export function Dashboard() {
       map.fitBounds(bounds, { padding: 60, duration: 800, maxZoom: 9 });
       return;
     }
-    map.flyTo({
-      center: nextRegionId === 'BR_MADHUBANI' ? MADHUBANI_CENTER : PATNA_CENTER,
-      zoom: nextRegionId === 'BR_MADHUBANI' ? 8 : 7,
-      duration: 800,
-    });
+    map.flyTo({ center: INDIA_CENTER, zoom: 5, duration: 800 });
   };
 
   const setRegionInUrl = (nextRegionId: string) => {
     const params = new URLSearchParams(searchParams);
     params.set('region_id', nextRegionId);
     setSearchParams(params);
-    setIsPriorityZoneOpen(true);
     focusMap(nextRegionId);
   };
 
@@ -827,7 +674,6 @@ export function Dashboard() {
   };
 
   const selectPriorityRegion = (nextRegionId: string) => {
-    setIsPriorityZoneOpen(true);
     const params = new URLSearchParams(searchParams);
     params.set('region_id', nextRegionId);
     setSearchParams(params);
@@ -841,10 +687,7 @@ export function Dashboard() {
     if (next.regionId) params.set('region_id', next.regionId);
     if (next.pinCode) params.set('pin_code', next.pinCode);
     setSearchParams(params);
-    if (next.regionId) {
-      setIsPriorityZoneOpen(true);
-      focusMap(next.regionId);
-    }
+    if (next.regionId) focusMap(next.regionId);
   };
 
   const onCommandSubmit = (event: React.FormEvent) => {
@@ -855,7 +698,7 @@ export function Dashboard() {
   const handleResetMap = () => {
     setRegionSearch('');
     setIsAgentPanelOpen(false);
-    setIsPriorityZoneOpen(false);
+    setSelectedDistrictProps(null);
     setSearchParams({});
     plannerQuery.reset();
     mapRef.current?.getMap()?.flyTo({ center: INDIA_CENTER, zoom: 4, duration: 1000 });
@@ -868,9 +711,8 @@ export function Dashboard() {
     if (featureId == null) return;
     event.target.getCanvas().style.cursor = 'pointer';
     const map = event.target;
-    const source = feat.source || 'funding-regions';
+    const source = feat.source || 'india-districts';
     if (hoveredFeatureId.current !== null && hoveredFeatureId.current !== featureId) {
-      map.setFeatureState({ source: 'funding-regions', id: hoveredFeatureId.current }, { hover: false });
       map.setFeatureState({ source: 'india-districts', id: hoveredFeatureId.current }, { hover: false });
     }
     hoveredFeatureId.current = featureId;
@@ -880,7 +722,6 @@ export function Dashboard() {
   const onMouseLeave = (event: any) => {
     event.target.getCanvas().style.cursor = '';
     if (hoveredFeatureId.current !== null) {
-      event.target.setFeatureState({ source: 'funding-regions', id: hoveredFeatureId.current }, { hover: false });
       event.target.setFeatureState({ source: 'india-districts', id: hoveredFeatureId.current }, { hover: false });
       hoveredFeatureId.current = null;
     }
@@ -891,13 +732,13 @@ export function Dashboard() {
       <Map
         ref={mapRef}
         initialViewState={{
-          longitude: regionId ? (regionId === 'BR_MADHUBANI' ? MADHUBANI_CENTER[0] : PATNA_CENTER[0]) : INDIA_CENTER[0],
-          latitude: regionId ? (regionId === 'BR_MADHUBANI' ? MADHUBANI_CENTER[1] : PATNA_CENTER[1]) : INDIA_CENTER[1],
-          zoom: regionId ? 7 : 4,
+          longitude: INDIA_CENTER[0],
+          latitude: INDIA_CENTER[1],
+          zoom: 4,
         }}
-        mapStyle={getMapStyle(regionId, overlayMode, visibleLayers, coverageFeatures, fundingRegionsGeoJson, facilityLocationsGeoJson)}
+        mapStyle={getMapStyle(desertRadius, coverageFeatures, facilityLocationsGeoJson, showCoverageRadius)}
         style={{ width: '100%', height: '100%' }}
-        interactiveLayerIds={['funding-fill', 'india-fill', 'facility-dots', 'facility-clusters']}
+        interactiveLayerIds={['india-fill', 'facility-dots', 'facility-clusters']}
         onClick={(event: any) => {
           const feat = event.features?.[0];
           const props = feat?.properties;
@@ -919,25 +760,15 @@ export function Dashboard() {
             return;
           }
 
-          const clickedRegionId = props?.regionId;
-          if (clickedRegionId) {
-            selectPriorityRegion(clickedRegionId);
-            return;
-          }
-
-          const stateName = props?.ST_NM;
-          const distName = props?.Dist_name;
-          if (stateName || distName) {
-            const label = distName ? `${distName}, ${stateName}` : stateName;
+          // District click: show desert score info + zoom
+          const distName = props?.district;
+          const stateName = props?.state;
+          if (distName || stateName) {
+            setSelectedDistrictProps(props);
             const [lng, lat] = [event.lngLat.lng, event.lngLat.lat];
-            mapRef.current?.getMap()?.flyTo({ center: [lng, lat], zoom: 8, duration: 800 });
-            const params = new URLSearchParams(searchParams);
-            params.set('region_id', distName || stateName);
-            params.set('region_name', label);
-            setSearchParams(params);
+            mapRef.current?.getMap()?.flyTo({ center: [lng, lat], zoom: 7, duration: 800 });
             return;
           }
-          focusMap(regionId);
         }}
         onMouseMove={onMouseMove}
         onMouseLeave={onMouseLeave}
@@ -960,79 +791,80 @@ export function Dashboard() {
           </Marker>
         ))}
 
-        {aggregates.map((zone) => {
-          const total = zone.verified_facilities_count + zone.flagged_facilities_count;
-          if (total === 0) return null;
-          const size = Math.min(56, Math.max(20, 12 + Math.sqrt(total) * 5));
-          const flaggedRatio = total > 0 ? zone.flagged_facilities_count / total : 0;
-          const bg = flaggedRatio > 0.5 ? 'bg-semantic-critical/30 border-semantic-critical/50' : 'bg-accent-primary/25 border-accent-primary/40';
-          return (
-            <Marker key={zone.region_id} longitude={zone.centroid.lng} latitude={zone.centroid.lat} anchor="center">
-              <button
-                type="button"
-                onClick={(event) => {
-                  event.stopPropagation();
-                  setRegionInUrl(zone.region_id);
-                }}
-                title={`${zone.region_name}: ${zone.verified_facilities_count} verified, ${zone.flagged_facilities_count} flagged`}
-                className={`pointer-events-auto flex items-center justify-center rounded-full border-2 text-mono-s font-bold text-content-primary backdrop-blur-sm transition-transform hover:scale-110 ${bg}`}
-                style={{ width: size, height: size }}
-              >
-                {total}
-              </button>
-            </Marker>
-          );
-        })}
-
-        {selectedRegionCentroid && (
-          <Marker longitude={selectedRegionCentroid[0]} latitude={selectedRegionCentroid[1]} anchor="center">
-            <span className="block h-3 w-3 rounded-full bg-accent-primary ring-4 ring-white/80 shadow-elevation-2" />
-          </Marker>
-        )}
       </Map>
 
-      {/* Priority zone popup — from live MapRegionAggregate */}
-      {selectedRegionCentroid && isPriorityZoneOpen && selectedAggregate && (
-        <div className="pointer-events-auto absolute left-1/2 top-[44%] z-40 w-[460px] -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-border-subtle bg-white/90 p-4 pr-10 shadow-elevation-4 backdrop-blur-xl">
+      {/* District info popup — from enriched TopoJSON */}
+      {selectedDistrictProps && (
+        <div className="pointer-events-auto absolute left-1/2 top-[44%] z-40 w-[480px] -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-border-subtle bg-white/90 p-4 pr-10 shadow-elevation-4 backdrop-blur-xl">
           <button
             type="button"
-            onClick={() => setIsPriorityZoneOpen(false)}
+            onClick={() => setSelectedDistrictProps(null)}
             className="absolute right-3 top-3 rounded-full border border-border-subtle bg-white/70 p-1.5 text-content-tertiary transition-colors hover:text-content-primary"
-            aria-label="Close selected priority zone"
+            aria-label="Close district info"
           >
             <X className="h-3.5 w-3.5" />
           </button>
-          <div className="grid grid-cols-[1.15fr_0.85fr] gap-4">
-            <div>
-              <div className="text-caption font-semibold uppercase tracking-wider text-content-secondary">Selected region</div>
-              <h2 className="mt-1 text-heading-m text-content-primary">{selectedAggregate.region_name}</h2>
-              <p className="mt-2 text-caption text-content-secondary">
-                {selectedAggregate.state} · {getCapabilityLabel(selectedAggregate.capability_type)}
-              </p>
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              <div className="rounded-xl bg-white/70 p-2.5">
-                <div className="text-mono-s uppercase text-content-tertiary">Verified</div>
-                <div className="mt-1 text-heading-s text-semantic-verified">{selectedAggregate.verified_facilities_count}</div>
-              </div>
-              <div className="rounded-xl bg-white/70 p-2.5">
-                <div className="text-mono-s uppercase text-content-tertiary">Flagged</div>
-                <div className="mt-1 text-heading-s text-semantic-critical">{selectedAggregate.flagged_facilities_count}</div>
-              </div>
-              <div className="rounded-xl bg-white/70 p-2.5">
-                <div className="text-mono-s uppercase text-content-tertiary">Population</div>
-                <div className="mt-1 text-caption font-semibold text-content-primary">
-                  {formatNumber(selectedAggregate.population)}
-                </div>
-              </div>
-              <div className="rounded-xl bg-white/70 p-2.5">
-                <div className="text-mono-s uppercase text-content-tertiary">Gap pop.</div>
-                <div className="mt-1 text-caption font-semibold text-content-primary">
-                  {formatNumber(selectedAggregate.gap_population)}
-                </div>
-              </div>
-            </div>
+          <div>
+            <div className="text-caption font-semibold uppercase tracking-wider text-content-secondary">District health profile</div>
+            <h2 className="mt-1 text-heading-m text-content-primary">{selectedDistrictProps.district}</h2>
+            <p className="mt-1 text-caption text-content-secondary">{selectedDistrictProps.state}</p>
           </div>
+          {(() => {
+            const riskKey = `risk_tier_${desertRadius}km`;
+            const desertKey = `desert_score_${desertRadius}km`;
+            const verifiedKey = `verified_facility_count_${desertRadius}km`;
+            const totalKey = `total_facility_count_${desertRadius}km`;
+            const contradictionKey = `dominant_contradiction_type_${desertRadius}km`;
+            const risk = selectedDistrictProps[riskKey] ?? 'unknown';
+            const riskColor = RISK_TIER_COLORS[risk] ?? '#999';
+            return (
+              <>
+                <div className="mt-3 grid grid-cols-4 gap-2">
+                  <div className="rounded-xl bg-white/70 p-2.5">
+                    <div className="text-mono-s uppercase text-content-tertiary">Risk tier</div>
+                    <div className="mt-1 text-heading-s font-bold" style={{ color: riskColor }}>{risk}</div>
+                  </div>
+                  <div className="rounded-xl bg-white/70 p-2.5">
+                    <div className="text-mono-s uppercase text-content-tertiary">Desert score</div>
+                    <div className="mt-1 text-caption font-semibold text-content-primary">{typeof selectedDistrictProps[desertKey] === 'number' ? selectedDistrictProps[desertKey].toFixed(1) : '—'}</div>
+                  </div>
+                  <div className="rounded-xl bg-white/70 p-2.5">
+                    <div className="text-mono-s uppercase text-content-tertiary">Verified</div>
+                    <div className="mt-1 text-heading-s text-semantic-verified">{selectedDistrictProps[verifiedKey] ?? 0}</div>
+                  </div>
+                  <div className="rounded-xl bg-white/70 p-2.5">
+                    <div className="text-mono-s uppercase text-content-tertiary">Total</div>
+                    <div className="mt-1 text-heading-s text-content-primary">{selectedDistrictProps[totalKey] ?? 0}</div>
+                  </div>
+                </div>
+                <div className="mt-3 grid grid-cols-3 gap-2">
+                  <div className="rounded-xl bg-white/70 p-2.5">
+                    <div className="text-mono-s uppercase text-content-tertiary">SBA %</div>
+                    <div className="mt-1 text-caption font-semibold text-content-primary">{selectedDistrictProps.skilled_birth_attendance_pct != null ? `${Number(selectedDistrictProps.skilled_birth_attendance_pct).toFixed(1)}%` : '—'}</div>
+                  </div>
+                  <div className="rounded-xl bg-white/70 p-2.5">
+                    <div className="text-mono-s uppercase text-content-tertiary">Inst. births %</div>
+                    <div className="mt-1 text-caption font-semibold text-content-primary">{selectedDistrictProps.institutional_births_pct != null ? `${Number(selectedDistrictProps.institutional_births_pct).toFixed(1)}%` : '—'}</div>
+                  </div>
+                  <div className="rounded-xl bg-white/70 p-2.5">
+                    <div className="text-mono-s uppercase text-content-tertiary">ANC 4+ %</div>
+                    <div className="mt-1 text-caption font-semibold text-content-primary">{selectedDistrictProps.anc4_plus_pct != null ? `${Number(selectedDistrictProps.anc4_plus_pct).toFixed(1)}%` : '—'}</div>
+                  </div>
+                </div>
+                {selectedDistrictProps[contradictionKey] && (
+                  <div className="mt-2 inline-flex items-center gap-1.5 rounded bg-semantic-critical-subtle px-2 py-1 text-caption text-semantic-critical">
+                    <ShieldAlert className="h-3.5 w-3.5" /> Dominant contradiction: {selectedDistrictProps[contradictionKey]}
+                  </div>
+                )}
+                <div className="mt-2 flex items-center gap-2 text-mono-s text-content-tertiary">
+                  <span>Need index: {selectedDistrictProps.need_index != null ? Number(selectedDistrictProps.need_index).toFixed(1) : '—'}</span>
+                  <span>·</span>
+                  <span>Source: {selectedDistrictProps.need_index_source ?? '—'}</span>
+                  {selectedDistrictProps.nfhs_imputed && <span className="rounded bg-semantic-flagged-subtle px-1.5 py-0.5 text-semantic-flagged">imputed</span>}
+                </div>
+              </>
+            );
+          })()}
         </div>
       )}
 
@@ -1069,84 +901,70 @@ export function Dashboard() {
         </div>
       </div>
 
-      {/* Planning layers panel */}
-      <div className="pointer-events-auto absolute left-6 top-24 z-20 flex max-h-[calc(100vh-190px)] w-[350px] flex-col gap-3 overflow-y-auto pr-1">
+      {/* Desert score panel */}
+      <div className="pointer-events-auto absolute left-6 top-24 z-20 flex max-h-[calc(100vh-190px)] w-[300px] flex-col gap-3 overflow-y-auto pr-1">
         <Card variant="glass-control" className="pointer-events-auto rounded-2xl p-2.5">
           <button
             type="button"
-            onClick={() => setIsPlanningLayersOpen((isOpen) => !isOpen)}
-            aria-expanded={isPlanningLayersOpen}
+            onClick={() => setIsDesertPanelOpen((o) => !o)}
+            aria-expanded={isDesertPanelOpen}
             className="flex w-full items-center justify-between gap-3 rounded-xl px-1.5 py-1 text-left transition-colors hover:bg-white/40"
           >
             <span>
-              <span className="block text-caption font-semibold uppercase tracking-wider text-content-secondary">Planning layers</span>
-              <span className="mt-0.5 block text-heading-s text-content-primary">{activeOverlayOption.label}</span>
+              <span className="block text-caption font-semibold uppercase tracking-wider text-content-secondary">Healthcare desert</span>
+              <span className="mt-0.5 block text-heading-s text-content-primary">{desertRadius}km radius</span>
             </span>
-            <span className="flex items-center gap-2">
-              <span className="rounded-full bg-white/70 px-2 py-1 text-mono-s text-content-secondary">{activeOverlayOption.legend}</span>
-              <ChevronRight className={`h-4 w-4 text-content-tertiary transition-transform ${isPlanningLayersOpen ? 'rotate-90' : ''}`} />
-            </span>
+            <ChevronRight className={`h-4 w-4 text-content-tertiary transition-transform ${isDesertPanelOpen ? 'rotate-90' : ''}`} />
           </button>
 
-          {isPlanningLayersOpen && (
+          {isDesertPanelOpen && (
             <div className="mt-3 border-t border-border-subtle pt-3">
-              <div>
-                <div className="mb-2 text-mono-s uppercase text-content-tertiary">Color map by</div>
-                <div className="grid grid-cols-2 gap-1 rounded-xl bg-surface-sunken p-1">
-                  {OVERLAY_MODE_OPTIONS.map((option) => (
-                    <button
-                      key={option.id}
-                      type="button"
-                      onClick={() => setOverlayMode(option.id)}
-                      className={`rounded-lg px-2 py-1.5 text-left text-caption font-semibold transition-colors ${
-                        overlayMode === option.id ? 'bg-white text-content-primary shadow-elevation-1' : 'text-content-secondary hover:text-content-primary'
-                      }`}
-                    >
-                      {option.label}
-                    </button>
+              <div className="mb-3 text-mono-s uppercase text-content-tertiary">Coverage radius</div>
+              <div className="flex rounded-xl bg-surface-sunken p-1">
+                {DESERT_RADIUS_OPTIONS.map((r) => (
+                  <button
+                    key={r}
+                    type="button"
+                    onClick={() => setDesertRadius(r)}
+                    className={`flex-1 rounded-lg px-2 py-1.5 text-center text-caption font-semibold transition-colors ${
+                      desertRadius === r ? 'bg-white text-content-primary shadow-elevation-1' : 'text-content-secondary hover:text-content-primary'
+                    }`}
+                  >
+                    {r}km
+                  </button>
+                ))}
+              </div>
+              <div className="mt-3">
+                <div className="mb-2 text-mono-s uppercase text-content-tertiary">Risk tiers</div>
+                <div className="flex flex-col gap-1">
+                  {(['critical', 'high', 'moderate', 'low'] as const).map((tier) => (
+                    <div key={tier} className="flex items-center gap-2">
+                      <span className="h-3 w-3 rounded-sm" style={{ backgroundColor: RISK_TIER_COLORS[tier], opacity: RISK_TIER_OPACITY[tier] }} />
+                      <span className="text-caption capitalize text-content-secondary">{tier}</span>
+                    </div>
                   ))}
                 </div>
               </div>
-
-              <div className="mt-4 flex flex-col gap-2">
-                {PLANNING_LAYER_OPTIONS.map((layer) => {
-                  const isVisible = visibleLayers[layer.id];
-                  return (
-                    <button
-                      key={layer.id}
-                      type="button"
-                      aria-pressed={isVisible}
-                      onClick={() => setVisibleLayers((current) => ({ ...current, [layer.id]: !current[layer.id] }))}
-                      className="flex items-center justify-between gap-3 rounded-xl border border-border-subtle bg-white/62 px-3 py-2 text-left transition-colors hover:border-accent-primary-soft hover:bg-white"
-                    >
-                      <span>
-                        <span className="block text-caption font-semibold text-content-primary">{layer.label}</span>
-                        <span className="block text-mono-s text-content-tertiary">{layer.detail}</span>
-                      </span>
-                      <span className={`h-5 w-9 rounded-full p-0.5 transition-colors ${isVisible ? 'bg-accent-primary' : 'bg-content-tertiary/25'}`}>
-                        <span className={`block h-4 w-4 rounded-full bg-white shadow-elevation-1 transition-transform ${isVisible ? 'translate-x-4' : ''}`} />
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
+              <button
+                type="button"
+                aria-pressed={showCoverageRadius}
+                onClick={() => setShowCoverageRadius((v) => !v)}
+                className="mt-3 flex w-full items-center justify-between gap-3 rounded-xl border border-border-subtle bg-white/62 px-3 py-2 text-left transition-colors hover:border-accent-primary-soft hover:bg-white"
+              >
+                <span>
+                  <span className="block text-caption font-semibold text-content-primary">Facility coverage</span>
+                  <span className="block text-mono-s text-content-tertiary">show candidate reach circles</span>
+                </span>
+                <span className={`h-5 w-9 rounded-full p-0.5 transition-colors ${showCoverageRadius ? 'bg-accent-primary' : 'bg-content-tertiary/25'}`}>
+                  <span className={`block h-4 w-4 rounded-full bg-white shadow-elevation-1 transition-transform ${showCoverageRadius ? 'translate-x-4' : ''}`} />
+                </span>
+              </button>
+              <p className="mt-3 text-mono-s text-content-tertiary">
+                NFHS-5 data · {indiaDistrictsGeoJson.features.length} districts · proxy NeedIndex
+              </p>
             </div>
           )}
         </Card>
-      </div>
-
-      {/* Legend */}
-      <div
-        className="absolute bottom-12 z-20 transition-all duration-300"
-        style={{ right: isAgentPanelOpen ? '500px' : '24px' }}
-      >
-        <MapLegend
-          title="Flagged facilities"
-          caption="live"
-          stops={FLAGGED_LEGEND_STOPS}
-          populationSource={populationSource}
-          unmatchedCount={join.unmatched.length}
-        />
       </div>
 
       {/* Command bar */}
@@ -1479,7 +1297,7 @@ export function Dashboard() {
           audit={facilityAuditFetch.data}
           rankedFacility={selectedRankedFacility}
           capability={capability}
-          regionAggregate={selectedAggregate}
+          regionAggregate={aggregates[0]}
           onClose={() => setSelectedFacilityId(null)}
           onOpenFull={() => {
             const audit = facilityAuditFetch.data!;
