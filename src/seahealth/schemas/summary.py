@@ -9,6 +9,7 @@ Definitions:
     - last_audited_at      : max(FacilityAudit.last_audited_at) across the set.
     - capability_type      : optional filter; when set, all counts are restricted to that
                              capability. When None, the metrics are global.
+    - verified_count_ci    : optional 95% Wilson CI on verified_count (Phase 4B).
 """
 
 from pydantic import BaseModel, Field
@@ -43,4 +44,12 @@ class SummaryMetrics(BaseModel):
     capability_type: CapabilityType | None = Field(
         default=None,
         description="When set, all counts are restricted to this capability; otherwise global.",
+    )
+    verified_count_ci: tuple[int, int] | None = Field(
+        default=None,
+        description=(
+            "Optional 95% Wilson CI on verified_count, scaled back to integer counts in "
+            "[0, audited_count]. None when audited_count is 0 or the caller asked for "
+            "a point estimate."
+        ),
     )

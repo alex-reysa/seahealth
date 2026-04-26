@@ -496,12 +496,18 @@ def _summary_from_audits(
         from datetime import UTC, datetime
 
         last_at = datetime.now(UTC)
+    verified_ci: tuple[int, int] | None = None
+    if audited > 0:
+        from seahealth.eval.intervals import count_interval
+
+        verified_ci = count_interval(verified, audited)
     return SummaryMetrics(
         audited_count=audited,
         verified_count=verified,
         flagged_count=flagged,
         last_audited_at=last_at,
         capability_type=capability_type,
+        verified_count_ci=verified_ci,
     )
 
 

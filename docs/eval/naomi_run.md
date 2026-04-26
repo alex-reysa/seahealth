@@ -1,5 +1,20 @@
 # Naomi Gold Eval Run
 
+## Reproduce from a clean clone
+
+```bash
+# 1. Place Naomi's xlsx at tables/naomi_labels.xlsx (gitignored).
+# 2. Adapt to CSV:
+python -m seahealth.eval.naomi_label_adapter \
+    --xlsx tables/naomi_labels.xlsx --out tables/naomi_labels.csv
+# 3. Run extraction + audits over the labeled facilities (or the demo subset
+#    if no live LLM is available).
+# 4. Run the eval:
+python -m seahealth.eval.run_eval \
+    --labels tables/naomi_labels.csv \
+    --output docs/eval/naomi_run.md
+```
+
 This report compares Naomi's hand-labeled facilities (`tables/naomi_labels.csv`) against the extractor + validator output.
 
 - Labeled rows: **58** across **30** facilities
