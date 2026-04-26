@@ -315,16 +315,64 @@ def get_facility_locations() -> list[FacilityLocationRow]:
 
 @app.get("/facilities/{facility_id}", response_model=FacilityAudit)
 def get_facility(facility_id: str) -> FacilityAudit:
-    """Facility Audit page payload."""
+    """Facility Audit page payload.
+
+    Audited facilities (~5) return their full audit. Unaudited facilities
+    fall back to a stub built from ``facilities_index`` so the UI can render
+    a basic detail card (name + location) instead of a 404 — it's the same
+    universe the map dot-cloud surfaces, so a click should never dead-end.
+    """
     try:
         audit = data_access.load_facility_audit(facility_id)
     except DataLayerError as exc:
         raise _data_503(exc) from exc
-    if audit is None:
-        raise HTTPException(
-            status_code=404, detail=f"facility not found: {facility_id}"
-        )
-    return audit
+    if audit is not None:
+        return audit
+    stub = _stub_audit_from_index(facility_id)
+    if stub is not None:
+        return stub
+    raise HTTPException(
+        status_code=404, detail=f"facility not found: {facility_id}"
+    )
+
+
+def _stub_audit_from_index(facility_id: str) -> FacilityAudit | None:
+    """Build a minimal FacilityAudit from a facilities_index row when no audit exists."""
+    from datetime import UTC, datetime
+
+    from seahealth.agents.tools import _read_facilities_index_full
+    from seahealth.schemas.geo import GeoPoint
+
+    try:
+        rows = _read_facilities_index_full(None)
+    except Exception as exc:  # pragma: no cover - defensive
+        log.warning("facilities_index lookup failed for stub: %s", exc)
+        return None
+    for row in rows:
+        if str(row.get("facility_id")) != facility_id:
+            continue
+        lat = row.get("latitude")
+        lng = row.get("longitude")
+        if lat is None or lng is None:
+            return None
+        try:
+            return FacilityAudit(
+                facility_id=facility_id,
+                name=str(row.get("name") or facility_id),
+                location=GeoPoint(
+                    lat=float(lat),
+                    lng=float(lng),
+                    pin_code=(str(row["pin_code"]) if row.get("pin_code") else None),
+                ),
+                capabilities=[],
+                trust_scores={},
+                total_contradictions=0,
+                last_audited_at=datetime.now(UTC),
+                mlflow_trace_id=None,
+            )
+        except (TypeError, ValueError):
+            return None
+    return None
 
 
 @app.get("/map/aggregates", response_model=list[MapRegionAggregate])
