@@ -13,6 +13,7 @@ import {
   type CapabilityType,
   getCapabilityAudit,
   getCapabilityLabel,
+  getFacilityRowsForRegion,
   getRankedFacilities,
   parseDemoCommand,
 } from '@/src/data/demoData';
@@ -42,14 +43,18 @@ export function PlannerQuery() {
   const intent = React.useMemo(() => parseDemoCommand(query || DEMO_QUERY), [query]);
   const capability = intent.capability;
   const rows = React.useMemo(() => {
-    const ranked = getRankedFacilities(APPENDECTOMY_QUERY_RESULT);
+    const ranked =
+      capability === 'SURGERY_APPENDECTOMY' && intent.location === 'Patna'
+        ? getRankedFacilities(APPENDECTOMY_QUERY_RESULT)
+        : getFacilityRowsForRegion(intent.regionId, capability);
+
     return ranked
       .map((facility, index) => {
-        const audit = getCapabilityAudit(facility, capability) ?? getCapabilityAudit(facility, 'SURGERY_APPENDECTOMY' as CapabilityType);
+        const audit = getCapabilityAudit(facility, capability);
         return { facility, audit, rank: index + 1 };
       })
       .filter((row) => row.audit);
-  }, [capability]);
+  }, [capability, intent.regionId, intent.location]);
 
   const sortedRows = React.useMemo(() => {
     const sorted = [...rows].sort((a, b) => {
@@ -72,11 +77,16 @@ export function PlannerQuery() {
     return sorted;
   }, [rows, sortDirection, sortKey]);
 
+  const isInitialMount = React.useRef(true);
+
   React.useEffect(() => {
-    if (qParam) {
-      setQuery(qParam);
-      setHasSearched(true);
-      setStage('complete');
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      if (qParam) {
+        setQuery(qParam);
+        setHasSearched(true);
+        setStage('complete');
+      }
     }
   }, [qParam]);
 
@@ -111,7 +121,7 @@ export function PlannerQuery() {
   };
 
   const handleRowOpen = (facilityId: string) => {
-    navigate(`/facilities/${facilityId}?capability=${capability}&from=planner-query`);
+    navigate(`/facilities/${facilityId}?capability=${capability}&from=planner-query&q=${encodeURIComponent(query)}`);
   };
 
   const exportCsv = () => {
@@ -127,6 +137,8 @@ export function PlannerQuery() {
       'rank',
       'facility_id',
       'facility_name',
+      'facility_lat',
+      'facility_lng',
       'distance_km',
       'trust_score',
       'confidence_interval_low',
@@ -149,6 +161,8 @@ export function PlannerQuery() {
         rank,
         facility.id,
         facility.name,
+        facility.lat,
+        facility.lng,
         facility.distanceKm,
         audit?.score,
         audit?.confidenceInterval[0],
@@ -156,7 +170,7 @@ export function PlannerQuery() {
         audit?.contradictionCount,
         audit?.evidenceCount,
         facility.pinCode,
-        `/facilities/${facility.id}?capability=${capability}&from=planner-query`,
+        `/facilities/${facility.id}?capability=${capability}&from=planner-query&q=${encodeURIComponent(query)}`,
       ]
         .map((value) => `"${String(value ?? '').replaceAll('"', '""')}"`)
         .join(','),
@@ -165,15 +179,15 @@ export function PlannerQuery() {
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = 'seahealth-patna-appendectomy-results.csv';
+    link.download = `seahealth-${intent.location.toLowerCase()}-${capability.toLowerCase()}-results.csv`;
     link.click();
-    URL.revokeObjectURL(url);
+    setTimeout(() => URL.revokeObjectURL(url), 200);
   };
 
   const SortButton = ({ label, value }: { label: string; value: SortKey }) => (
-    <button type="button" onClick={() => setSort(value)} className="inline-flex items-center gap-1 hover:text-content-primary">
+    <button type="button" onClick={() => setSort(value)} className="inline-flex items-center gap-1 hover:text-content-primary group">
       {label}
-      <ChevronDown className={`w-3 h-3 transition-transform ${sortKey === value && sortDirection === 'desc' ? 'rotate-180' : ''}`} />
+      <ChevronDown className={`w-3 h-3 transition-all ${sortKey === value ? (sortDirection === 'asc' ? 'rotate-180 text-content-primary' : 'text-content-primary') : 'opacity-0 group-hover:opacity-50'}`} />
     </button>
   );
 
@@ -228,18 +242,18 @@ export function PlannerQuery() {
       </div>
 
       <div className="flex flex-1 overflow-hidden">
-        <div className="flex-1 overflow-auto p-6">
+        <div className="flex-1 flex flex-col p-6 min-h-0">
           {!hasSearched ? (
             <div className="flex flex-col items-center justify-center h-full text-content-tertiary">
               <Search className="w-12 h-12 mb-4 opacity-20" />
               <p className="text-body-l">Run the appendectomy demo query to generate a ranked table.</p>
             </div>
           ) : (
-            <Card variant="default" className="overflow-hidden bg-white flex flex-col">
+            <Card variant="default" className="overflow-hidden bg-white flex flex-col flex-1 min-h-0">
               <div className="px-4 py-3 border-b border-border-subtle text-caption text-content-secondary">
                 {sortedRows.length} ranked facilities · sorted by {sortKey}
               </div>
-              <div className="overflow-auto max-h-[calc(100vh-310px)]">
+              <div className="flex-1 min-h-0 overflow-auto">
                 <table className="w-full text-left border-collapse">
                   <thead className="bg-surface-sunken sticky top-0 z-10 shadow-[0_1px_0_rgba(20,33,38,0.13)]">
                     <tr>

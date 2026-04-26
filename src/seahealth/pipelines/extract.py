@@ -220,10 +220,13 @@ def main(
     facility_count = 0
     capability_count = 0
     skipped_zero_chunk_count = 0
-    for facility_id in facility_ids:
+    failed_count = 0
+    total = len(facility_ids)
+    for idx, facility_id in enumerate(facility_ids, start=1):
         chunks = _chunks_for_facility(chunks_df, facility_id)
         if not chunks:
             skipped_zero_chunk_count += 1
+            print(f"[extract {idx}/{total}] skip {facility_id} (no chunks)", flush=True)
             logger.warning("skipping %s: no chunks found", facility_id)
             continue
         with _maybe_mlflow_span(
@@ -235,12 +238,23 @@ def main(
                     facility_id, chunks, model=model
                 )
             except Exception as exc:  # pragma: no cover — agent failure must not halt
+                failed_count += 1
+                print(
+                    f"[extract {idx}/{total}] FAIL {facility_id}: {str(exc)[:120]}",
+                    flush=True,
+                )
                 logger.warning("extract failed for %s: %s", facility_id, exc)
                 continue
         facility_count += 1
+        new_caps = 0
         for cap in extracted.capabilities:
             all_rows.append(_capability_to_row(cap))
             capability_count += 1
+            new_caps += 1
+        print(
+            f"[extract {idx}/{total}] {facility_id} caps={new_caps}",
+            flush=True,
+        )
 
     _write_parquet(all_rows, out_p)
     delta_written = _maybe_write_delta(all_rows)

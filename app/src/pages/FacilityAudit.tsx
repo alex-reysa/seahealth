@@ -25,6 +25,7 @@ export function FacilityAudit() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const from = searchParams.get('from');
+  const q = searchParams.get('q');
   const capabilityParam = searchParams.get('capability') as CapabilityType | null;
   const facility = getFacilityById(facility_id);
 
@@ -59,7 +60,7 @@ export function FacilityAudit() {
     if (from === 'desert-map') {
       navigate(`/desert-map?capability=${capability}&radius_km=50&region_id=${facility.regionId}`);
     } else if (from === 'planner-query') {
-      navigate('/planner-query');
+      navigate(q ? `/planner-query?q=${encodeURIComponent(q)}` : '/planner-query');
     } else if (from === 'dashboard') {
       navigate(`/?capability=${capability}&radius_km=50&region_id=${facility.regionId}&pin_code=${facility.pinCode}`);
     } else {

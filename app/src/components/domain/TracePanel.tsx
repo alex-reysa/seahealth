@@ -23,16 +23,23 @@ export function TracePanel({ mlflowTraceId, queryTraceId, spans = DEFAULT_SPANS,
 
   const hasTrace = !!(mlflowTraceId || queryTraceId);
   const copyTrace = async (id: string) => {
-    await navigator.clipboard?.writeText(id);
-    setCopied(id);
-    window.setTimeout(() => setCopied(null), 1200);
+    try {
+      if (!navigator.clipboard) throw new Error('Clipboard unavailable');
+      await navigator.clipboard.writeText(id);
+      setCopied(id);
+      window.setTimeout(() => setCopied(null), 1200);
+    } catch (err) {
+      console.error('Failed to copy trace ID', err);
+    }
   };
 
   return (
     <Card variant="glass" className={cn("flex flex-col overflow-hidden transition-all duration-300", className)}>
-      <div 
-        className={cn("flex items-center justify-between p-3 select-none", hasTrace ? "cursor-pointer hover:bg-surface-sunken/50" : "opacity-60")}
+      <button 
+        type="button"
+        className={cn("flex items-center justify-between p-3 select-none w-full text-left", hasTrace ? "cursor-pointer hover:bg-surface-sunken/50 focus:outline-none focus:bg-surface-sunken" : "opacity-60")}
         onClick={() => hasTrace && setExpanded(!expanded)}
+        aria-expanded={expanded}
       >
         <div className="flex items-center gap-2 text-content-secondary">
           <Activity className="w-4 h-4" />
@@ -43,7 +50,7 @@ export function TracePanel({ mlflowTraceId, queryTraceId, spans = DEFAULT_SPANS,
         {hasTrace && (
           expanded ? <ChevronUp className="w-4 h-4 text-content-tertiary" /> : <ChevronDown className="w-4 h-4 text-content-tertiary" />
         )}
-      </div>
+      </button>
       
       {expanded && hasTrace && (
         <div className="p-4 border-t border-border-subtle bg-surface-canvas/50 flex flex-col gap-4">

@@ -1,6 +1,6 @@
 import React from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Map } from '@vis.gl/react-maplibre';
+import { Map, Marker } from '@vis.gl/react-maplibre';
 import { AlertCircle, CheckCircle2, MapPin, RotateCcw, Search, ShieldAlert, Target } from 'lucide-react';
 import 'maplibre-gl/dist/maplibre-gl.css';
 
@@ -80,7 +80,7 @@ export function DesertMap() {
   const focusRegion = (command: string) => {
     const parsed = parseDemoCommand(command);
     setContext({ capability: parsed.capability, radiusKm: parsed.radiusKm, regionId: parsed.regionId, pinCode: parsed.pinCode });
-    mapRef.current?.flyTo?.({
+    mapRef.current?.getMap()?.flyTo({
       center: parsed.regionId === 'BR_MADHUBANI' ? [86.07, 26.36] : [85.14, 25.61],
       zoom: 8,
       duration: 900,
@@ -94,14 +94,15 @@ export function DesertMap() {
 
   const handleResetMap = () => {
     setSearchParams({ capability: 'SURGERY_APPENDECTOMY', radius_km: '50' });
-    mapRef.current?.flyTo?.({ center: [78.9629, 20.5937], zoom: 4, duration: 1000 });
+    mapRef.current?.getMap()?.flyTo({ center: [78.9629, 20.5937], zoom: 4, duration: 1000 });
   };
 
   const onMouseMove = (event: any) => {
     if (!event.features?.length) return;
+    const featureId = event.features[0].id;
+    if (featureId == null) return;
     event.target.getCanvas().style.cursor = 'pointer';
     const map = event.target;
-    const featureId = event.features[0].id;
     if (hoveredFeatureId.current !== null && hoveredFeatureId.current !== featureId) {
       map.setFeatureState({ source: 'india-districts', id: hoveredFeatureId.current }, { hover: false });
     }
@@ -180,7 +181,23 @@ export function DesertMap() {
           onClick={() => focusRegion(capability === 'NEONATAL' ? 'Madhubani neonatal 60 km' : 'Patna appendectomy 50 km')}
           onMouseMove={onMouseMove}
           onMouseLeave={onMouseLeave}
-        />
+        >
+          {facilities.slice(0, 3).map((facility, index) => (
+            <Marker key={facility.id} longitude={facility.lng} latitude={facility.lat} anchor="center">
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  navigate(`/facilities/${facility.id}?capability=${capability}&from=desert-map`);
+                }}
+                className="pointer-events-auto rounded-full border-2 border-white bg-accent-primary text-white shadow-elevation-3 w-9 h-9 text-caption font-semibold hover:scale-110 transition-transform"
+                aria-label={`Open ${facility.name}`}
+              >
+                {index + 1}
+              </button>
+            </Marker>
+          ))}
+        </Map>
 
         <div className="absolute left-8 top-8 pointer-events-none">
           <Card variant="glass-control" className="w-72 p-4">
@@ -216,19 +233,6 @@ export function DesertMap() {
             </div>
           </Card>
         </div>
-
-        {facilities.slice(0, 3).map((facility, index) => (
-          <button
-            key={facility.id}
-            type="button"
-            onClick={() => navigate(`/facilities/${facility.id}?capability=${capability}&from=desert-map`)}
-            className="absolute pointer-events-auto rounded-full border-2 border-white bg-accent-primary text-white shadow-elevation-3 w-9 h-9 text-caption font-semibold hover:scale-110 transition-transform"
-            style={{ left: `${42 + index * 4}%`, top: `${45 + index * 7}%` }}
-            aria-label={`Open ${facility.name}`}
-          >
-            {index + 1}
-          </button>
-        ))}
 
         <div className="absolute right-6 top-6 bottom-24 pointer-events-none z-10">
           <Card variant="glass" className="w-[420px] h-full flex flex-col overflow-hidden pointer-events-auto shadow-elevation-glass-map">

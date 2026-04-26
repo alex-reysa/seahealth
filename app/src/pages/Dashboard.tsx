@@ -13,7 +13,7 @@ import {
   ShieldCheck,
 } from 'lucide-react';
 
-import { Badge } from '@/src/components/ui/Badge';
+import { TrustScore } from '@/src/components/domain/TrustScore';
 import {
   APPENDECTOMY_QUERY_RESULT,
   DEMO_QUERY,
@@ -98,7 +98,7 @@ export function Dashboard() {
 
   const auditedCount = 2145;
   const verifiedCount = facilities.filter(
-    (f) => (getCapabilityAudit(f, capability)?.score ?? 0) >= 80,
+    (f) => (getCapabilityAudit(f, capability)?.score ?? 0) >= 70,
   ).length;
   const flaggedCount = facilities.filter((f) => f.totalContradictions > 0).length;
 
@@ -111,12 +111,13 @@ export function Dashboard() {
     setStatus('ready');
     setStatusLabel(`Ready: ${getCapabilityLabel(parsed.capability)} · ${parsed.location} · ${parsed.radiusKm}km`);
     setSearchParams({
+      q: nextCommand,
       capability: parsed.capability,
       radius_km: String(parsed.radiusKm),
       region_id: parsed.regionId,
       pin_code: parsed.pinCode,
     });
-    mapRef.current?.flyTo?.({
+    mapRef.current?.getMap()?.flyTo({
       center: parsed.regionId === 'BR_MADHUBANI' ? [86.07, 26.36] : PATNA_CENTER,
       zoom: parsed.regionId === 'BR_PATNA' ? 7 : 8,
       duration: 900,
@@ -137,9 +138,10 @@ export function Dashboard() {
 
   const onMouseMove = (event: any) => {
     if (!event.features?.length) return;
+    const featureId = event.features[0].id;
+    if (featureId == null) return;
     event.target.getCanvas().style.cursor = 'pointer';
     const map = event.target;
-    const featureId = event.features[0].id;
     if (hoveredFeatureId.current !== null && hoveredFeatureId.current !== featureId) {
       map.setFeatureState({ source: 'india-districts', id: hoveredFeatureId.current }, { hover: false });
     }
@@ -158,7 +160,13 @@ export function Dashboard() {
     }
   };
 
-  const topFacilityId = APPENDECTOMY_QUERY_RESULT.rankedFacilities[0];
+  const topFacilityId = React.useMemo(() => {
+    if (capability === 'SURGERY_APPENDECTOMY' && regionId === 'BR_PATNA') {
+      return APPENDECTOMY_QUERY_RESULT.rankedFacilities[0];
+    }
+    const rows = getFacilityRowsForRegion(regionId, capability);
+    return rows.length > 0 ? rows[0].id : APPENDECTOMY_QUERY_RESULT.rankedFacilities[0];
+  }, [capability, regionId]);
 
   return (
     <div className="relative w-full h-full">
@@ -172,7 +180,7 @@ export function Dashboard() {
         mapStyle={getMapStyle(regionId)}
         style={{ width: '100%', height: '100%' }}
         interactiveLayerIds={['india-fill']}
-        onClick={() => updateContext(`Focus Patna, ${getCapabilityLabel(capability)}, ${radiusKm} km`)}
+        onClick={() => updateContext(`Focus ${regionId === 'BR_MADHUBANI' ? 'Madhubani' : 'Patna'}, ${getCapabilityLabel(capability)}, ${radiusKm} km`)}
         onMouseMove={onMouseMove}
         onMouseLeave={onMouseLeave}
       />
@@ -286,17 +294,7 @@ export function Dashboard() {
                           <span className="text-body font-medium text-content-primary group-hover:text-accent-primary transition-colors">
                             {facility.name}
                           </span>
-                          <Badge
-                            variant={
-                              audit.score >= 80
-                                ? 'verified'
-                                : audit.score >= 50
-                                  ? 'flagged'
-                                  : 'critical'
-                            }
-                          >
-                            {audit.score}
-                          </Badge>
+                          <TrustScore score={audit.score} confidenceInterval={audit.confidenceInterval} showLabel={false} />
                         </div>
                         <div className="flex items-center gap-3 text-caption text-content-secondary">
                           <span className="flex items-center gap-1">

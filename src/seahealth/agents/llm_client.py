@@ -1,25 +1,18 @@
-"""Databricks Foundation Models client (OpenAI-compatible API).
+"""LLM client (OpenAI-compatible API) — supports Databricks and OpenRouter.
 
-Centralizes:
+Provider is auto-detected from the model id: any slash in the name (e.g.
+``moonshotai/kimi-k2.5``) routes to OpenRouter; otherwise routes to Databricks
+Foundation Models. Each provider is configured from ``.env``:
 
-* Lazy creation of an :class:`openai.OpenAI` client whose ``base_url`` points at
-  the user's Databricks workspace serving endpoints
-  (``${DATABRICKS_HOST}/serving-endpoints``) with ``DATABRICKS_TOKEN`` as
-  ``api_key``.  Both env vars are loaded once on import via ``python-dotenv``.
-* A small ``structured_call`` helper that uses OpenAI Chat Completions tool-use
-  to force the model to return JSON matching a Pydantic ``response_model``
-  schema, with bounded exponential-backoff retries on transient errors.
-* A :class:`StructuredCallError` raised when the model does not produce a
-  valid tool-call payload matching the requested schema.
+* Databricks:  ``DATABRICKS_HOST`` + ``DATABRICKS_TOKEN``
+* OpenRouter:  ``OPENROUTER_API_KEY``
 
 This module is intentionally dependency-light so it can be imported from
 mock-based unit tests without ever opening a network connection.
 
-Default models:
-    * Heavy agents (extractor / validator / query): ``databricks-gpt-5-5``
-      (override via ``SEAHEALTH_LLM_HEAVY_MODEL``).
-    * Trust-scorer reasoning: ``databricks-gpt-5-4-mini``
-      (override via ``SEAHEALTH_LLM_LIGHT_MODEL``).
+Default models (override via env):
+    * Heavy agents (extractor / validator / query): ``SEAHEALTH_LLM_HEAVY_MODEL``
+    * Trust-scorer reasoning:                       ``SEAHEALTH_LLM_LIGHT_MODEL``
 """
 
 from __future__ import annotations
@@ -42,8 +35,10 @@ from pydantic import BaseModel, ValidationError
 _REPO_ROOT = Path(__file__).resolve().parents[3]
 load_dotenv(_REPO_ROOT / ".env")
 
-DEFAULT_HEAVY_MODEL = os.environ.get("SEAHEALTH_LLM_HEAVY_MODEL", "databricks-gpt-5-5")
-DEFAULT_LIGHT_MODEL = os.environ.get("SEAHEALTH_LLM_LIGHT_MODEL", "databricks-gpt-5-4-mini")
+DEFAULT_HEAVY_MODEL = os.environ.get("SEAHEALTH_LLM_HEAVY_MODEL", "moonshotai/kimi-k2.5")
+DEFAULT_LIGHT_MODEL = os.environ.get("SEAHEALTH_LLM_LIGHT_MODEL", "moonshotai/kimi-k2.5")
+
+OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
 
 logger = logging.getLogger(__name__)
 
@@ -65,14 +60,21 @@ class StructuredCallError(Exception):
     """Raised when ``structured_call`` cannot extract a valid tool-call payload."""
 
 
-@lru_cache(maxsize=1)
-def get_client() -> OpenAI:
-    """Return a cached :class:`openai.OpenAI` client wired to Databricks.
+def _provider_for_model(model: str | None) -> str:
+    """Route by model id format: slash means OpenRouter, otherwise Databricks."""
+    if model and "/" in model:
+        return "openrouter"
+    return "databricks"
 
-    Reads ``DATABRICKS_HOST`` and ``DATABRICKS_TOKEN`` from the environment.
-    Tests typically monkeypatch this function to inject a fake instead of
-    constructing a real client.
-    """
+
+@lru_cache(maxsize=4)
+def _get_client_for_provider(provider: str) -> OpenAI:
+    if provider == "openrouter":
+        key = os.environ.get("OPENROUTER_API_KEY")
+        if not key:
+            raise StructuredCallError("OPENROUTER_API_KEY must be set in .env")
+        return OpenAI(api_key=key, base_url=OPENROUTER_BASE_URL)
+    # default: databricks foundation models
     host = os.environ.get("DATABRICKS_HOST")
     token = os.environ.get("DATABRICKS_TOKEN")
     if not host or not token:
@@ -80,6 +82,19 @@ def get_client() -> OpenAI:
             "DATABRICKS_HOST and DATABRICKS_TOKEN must be set in .env"
         )
     return OpenAI(api_key=token, base_url=f"{host.rstrip('/')}/serving-endpoints")
+
+
+def get_client(model: str | None = None) -> OpenAI:
+    """Return a cached :class:`openai.OpenAI` client for the model's provider.
+
+    Tests typically monkeypatch this function to inject a fake; the optional
+    ``model`` arg means existing zero-arg monkeypatches still work.
+    """
+    return _get_client_for_provider(_provider_for_model(model))
+
+
+# Preserve the cache_clear API that tests rely on (was attached by @lru_cache).
+get_client.cache_clear = _get_client_for_provider.cache_clear  # type: ignore[attr-defined]
 
 
 def _tool_name_for(model_cls: type[BaseModel]) -> str:
@@ -184,7 +199,7 @@ def structured_call(
     max_tokens = _guard_max_tokens(max_tokens)
     if client is None and client_factory is not None:
         client = client_factory()
-    cli = client or get_client()
+    cli = client or get_client(model)
     tool_name = _tool_name_for(response_model)
     emit_tool = {
         "type": "function",
