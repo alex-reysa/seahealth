@@ -169,6 +169,150 @@ def test_query_trace_id_present(audits_parquet: str) -> None:
 
 
 # ---------------------------------------------------------------------------
+# Staffing qualifier — parsing + soft re-rank (MQ-1)
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture()
+def equal_score_audits_parquet(tmp_path: Path) -> str:
+    """Two facilities with IDENTICAL score / distance — qualifier is the only tiebreaker."""
+    facilities = [
+        {
+            "facility_id": "vf_big_team",
+            "name": "Big Team Hospital",
+            "location": {"lat": 25.6121, "lng": 85.1418, "pin_code": "800001"},
+            "trust_scores": {
+                "SURGERY_APPENDECTOMY": _trust_score_dict(score=80, confidence=0.80)
+            },
+        },
+        {
+            "facility_id": "vf_small_team",
+            "name": "Small Team Hospital",
+            # Same lat/lng -> identical distance to query origin.
+            "location": {"lat": 25.6121, "lng": 85.1418, "pin_code": "800001"},
+            "trust_scores": {
+                "SURGERY_APPENDECTOMY": _trust_score_dict(score=80, confidence=0.80)
+            },
+        },
+    ]
+    table = pa.table(
+        {
+            "facility_id": [f["facility_id"] for f in facilities],
+            "name": [f["name"] for f in facilities],
+            "location": [json.dumps(f["location"]) for f in facilities],
+            "trust_scores": [json.dumps(f["trust_scores"]) for f in facilities],
+        }
+    )
+    path = tmp_path / "equal_score_audits.parquet"
+    pq.write_table(table, path)
+    return str(path)
+
+
+def _write_facilities_index(
+    tmp_path: Path, rows: list[tuple[str, int | None]]
+) -> str:
+    """Tiny helper: write a 2-column facilities_index.parquet for tests."""
+    index_path = tmp_path / "facilities_index.parquet"
+    pq.write_table(
+        pa.table(
+            {
+                "facility_id": pa.array([r[0] for r in rows], type=pa.string()),
+                "numberDoctors": pa.array([r[1] for r in rows], type=pa.int64()),
+            }
+        ),
+        index_path,
+    )
+    return str(index_path)
+
+
+@pytest.mark.parametrize(
+    ("text", "expected_qualifier"),
+    [
+        (
+            "Find a facility in rural Bihar that can perform an appendectomy "
+            "and typically leverages parttime doctors near Patna",
+            "parttime",
+        ),
+        ("Need a 24/7 emergency near Patna for appendectomy", "twentyfour_seven"),
+        ("appendectomy near Patna", None),
+        ("appendectomy near Patna with full-time staffing", "fulltime"),
+        ("appendectomy near Patna at a small hospital", "low_volume"),
+    ],
+)
+def test_heuristic_parses_staffing_qualifier(
+    text: str, expected_qualifier: str | None, audits_parquet: str
+) -> None:
+    result = query.run_query(text, use_llm=False, audits_path=audits_parquet)
+    assert result.parsed_intent.staffing_qualifier == expected_qualifier
+
+
+def test_parttime_qualifier_promotes_small_team(
+    equal_score_audits_parquet: str, tmp_path: Path
+) -> None:
+    """Two equal-score facilities — parttime qualifier surfaces the small-team one."""
+    index_path = _write_facilities_index(
+        tmp_path, [("vf_big_team", 25), ("vf_small_team", 3)]
+    )
+
+    # Baseline: no qualifier -> ordering is determined by trust + distance only,
+    # which are equal here, so we just confirm both rows make it through.
+    baseline = query.run_query(
+        "appendectomy near Patna",
+        use_llm=False,
+        audits_path=equal_score_audits_parquet,
+        facilities_index_path=index_path,
+    )
+    baseline_ids = [r.facility_id for r in baseline.ranked_facilities]
+    assert set(baseline_ids) == {"vf_big_team", "vf_small_team"}
+
+    # With "parttime doctors", the small team gets +5 boost and ranks first.
+    promoted = query.run_query(
+        "appendectomy near Patna staffed by parttime doctors",
+        use_llm=False,
+        audits_path=equal_score_audits_parquet,
+        facilities_index_path=index_path,
+    )
+    assert promoted.parsed_intent.staffing_qualifier == "parttime"
+    assert [r.facility_id for r in promoted.ranked_facilities] == [
+        "vf_small_team",
+        "vf_big_team",
+    ]
+    # Soft tiebreaker — raw trust scores remain unchanged on the model.
+    assert {r.trust_score.score for r in promoted.ranked_facilities} == {80}
+
+
+def test_parttime_qualifier_keeps_facilities_without_doctor_data(
+    equal_score_audits_parquet: str, tmp_path: Path
+) -> None:
+    """A facility with NO numberDoctors row in the index must still appear in results."""
+    # Only ONE of the two facilities has staffing data; the other is unknown.
+    index_path = _write_facilities_index(
+        tmp_path, [("vf_small_team", 3)]  # vf_big_team intentionally absent
+    )
+    result = query.run_query(
+        "appendectomy near Patna staffed by parttime doctors",
+        use_llm=False,
+        audits_path=equal_score_audits_parquet,
+        facilities_index_path=index_path,
+    )
+    ids = [r.facility_id for r in result.ranked_facilities]
+    assert "vf_big_team" in ids, "missing staffing data must NOT drop a facility"
+    assert "vf_small_team" in ids
+    # The data-bearing match still gets boosted to rank 1.
+    assert ids[0] == "vf_small_team"
+
+
+def test_default_parsed_intent_has_no_staffing_qualifier(audits_parquet: str) -> None:
+    """Backward-compat: ParsedIntent.staffing_qualifier defaults to None."""
+    result = query.run_query(
+        "appendectomy within 50 km of Patna",
+        use_llm=False,
+        audits_path=audits_parquet,
+    )
+    assert result.parsed_intent.staffing_qualifier is None
+
+
+# ---------------------------------------------------------------------------
 # LLM tool-loop path (mocked)
 # ---------------------------------------------------------------------------
 

@@ -1,11 +1,20 @@
 """QueryResult — Planner Console output, plus ParsedIntent and RankedFacility."""
 
+from typing import Literal
+
 from pydantic import BaseModel, Field
 
 from ._datetime import AwareDatetime
 from .capability_type import CapabilityType
 from .geo import GeoPoint
 from .trust_score import TrustScore
+
+# Closed taxonomy for the optional third query qualifier. Brief example:
+#   "...typically leverages parttime doctors."
+# Stays Literal so the heuristic parser, the LLM tool-loop, and any downstream
+# consumer all agree on a finite set. Any future addition must land here AND
+# in DATA_CONTRACT.md.
+StaffingQualifier = Literal["parttime", "fulltime", "twentyfour_seven", "low_volume"]
 
 
 class ParsedIntent(BaseModel):
@@ -15,6 +24,17 @@ class ParsedIntent(BaseModel):
     location: GeoPoint
     radius_km: float = Field(
         ..., gt=0.0, description="Search radius around location in kilometers."
+    )
+    # Optional third qualifier (e.g. "parttime doctors", "24/7"). When present
+    # we apply a small soft re-rank on retrieval — never a hard filter, so
+    # facilities with missing staffing data are still returned (just unboosted).
+    staffing_qualifier: StaffingQualifier | None = Field(
+        default=None,
+        description=(
+            "Optional staffing pattern qualifier extracted from the natural-"
+            "language query. Used as a soft tiebreaker on ranking; missing "
+            "facility staffing data never drops a candidate."
+        ),
     )
 
 

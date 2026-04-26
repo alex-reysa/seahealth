@@ -256,3 +256,51 @@ def test_geocode_tool() -> None:
 
     miss = tool_geocode("Atlantis")
     assert miss == {"error": "not_found"}
+
+
+def test_search_merges_number_doctors_from_facilities_index(
+    audits_parquet: str, tmp_path: Path
+) -> None:
+    """``tool_search_facilities`` joins ``numberDoctors`` from the side index."""
+    index_path = tmp_path / "facilities_index.parquet"
+    pq.write_table(
+        pa.table(
+            {
+                "facility_id": pa.array(
+                    ["vf_near_patna", "vf_close", "vf_same_score_farther"],
+                    type=pa.string(),
+                ),
+                # Mix of small / large / unknown to exercise the qualifier scorer.
+                "numberDoctors": pa.array([3, 25, None], type=pa.int64()),
+            }
+        ),
+        index_path,
+    )
+    results = tool_search_facilities(
+        capability_type="SURGERY_APPENDECTOMY",
+        lat=25.61,
+        lng=85.14,
+        radius_km=50.0,
+        audits_path=audits_parquet,
+        facilities_index_path=str(index_path),
+    )
+    by_id = {r["facility_id"]: r for r in results}
+    assert by_id["vf_near_patna"]["number_doctors"] == 3
+    assert by_id["vf_close"]["number_doctors"] == 25
+    # Null in parquet -> None in output (NOT dropped from results).
+    assert by_id["vf_same_score_farther"]["number_doctors"] is None
+
+
+def test_search_handles_missing_facilities_index(audits_parquet: str, tmp_path: Path) -> None:
+    """No index file -> every result has ``number_doctors=None`` (no crash, no drops)."""
+    missing = tmp_path / "no_such_index.parquet"
+    results = tool_search_facilities(
+        capability_type="SURGERY_APPENDECTOMY",
+        lat=25.61,
+        lng=85.14,
+        radius_km=50.0,
+        audits_path=audits_parquet,
+        facilities_index_path=str(missing),
+    )
+    assert results, "audits should still produce candidates without an index"
+    assert all(r["number_doctors"] is None for r in results)

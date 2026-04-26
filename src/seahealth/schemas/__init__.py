@@ -13,7 +13,7 @@ from .facility_audit import FacilityAudit
 from .geo import GeoPoint
 from .indexed_doc import EMBEDDING_DIM, IndexedDoc
 from .map import MapRegionAggregate, PopulationReference
-from .query_result import ParsedIntent, QueryResult, RankedFacility
+from .query_result import ParsedIntent, QueryResult, RankedFacility, StaffingQualifier
 from .summary import SummaryMetrics
 from .trust_score import SEVERITY_PENALTY, TrustScore
 
@@ -25,6 +25,7 @@ __all__ = [
     # type aliases
     "EvidenceStance",
     "SourceType",
+    "StaffingQualifier",
     # core models
     "Capability",
     "CapabilityType",

@@ -497,3 +497,49 @@ _Any change to this file after hour 4 must be logged here AND in `DECISIONS.md`.
 - **2026-04-25 22:30** — Added `EvidenceAssessment`, `SummaryMetrics`, `MapRegionAggregate`, `PopulationReference`. Reason: required by UI surfaces; not previously defined.
 - **2026-04-25** — Added schema invariants for UTC/Z datetime serialization, evidence span bounds, confidence interval containment, embedding dimension source of truth, non-negative map gap population, and `evidence_ref_id` join semantics.
 - **2026-04-26 — MLT-1: `Capability.mlflow_trace_id`.** Added `Optional[str]` field to `Capability` (default `None`). Stamped at extraction time by `seahealth.pipelines.extract`, which (a) prefers a real MLflow trace id when `MLFLOW_TRACKING_URI` is configured and (b) otherwise synthesizes a deterministic local id of the form `local::<facility_id>::<run_uuid>` — `run_uuid` is generated once per `extract.main()` invocation so every Capability emitted by the same run shares it, and the per-facility prefix keeps each Capability's id unique. Capabilities serialized before this field existed deserialize as `mlflow_trace_id=None` and round-trip cleanly. Downstream `FacilityAudit.mlflow_trace_id` is resolved by `build_facility_audit` as: explicit `mlflow_trace_id` argument wins; otherwise pick the first non-null `mlflow_trace_id` across `capabilities`. The Phase-2 capabilities parquet gains an `mlflow_trace_id` column; `seahealth.pipelines.build_audits` tolerates a missing column for legacy parquets produced before this change.
+- **2026-04-26** — `ParsedIntent.staffing_qualifier` (MQ-1).
+
+---
+
+## ParsedIntent.staffing_qualifier (MQ-1, append-only)
+
+`ParsedIntent` gains an OPTIONAL closed-taxonomy qualifier so the locked example
+query — *"Find the nearest facility in rural Bihar that can perform an emergency
+appendectomy and typically leverages parttime doctors."* — parses end-to-end.
+
+```python
+StaffingQualifier = Literal["parttime", "fulltime", "twentyfour_seven", "low_volume"]
+
+class ParsedIntent(BaseModel):
+    capability_type: CapabilityType
+    location: GeoPoint
+    radius_km: float = Field(..., gt=0.0, ...)
+    staffing_qualifier: StaffingQualifier | None = None  # NEW (MQ-1)
+```
+
+**Backward compatibility.** The field is optional with a `None` default.
+Every existing producer / consumer continues to validate without change.
+
+**Heuristic parser hooks** (case-insensitive, in `seahealth.agents.query`):
+
+- `parttime`, `part-time`, `part time` → `"parttime"`
+- `24/7`, `24x7`, `24 hours`, `round-the-clock` → `"twentyfour_seven"`
+- `fulltime`, `full-time` → `"fulltime"`
+- `low volume`, `few beds`, `small (facility|hospital|clinic)` → `"low_volume"`
+
+**Re-rank semantics — soft tiebreaker, never a hard filter.** When a
+qualifier is present, each candidate's `numberDoctors` (read from
+`tables/facilities_index.parquet`, side-loaded by `tool_search_facilities`)
+contributes a delta in `[-5, +5]` to a *sort-only* boosted score. The raw
+`TrustScore.score` is left untouched on the wire. Facilities with missing
+`numberDoctors` contribute a neutral 0 delta and are never dropped — the
+trust narrative is "we don't pretend to know more than the data shows."
+
+| qualifier         | numberDoctors ∈ [1, 5] | numberDoctors ≥ 10 | numberDoctors ≥ 15 | missing |
+| ----------------- | ---------------------- | ------------------ | ------------------ | ------- |
+| `parttime`        | +5                     | 0                  | -5                 | 0       |
+| `low_volume`      | +5                     | 0                  | -5                 | 0       |
+| `fulltime`        | -5                     | 0                  | +5                 | 0       |
+| `twentyfour_seven`| 0                      | +5                 | +5                 | 0       |
+
+Sort key: `(-clamp(score+delta, 0, 100), -score, distance_km)`.
