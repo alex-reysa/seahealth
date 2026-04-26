@@ -1,0 +1,473 @@
+{
+    "facility_id": "vf_02239_cims-hospital-patna-a-un",
+    "name": "CIMS Hospital Patna A Unit of Charaka Institute of Medical Sciences",
+    "location": {
+        "lat": 25.59433174,
+        "lng": 85.15483093,
+        "pin_code": "800001"
+    },
+    "capabilities": [
+        {
+            "facility_id": "vf_02239_cims-hospital-patna-a-un",
+            "capability_type": "EMERGENCY_24_7",
+            "claimed": true,
+            "evidence_refs": [
+                {
+                    "source_doc_id": "vf_02239_cims-hospital-patna-a-un",
+                    "facility_id": "vf_02239_cims-hospital-patna-a-un",
+                    "chunk_id": "vf_02239_cims-hospital-patna-a-un::facility_note",
+                    "row_id": null,
+                    "span": [
+                        197,
+                        211
+                    ],
+                    "snippet": "24x7 Emergency",
+                    "source_type": "facility_note",
+                    "source_observed_at": null,
+                    "retrieved_at": "2025-01-21T10:30:00Z"
+                }
+            ],
+            "source_doc_id": "vf_02239_cims-hospital-patna-a-un",
+            "extracted_at": "2026-04-26T00:17:05.262518Z",
+            "extractor_model": "moonshotai/kimi-k2.5",
+            "mlflow_trace_id": null
+        },
+        {
+            "facility_id": "vf_02239_cims-hospital-patna-a-un",
+            "capability_type": "ICU",
+            "claimed": true,
+            "evidence_refs": [
+                {
+                    "source_doc_id": "vf_02239_cims-hospital-patna-a-un",
+                    "facility_id": "vf_02239_cims-hospital-patna-a-un",
+                    "chunk_id": "vf_02239_cims-hospital-patna-a-un::facility_note",
+                    "row_id": null,
+                    "span": [
+                        213,
+                        226
+                    ],
+                    "snippet": "ICU/NICU/PICU",
+                    "source_type": "facility_note",
+                    "source_observed_at": null,
+                    "retrieved_at": "2025-01-21T10:30:00Z"
+                }
+            ],
+            "source_doc_id": "vf_02239_cims-hospital-patna-a-un",
+            "extracted_at": "2026-04-26T00:17:05.262518Z",
+            "extractor_model": "moonshotai/kimi-k2.5",
+            "mlflow_trace_id": null
+        },
+        {
+            "facility_id": "vf_02239_cims-hospital-patna-a-un",
+            "capability_type": "NEONATAL",
+            "claimed": true,
+            "evidence_refs": [
+                {
+                    "source_doc_id": "vf_02239_cims-hospital-patna-a-un",
+                    "facility_id": "vf_02239_cims-hospital-patna-a-un",
+                    "chunk_id": "vf_02239_cims-hospital-patna-a-un::facility_note",
+                    "row_id": null,
+                    "span": [
+                        213,
+                        226
+                    ],
+                    "snippet": "ICU/NICU/PICU",
+                    "source_type": "facility_note",
+                    "source_observed_at": null,
+                    "retrieved_at": "2025-01-21T10:30:00Z"
+                }
+            ],
+            "source_doc_id": "vf_02239_cims-hospital-patna-a-un",
+            "extracted_at": "2026-04-26T00:17:05.262518Z",
+            "extractor_model": "moonshotai/kimi-k2.5",
+            "mlflow_trace_id": null
+        },
+        {
+            "facility_id": "vf_02239_cims-hospital-patna-a-un",
+            "capability_type": "MATERNAL",
+            "claimed": true,
+            "evidence_refs": [
+                {
+                    "source_doc_id": "vf_02239_cims-hospital-patna-a-un",
+                    "facility_id": "vf_02239_cims-hospital-patna-a-un",
+                    "chunk_id": "vf_02239_cims-hospital-patna-a-un::facility_note",
+                    "row_id": null,
+                    "span": [
+                        228,
+                        237
+                    ],
+                    "snippet": "OBS/Gynec",
+                    "source_type": "facility_note",
+                    "source_observed_at": null,
+                    "retrieved_at": "2025-01-21T10:30:00Z"
+                }
+            ],
+            "source_doc_id": "vf_02239_cims-hospital-patna-a-un",
+            "extracted_at": "2026-04-26T00:17:05.262518Z",
+            "extractor_model": "moonshotai/kimi-k2.5",
+            "mlflow_trace_id": null
+        },
+        {
+            "facility_id": "vf_02239_cims-hospital-patna-a-un",
+            "capability_type": "SURGERY_GENERAL",
+            "claimed": true,
+            "evidence_refs": [
+                {
+                    "source_doc_id": "vf_02239_cims-hospital-patna-a-un",
+                    "facility_id": "vf_02239_cims-hospital-patna-a-un",
+                    "chunk_id": "vf_02239_cims-hospital-patna-a-un::facility_note",
+                    "row_id": null,
+                    "span": [
+                        261,
+                        279
+                    ],
+                    "snippet": "Gen/Laparo surgery",
+                    "source_type": "facility_note",
+                    "source_observed_at": null,
+                    "retrieved_at": "2025-01-21T10:30:00Z"
+                }
+            ],
+            "source_doc_id": "vf_02239_cims-hospital-patna-a-un",
+            "extracted_at": "2026-04-26T00:17:05.262518Z",
+            "extractor_model": "moonshotai/kimi-k2.5",
+            "mlflow_trace_id": null
+        },
+        {
+            "facility_id": "vf_02239_cims-hospital-patna-a-un",
+            "capability_type": "ONCOLOGY",
+            "claimed": true,
+            "evidence_refs": [
+                {
+                    "source_doc_id": "vf_02239_cims-hospital-patna-a-un",
+                    "facility_id": "vf_02239_cims-hospital-patna-a-un",
+                    "chunk_id": "vf_02239_cims-hospital-patna-a-un::facility_note",
+                    "row_id": null,
+                    "span": [
+                        337,
+                        350
+                    ],
+                    "snippet": "Onco & Hemato",
+                    "source_type": "facility_note",
+                    "source_observed_at": null,
+                    "retrieved_at": "2025-01-21T10:30:00Z"
+                }
+            ],
+            "source_doc_id": "vf_02239_cims-hospital-patna-a-un",
+            "extracted_at": "2026-04-26T00:17:05.262518Z",
+            "extractor_model": "moonshotai/kimi-k2.5",
+            "mlflow_trace_id": null
+        }
+    ],
+    "trust_scores": {
+        "EMERGENCY_24_7": {
+            "capability_type": "EMERGENCY_24_7",
+            "claimed": true,
+            "evidence": [
+                {
+                    "source_doc_id": "vf_02239_cims-hospital-patna-a-un",
+                    "facility_id": "vf_02239_cims-hospital-patna-a-un",
+                    "chunk_id": "vf_02239_cims-hospital-patna-a-un::facility_note",
+                    "row_id": null,
+                    "span": [
+                        197,
+                        211
+                    ],
+                    "snippet": "24x7 Emergency",
+                    "source_type": "facility_note",
+                    "source_observed_at": null,
+                    "retrieved_at": "2025-01-21T10:30:00Z"
+                }
+            ],
+            "contradictions": [],
+            "confidence": 0.65,
+            "confidence_interval": [
+                0.65,
+                0.65
+            ],
+            "score": 65,
+            "reasoning": "Score 65 based on 1 evidence sources and no contradictions.",
+            "computed_at": "2026-04-26T02:44:57.223192Z"
+        },
+        "ICU": {
+            "capability_type": "ICU",
+            "claimed": true,
+            "evidence": [
+                {
+                    "source_doc_id": "vf_02239_cims-hospital-patna-a-un",
+                    "facility_id": "vf_02239_cims-hospital-patna-a-un",
+                    "chunk_id": "vf_02239_cims-hospital-patna-a-un::facility_note",
+                    "row_id": null,
+                    "span": [
+                        213,
+                        226
+                    ],
+                    "snippet": "ICU/NICU/PICU",
+                    "source_type": "facility_note",
+                    "source_observed_at": null,
+                    "retrieved_at": "2025-01-21T10:30:00Z"
+                }
+            ],
+            "contradictions": [
+                {
+                    "contradiction_type": "MISSING_EQUIPMENT",
+                    "capability_type": "ICU",
+                    "facility_id": "vf_02239_cims-hospital-patna-a-un",
+                    "evidence_for": [
+                        {
+                            "source_doc_id": "vf_02239_cims-hospital-patna-a-un",
+                            "facility_id": "vf_02239_cims-hospital-patna-a-un",
+                            "chunk_id": "vf_02239_cims-hospital-patna-a-un::facility_note",
+                            "row_id": null,
+                            "span": [
+                                213,
+                                226
+                            ],
+                            "snippet": "ICU/NICU/PICU",
+                            "source_type": "facility_note",
+                            "source_observed_at": null,
+                            "retrieved_at": "2025-01-21T10:30:00Z"
+                        }
+                    ],
+                    "evidence_against": [],
+                    "severity": "HIGH",
+                    "reasoning": "No equipment recorded for facility while ICU requires core gear (ventilator, monitor).",
+                    "detected_by": "validator.v1.heuristics",
+                    "detected_at": "2026-04-26T02:44:57.223174Z"
+                },
+                {
+                    "contradiction_type": "MISSING_STAFF",
+                    "capability_type": "ICU",
+                    "facility_id": "vf_02239_cims-hospital-patna-a-un",
+                    "evidence_for": [
+                        {
+                            "source_doc_id": "vf_02239_cims-hospital-patna-a-un",
+                            "facility_id": "vf_02239_cims-hospital-patna-a-un",
+                            "chunk_id": "vf_02239_cims-hospital-patna-a-un::facility_note",
+                            "row_id": null,
+                            "span": [
+                                213,
+                                226
+                            ],
+                            "snippet": "ICU/NICU/PICU",
+                            "source_type": "facility_note",
+                            "source_observed_at": null,
+                            "retrieved_at": "2025-01-21T10:30:00Z"
+                        }
+                    ],
+                    "evidence_against": [],
+                    "severity": "HIGH",
+                    "reasoning": "Staff roster reports no staff for ICU (requires at least 3).",
+                    "detected_by": "validator.v1.heuristics",
+                    "detected_at": "2026-04-26T02:44:57.223176Z"
+                }
+            ],
+            "confidence": 0.65,
+            "confidence_interval": [
+                0.05,
+                0.65
+            ],
+            "score": 5,
+            "reasoning": "Score 5 based on 1 evidence sources and 2 contradictions: MISSING_EQUIPMENT, MISSING_STAFF.",
+            "computed_at": "2026-04-26T02:44:57.223313Z"
+        },
+        "NEONATAL": {
+            "capability_type": "NEONATAL",
+            "claimed": true,
+            "evidence": [
+                {
+                    "source_doc_id": "vf_02239_cims-hospital-patna-a-un",
+                    "facility_id": "vf_02239_cims-hospital-patna-a-un",
+                    "chunk_id": "vf_02239_cims-hospital-patna-a-un::facility_note",
+                    "row_id": null,
+                    "span": [
+                        213,
+                        226
+                    ],
+                    "snippet": "ICU/NICU/PICU",
+                    "source_type": "facility_note",
+                    "source_observed_at": null,
+                    "retrieved_at": "2025-01-21T10:30:00Z"
+                }
+            ],
+            "contradictions": [
+                {
+                    "contradiction_type": "MISSING_STAFF",
+                    "capability_type": "NEONATAL",
+                    "facility_id": "vf_02239_cims-hospital-patna-a-un",
+                    "evidence_for": [
+                        {
+                            "source_doc_id": "vf_02239_cims-hospital-patna-a-un",
+                            "facility_id": "vf_02239_cims-hospital-patna-a-un",
+                            "chunk_id": "vf_02239_cims-hospital-patna-a-un::facility_note",
+                            "row_id": null,
+                            "span": [
+                                213,
+                                226
+                            ],
+                            "snippet": "ICU/NICU/PICU",
+                            "source_type": "facility_note",
+                            "source_observed_at": null,
+                            "retrieved_at": "2025-01-21T10:30:00Z"
+                        }
+                    ],
+                    "evidence_against": [],
+                    "severity": "HIGH",
+                    "reasoning": "Staff roster reports no staff for NEONATAL (requires at least 2).",
+                    "detected_by": "validator.v1.heuristics",
+                    "detected_at": "2026-04-26T02:44:57.223178Z"
+                }
+            ],
+            "confidence": 0.65,
+            "confidence_interval": [
+                0.35,
+                0.65
+            ],
+            "score": 35,
+            "reasoning": "Score 35 based on 1 evidence sources and 1 contradictions: MISSING_STAFF.",
+            "computed_at": "2026-04-26T02:44:57.223398Z"
+        },
+        "MATERNAL": {
+            "capability_type": "MATERNAL",
+            "claimed": true,
+            "evidence": [
+                {
+                    "source_doc_id": "vf_02239_cims-hospital-patna-a-un",
+                    "facility_id": "vf_02239_cims-hospital-patna-a-un",
+                    "chunk_id": "vf_02239_cims-hospital-patna-a-un::facility_note",
+                    "row_id": null,
+                    "span": [
+                        228,
+                        237
+                    ],
+                    "snippet": "OBS/Gynec",
+                    "source_type": "facility_note",
+                    "source_observed_at": null,
+                    "retrieved_at": "2025-01-21T10:30:00Z"
+                }
+            ],
+            "contradictions": [],
+            "confidence": 0.65,
+            "confidence_interval": [
+                0.65,
+                0.65
+            ],
+            "score": 65,
+            "reasoning": "Score 65 based on 1 evidence sources and no contradictions.",
+            "computed_at": "2026-04-26T02:44:57.223407Z"
+        },
+        "SURGERY_GENERAL": {
+            "capability_type": "SURGERY_GENERAL",
+            "claimed": true,
+            "evidence": [
+                {
+                    "source_doc_id": "vf_02239_cims-hospital-patna-a-un",
+                    "facility_id": "vf_02239_cims-hospital-patna-a-un",
+                    "chunk_id": "vf_02239_cims-hospital-patna-a-un::facility_note",
+                    "row_id": null,
+                    "span": [
+                        261,
+                        279
+                    ],
+                    "snippet": "Gen/Laparo surgery",
+                    "source_type": "facility_note",
+                    "source_observed_at": null,
+                    "retrieved_at": "2025-01-21T10:30:00Z"
+                }
+            ],
+            "contradictions": [
+                {
+                    "contradiction_type": "MISSING_EQUIPMENT",
+                    "capability_type": "SURGERY_GENERAL",
+                    "facility_id": "vf_02239_cims-hospital-patna-a-un",
+                    "evidence_for": [
+                        {
+                            "source_doc_id": "vf_02239_cims-hospital-patna-a-un",
+                            "facility_id": "vf_02239_cims-hospital-patna-a-un",
+                            "chunk_id": "vf_02239_cims-hospital-patna-a-un::facility_note",
+                            "row_id": null,
+                            "span": [
+                                261,
+                                279
+                            ],
+                            "snippet": "Gen/Laparo surgery",
+                            "source_type": "facility_note",
+                            "source_observed_at": null,
+                            "retrieved_at": "2025-01-21T10:30:00Z"
+                        }
+                    ],
+                    "evidence_against": [],
+                    "severity": "HIGH",
+                    "reasoning": "No equipment recorded for facility while SURGERY_GENERAL requires core gear (anesthesia, laparoscopy).",
+                    "detected_by": "validator.v1.heuristics",
+                    "detected_at": "2026-04-26T02:44:57.223182Z"
+                },
+                {
+                    "contradiction_type": "MISSING_STAFF",
+                    "capability_type": "SURGERY_GENERAL",
+                    "facility_id": "vf_02239_cims-hospital-patna-a-un",
+                    "evidence_for": [
+                        {
+                            "source_doc_id": "vf_02239_cims-hospital-patna-a-un",
+                            "facility_id": "vf_02239_cims-hospital-patna-a-un",
+                            "chunk_id": "vf_02239_cims-hospital-patna-a-un::facility_note",
+                            "row_id": null,
+                            "span": [
+                                261,
+                                279
+                            ],
+                            "snippet": "Gen/Laparo surgery",
+                            "source_type": "facility_note",
+                            "source_observed_at": null,
+                            "retrieved_at": "2025-01-21T10:30:00Z"
+                        }
+                    ],
+                    "evidence_against": [],
+                    "severity": "HIGH",
+                    "reasoning": "Staff roster reports no staff for SURGERY_GENERAL (requires at least 2).",
+                    "detected_by": "validator.v1.heuristics",
+                    "detected_at": "2026-04-26T02:44:57.223183Z"
+                }
+            ],
+            "confidence": 0.65,
+            "confidence_interval": [
+                0.05,
+                0.65
+            ],
+            "score": 5,
+            "reasoning": "Score 5 based on 1 evidence sources and 2 contradictions: MISSING_EQUIPMENT, MISSING_STAFF.",
+            "computed_at": "2026-04-26T02:44:57.223537Z"
+        },
+        "ONCOLOGY": {
+            "capability_type": "ONCOLOGY",
+            "claimed": true,
+            "evidence": [
+                {
+                    "source_doc_id": "vf_02239_cims-hospital-patna-a-un",
+                    "facility_id": "vf_02239_cims-hospital-patna-a-un",
+                    "chunk_id": "vf_02239_cims-hospital-patna-a-un::facility_note",
+                    "row_id": null,
+                    "span": [
+                        337,
+                        350
+                    ],
+                    "snippet": "Onco & Hemato",
+                    "source_type": "facility_note",
+                    "source_observed_at": null,
+                    "retrieved_at": "2025-01-21T10:30:00Z"
+                }
+            ],
+            "contradictions": [],
+            "confidence": 0.65,
+            "confidence_interval": [
+                0.65,
+                0.65
+            ],
+            "score": 65,
+            "reasoning": "Score 65 based on 1 evidence sources and no contradictions.",
+            "computed_at": "2026-04-26T02:44:57.223546Z"
+        }
+    },
+    "total_contradictions": 5,
+    "last_audited_at": "2026-04-26T02:44:57.223546Z",
+    "mlflow_trace_id": null
+}

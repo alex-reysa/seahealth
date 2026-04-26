@@ -30,6 +30,19 @@ INDIA_CITIES: dict[str, GeoPoint] = {
     "Ranchi": GeoPoint(lat=23.3441, lng=85.3096, pin_code="834001"),
     "Varanasi": GeoPoint(lat=25.3176, lng=82.9739, pin_code="221001"),
     "Gaya": GeoPoint(lat=24.7914, lng=85.0002, pin_code="823001"),
+    # State-level fallbacks resolve to the state capital. The locked demo
+    # query reads "rural Bihar"; without these the heuristic geocoder fails
+    # the parse_intent step and the planner returns zero candidates. The
+    # first 6-digit PIN below is the state capital's head-PO.
+    "Bihar": GeoPoint(lat=25.61, lng=85.14, pin_code="800001"),
+    "Uttar Pradesh": GeoPoint(lat=26.8467, lng=80.9462, pin_code="226001"),
+    "Maharashtra": GeoPoint(lat=19.0760, lng=72.8777, pin_code="400001"),
+    "Karnataka": GeoPoint(lat=12.9716, lng=77.5946, pin_code="560001"),
+    "West Bengal": GeoPoint(lat=22.5726, lng=88.3639, pin_code="700001"),
+    "Tamil Nadu": GeoPoint(lat=13.0827, lng=80.2707, pin_code="600001"),
+    "Telangana": GeoPoint(lat=17.3850, lng=78.4867, pin_code="500001"),
+    "Madhya Pradesh": GeoPoint(lat=23.2599, lng=77.4126, pin_code="462001"),
+    "Jharkhand": GeoPoint(lat=23.3441, lng=85.3096, pin_code="834001"),
 }
 
 

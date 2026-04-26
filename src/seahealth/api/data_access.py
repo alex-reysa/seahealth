@@ -448,6 +448,7 @@ def _delta_select_map_aggregates(
                         lng=float(centroid["lng"]),
                         pin_code=centroid.get("pin_code"),
                     ),
+                    population_source="delta",
                 )
             )
         except (KeyError, TypeError, ValueError, ValidationError) as exc:
@@ -490,18 +491,28 @@ def _summary_from_audits(
             if ts.contradictions:
                 flagged += 1
 
-    if audits:
+    # Use the filtered ``rows`` so a capability filter never reports a
+    # timestamp from a facility outside the slice.
+    if rows:
+        last_at = max(a.last_audited_at for a in rows)
+    elif audits:
         last_at = max(a.last_audited_at for a in audits)
     else:
         from datetime import UTC, datetime
 
         last_at = datetime.now(UTC)
+    verified_ci: tuple[int, int] | None = None
+    if audited > 0:
+        from seahealth.eval.intervals import count_interval
+
+        verified_ci = count_interval(verified, audited)
     return SummaryMetrics(
         audited_count=audited,
         verified_count=verified,
         flagged_count=flagged,
         last_audited_at=last_at,
         capability_type=capability_type,
+        verified_count_ci=verified_ci,
     )
 
 
@@ -567,6 +578,9 @@ def _aggregate_map_from_audits(
                     flagged_facilities_count=flagged,
                     gap_population=0,
                     centroid=GeoPoint(lat=lat, lng=lng, pin_code=None),
+                    # PARQUET mode has no population source on the audit row;
+                    # honesty over phantom denominators.
+                    population_source="unavailable",
                 )
             )
         except ValidationError as exc:  # pragma: no cover
@@ -663,6 +677,26 @@ def load_facilities(limit: int = 50) -> list[FacilityAudit]:
     raw = _load_json_file(FACILITY_AUDIT_FIXTURE)
     audit = FacilityAudit.model_validate(raw)
     return [audit][:limit]
+
+
+def load_all_audits() -> list[FacilityAudit]:
+    """Return ALL audits without pagination — used by /facilities/geo."""
+    mode = detect_mode()
+    if mode is DataMode.DELTA:
+        try:
+            return _delta_select_audits()
+        except DataLayerError as exc:
+            log.warning("all_audits: delta failed (%s); falling back to parquet", exc)
+            mode = DataMode.PARQUET
+    if mode is DataMode.PARQUET:
+        try:
+            return _read_parquet_audits()
+        except DataLayerError as exc:
+            log.warning("all_audits: parquet failed (%s); falling back to fixture", exc)
+            mode = DataMode.FIXTURE
+    raw = _load_json_file(FACILITY_AUDIT_FIXTURE)
+    audit = FacilityAudit.model_validate(raw)
+    return [audit]
 
 
 def load_map_aggregates(

@@ -292,6 +292,91 @@ def detect_stale_data(
     )
 
 
+# Capabilities whose claim is meaningful enough that a vague evidence snippet
+# alone is suspicious. Excludes diagnostic-style listings (LAB, RADIOLOGY,
+# PHARMACY) where a one-word mention is the norm.
+_VAGUE_CLAIM_SENSITIVE: frozenset[CapabilityType] = frozenset(
+    {
+        CapabilityType.SURGERY_GENERAL,
+        CapabilityType.SURGERY_APPENDECTOMY,
+        CapabilityType.ICU,
+        CapabilityType.NEONATAL,
+        CapabilityType.ONCOLOGY,
+        CapabilityType.DIALYSIS,
+        CapabilityType.TRAUMA,
+        CapabilityType.MATERNAL,
+        CapabilityType.EMERGENCY_24_7,
+    }
+)
+
+_VAGUE_SNIPPET_MIN_CHARS: int = 12
+
+
+def detect_vague_claim(
+    cap: Capability,
+    facts: FacilityFacts,
+    *,
+    validator_id: str = "validator.heuristics_v1",
+) -> Contradiction | None:
+    """Flag a high-acuity claim whose evidence is empty or extremely terse.
+
+    Maps to ``MISSING_STAFF`` because the closed contradiction taxonomy has
+    no ``VAGUE_CLAIM`` member; the planner's UI surfaces the contradiction
+    with the reasoning string ("Vague claim: ...") so the source of the
+    flag is still legible.
+
+    Triggers when ALL of:
+
+    * The claim is on a high-acuity capability (surgery, ICU, oncology, etc.).
+    * The claim is positive (``claimed=True``) — denials are not vague.
+    * Evidence is missing or every snippet is shorter than
+      ``_VAGUE_SNIPPET_MIN_CHARS`` characters after whitespace collapse.
+
+    Severity is ``LOW`` so it doesn't drown out structural staffing /
+    equipment contradictions when both fire.
+    """
+    if not cap.claimed:
+        return None
+    if cap.capability_type not in _VAGUE_CLAIM_SENSITIVE:
+        return None
+
+    if not cap.evidence_refs:
+        return _build(
+            contradiction_type=ContradictionType.MISSING_STAFF,
+            cap=cap,
+            facts=facts,
+            severity="LOW",
+            reasoning=(
+                f"Vague claim: {cap.capability_type.value} asserted without "
+                "any evidence span."
+            ),
+            validator_id=validator_id,
+        )
+
+    longest = 0
+    for ref in cap.evidence_refs:
+        snippet = (ref.snippet or "").strip()
+        # Collapse internal whitespace to match the extractor's normalizer.
+        collapsed = re.sub(r"\s+", " ", snippet)
+        if len(collapsed) > longest:
+            longest = len(collapsed)
+    if longest >= _VAGUE_SNIPPET_MIN_CHARS:
+        return None
+
+    return _build(
+        contradiction_type=ContradictionType.MISSING_STAFF,
+        cap=cap,
+        facts=facts,
+        severity="LOW",
+        reasoning=(
+            f"Vague claim: {cap.capability_type.value} supported only by "
+            f"{longest}-char evidence snippet (< {_VAGUE_SNIPPET_MIN_CHARS} "
+            "char threshold)."
+        ),
+        validator_id=validator_id,
+    )
+
+
 # ---------------------------------------------------------------------------
 # Aggregator
 # ---------------------------------------------------------------------------
@@ -311,6 +396,7 @@ def run_all_heuristics(
         detect_volume_mismatch,
         detect_temporal_unverified,
         detect_stale_data,
+        detect_vague_claim,
     ):
         result = detector(cap, facts, validator_id=validator_id)
         if result is not None:

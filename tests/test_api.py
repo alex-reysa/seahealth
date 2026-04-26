@@ -176,10 +176,66 @@ def test_health_data_endpoint(monkeypatch):
     resp = client.get("/health/data")
     assert resp.status_code == 200
     body = resp.json()
-    assert set(body.keys()) >= {"mode", "facility_audits_path", "delta_reachable"}
+    assert set(body.keys()) >= {
+        "mode",
+        "facility_audits_path",
+        "delta_reachable",
+        "retriever_mode",
+    }
     assert body["mode"] in {"delta", "parquet", "fixture"}
     assert isinstance(body["delta_reachable"], bool)
     assert isinstance(body["facility_audits_path"], str)
+    # Phase 2A: retriever_mode is one of the two known modes.
+    assert body["retriever_mode"] in {"vector_search", "faiss_local", "unknown"}
+
+
+def test_health_data_reports_vector_search_mode_when_env_set(monkeypatch):
+    """When SEAHEALTH_VS_ENDPOINT and SEAHEALTH_VS_INDEX are both set,
+    /health/data reports retriever_mode='vector_search' and surfaces the
+    endpoint + index ids without reaching out to the network."""
+    monkeypatch.setenv("SEAHEALTH_VS_ENDPOINT", "seahealth-vs")
+    monkeypatch.setenv("SEAHEALTH_VS_INDEX", "workspace.seahealth_silver.chunks_index")
+    monkeypatch.delenv("DATABRICKS_SQL_HTTP_PATH", raising=False)
+    monkeypatch.delenv("SEAHEALTH_API_MODE", raising=False)
+    data_access.reset_mode_cache()
+
+    resp = client.get("/health/data")
+    body = resp.json()
+    assert body["retriever_mode"] == "vector_search"
+    assert body["vs_endpoint"] == "seahealth-vs"
+    assert body["vs_index"] == "workspace.seahealth_silver.chunks_index"
+
+
+def test_health_data_redacts_infra_under_production_cors_posture(monkeypatch):
+    """When CORS_ALLOW_ORIGINS is restricted (production posture), the
+    health endpoint must redact filesystem path and VS identifiers so an
+    unauthenticated probe doesn't leak infrastructure details."""
+    # Re-import the app with restricted CORS so module-scope CORS detection
+    # picks up the production posture.
+    import importlib
+
+    monkeypatch.setenv("CORS_ALLOW_ORIGINS", "https://app.seahealth.example")
+    monkeypatch.setenv("SEAHEALTH_VS_ENDPOINT", "seahealth-vs")
+    monkeypatch.setenv("SEAHEALTH_VS_INDEX", "workspace.seahealth_silver.chunks_index")
+    monkeypatch.delenv("DATABRICKS_SQL_HTTP_PATH", raising=False)
+    monkeypatch.delenv("SEAHEALTH_API_MODE", raising=False)
+    data_access.reset_mode_cache()
+
+    import seahealth.api.main as api_main
+    api_main = importlib.reload(api_main)
+    from fastapi.testclient import TestClient as _TC
+
+    prod_client = _TC(api_main.app)
+    body = prod_client.get("/health/data").json()
+    assert body["retriever_mode"] == "vector_search"
+    assert body["vs_endpoint"] is None
+    assert body["vs_index"] is None
+    assert body["facility_audits_path"] == "<redacted>"
+
+    # Restore the demo-posture module so subsequent tests get the
+    # permissive config.
+    monkeypatch.setenv("CORS_ALLOW_ORIGINS", "*")
+    importlib.reload(api_main)
 
 
 # ---------------------------------------------------------------------------
@@ -243,3 +299,24 @@ def test_query_endpoint_returns_query_trace_id_in_body_too(monkeypatch):
     body = resp.json()
     header_id = resp.headers.get("X-Query-Trace-Id")
     assert body["query_trace_id"] == header_id
+
+
+def test_cors_exposes_query_trace_id_header(monkeypatch):
+    """Browsers must be allowed to read X-Query-Trace-Id off the response.
+
+    Without ``expose_headers``, a cross-origin client can see the header in
+    devtools but not in JS — `Response.headers.get('X-Query-Trace-Id')` is
+    forbidden. The body field stays canonical, but the header should still
+    be reachable when the React app needs it.
+    """
+    monkeypatch.delenv("DATABRICKS_TOKEN", raising=False)
+    data_access.reset_mode_cache()
+    resp = client.post(
+        "/query",
+        json={"query": "appendectomy near Patna?"},
+        headers={"Origin": "http://localhost:3000"},
+    )
+    assert resp.status_code == 200
+    expose = resp.headers.get("access-control-expose-headers", "")
+    # Header names are case-insensitive but Starlette echoes what we set.
+    assert "X-Query-Trace-Id" in expose

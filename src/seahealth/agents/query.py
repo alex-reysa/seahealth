@@ -31,10 +31,12 @@ from pydantic import BaseModel, Field
 
 from seahealth.schemas import (
     CapabilityType,
+    ExecutionStep,
     GeoPoint,
     ParsedIntent,
     QueryResult,
     RankedFacility,
+    RetrieverMode,
     StaffingQualifier,
     TrustScore,
 )
@@ -145,6 +147,36 @@ def _utcnow() -> datetime:
 
 def _new_trace_id() -> str:
     return f"q_{uuid.uuid4().hex}"
+
+
+def _detect_retriever_mode() -> RetrieverMode:
+    """Read the active retriever mode without importing the heavyweight retriever module."""
+    if os.environ.get("SEAHEALTH_VS_ENDPOINT") and os.environ.get("SEAHEALTH_VS_INDEX"):
+        return "vector_search"
+    return "faiss_local"
+
+
+def _capture_mlflow_trace() -> tuple[str | None, str | None]:
+    """Best-effort capture of the active MLflow trace id and a deep-link URL.
+
+    Returns ``(trace_id, trace_url)``. Both are ``None`` when MLflow tracking
+    is not configured or no active span exists. The synthetic correlation id
+    on ``query_trace_id`` stays canonical regardless.
+    """
+    if not os.environ.get("MLFLOW_TRACKING_URI"):
+        return None, None
+    try:  # pragma: no cover - depends on optional mlflow install
+        import mlflow  # type: ignore
+
+        active = mlflow.get_current_active_span() if hasattr(mlflow, "get_current_active_span") else None
+        trace_id = getattr(active, "trace_id", None) if active is not None else None
+        if not trace_id:
+            return None, None
+        host = os.environ.get("MLFLOW_HOST", "").rstrip("/")
+        url = f"{host}/#/traces/{trace_id}" if host else None
+        return str(trace_id), url
+    except Exception:
+        return None, None
 
 
 def _detect_capability(query: str) -> CapabilityType | None:
@@ -349,18 +381,43 @@ def _build_ranked(
 # ---------------------------------------------------------------------------
 
 
+def _step(
+    name: str,
+    started: datetime,
+    status: str = "ok",
+    detail: str | None = None,
+) -> ExecutionStep:
+    return ExecutionStep(
+        name=name,
+        started_at=started,
+        finished_at=_utcnow(),
+        status=status,  # type: ignore[arg-type]
+        detail=detail,
+    )
+
+
 def _run_heuristic(
     query: str,
     *,
     audits_path: str | None,
     facilities_index_path: str | None = None,
 ) -> QueryResult:
+    steps: list[ExecutionStep] = []
+    retriever_mode: RetrieverMode = _detect_retriever_mode()
+    mlflow_id, mlflow_url = _capture_mlflow_trace()
+
+    parse_start = _utcnow()
     capability = _detect_capability(query)
     location = _detect_location(query)
     radius = _detect_radius(query)
     staffing = _detect_staffing_qualifier(query)
     trace_id = _new_trace_id()
-    now = _utcnow()
+    parse_status = "ok" if (capability is not None and location is not None) else "fallback"
+    parse_detail = (
+        f"capability={capability.value if capability else 'unknown'} radius_km={radius:.0f}"
+        + (f" staffing={staffing}" if staffing else "")
+    )
+    steps.append(_step("parse_intent", parse_start, parse_status, parse_detail))
 
     if capability is None or location is None:
         # We can still emit a shape-correct empty result so callers (e.g. the
@@ -376,7 +433,12 @@ def _run_heuristic(
             ranked_facilities=[],
             total_candidates=0,
             query_trace_id=trace_id,
-            generated_at=now,
+            mlflow_trace_id=mlflow_id,
+            mlflow_trace_url=mlflow_url,
+            execution_steps=steps,
+            retriever_mode=retriever_mode,
+            used_llm=False,
+            generated_at=_utcnow(),
         )
 
     parsed = ParsedIntent(
@@ -385,6 +447,8 @@ def _run_heuristic(
         radius_km=radius,
         staffing_qualifier=staffing,
     )
+
+    retrieve_start = _utcnow()
     candidates = tool_search_facilities(
         capability.value,
         location.lat,
@@ -393,6 +457,7 @@ def _run_heuristic(
         audits_path=audits_path,
         facilities_index_path=facilities_index_path,
     )
+    retrieve_status = "ok"
     # Trust-conscious fallback: if a specialized capability (e.g. SURGERY_APPENDECTOMY)
     # produces no candidates with a non-zero trust score, retry with the umbrella
     # SURGERY_GENERAL. Candidates with score=0 are facilities that have the capability
@@ -414,14 +479,50 @@ def _run_heuristic(
             radius_km=radius,
             staffing_qualifier=staffing,
         )
+        retrieve_status = "fallback"
+    steps.append(
+        _step(
+            "retrieve",
+            retrieve_start,
+            retrieve_status,
+            f"retriever={retriever_mode} candidates={len(candidates)}",
+        )
+    )
+
+    score_start = _utcnow()
     ranked = _build_ranked(candidates, parsed, audits_path=audits_path)
+    steps.append(
+        _step(
+            "score",
+            score_start,
+            "ok" if ranked else "fallback",
+            f"ranked={len(ranked)} from {len(candidates)} candidates",
+        )
+    )
+
+    rank_start = _utcnow()
+    steps.append(
+        _step(
+            "rank",
+            rank_start,
+            "ok",
+            "trust_score desc, distance asc"
+            + (f", staffing={staffing}" if staffing else ""),
+        )
+    )
+
     return QueryResult(
         query=query,
         parsed_intent=parsed,
         ranked_facilities=ranked,
         total_candidates=len(candidates),
         query_trace_id=trace_id,
-        generated_at=now,
+        mlflow_trace_id=mlflow_id,
+        mlflow_trace_url=mlflow_url,
+        execution_steps=steps,
+        retriever_mode=retriever_mode,
+        used_llm=False,
+        generated_at=_utcnow(),
     )
 
 
@@ -704,13 +805,33 @@ def _run_llm(
         candidates = ordered
 
     ranked = _build_ranked(candidates, parsed, audits_path=audits_path)
+    mlflow_id, mlflow_url = _capture_mlflow_trace()
+    retriever_mode = _detect_retriever_mode()
+    now = _utcnow()
+    # The LLM tool-loop emits its own internal "trace"; we surface a four-step
+    # summary here so the UI rendering is identical to the heuristic path.
+    steps: list[ExecutionStep] = [
+        ExecutionStep(name="parse_intent", started_at=now, finished_at=now, status="ok",
+                      detail=f"capability={parsed.capability_type.value} radius_km={parsed.radius_km:.0f}"),
+        ExecutionStep(name="retrieve", started_at=now, finished_at=now, status="ok",
+                      detail=f"retriever={retriever_mode} candidates={len(candidates)}"),
+        ExecutionStep(name="score", started_at=now, finished_at=now, status="ok",
+                      detail=f"ranked={len(ranked)} via LLM tool-loop"),
+        ExecutionStep(name="rank", started_at=now, finished_at=now, status="ok",
+                      detail="LLM-selected ordering, re-validated against audits"),
+    ]
     return QueryResult(
         query=query,
         parsed_intent=parsed,
         ranked_facilities=ranked,
         total_candidates=len(candidates),
         query_trace_id=_new_trace_id(),
-        generated_at=_utcnow(),
+        mlflow_trace_id=mlflow_id,
+        mlflow_trace_url=mlflow_url,
+        execution_steps=steps,
+        retriever_mode=retriever_mode,
+        used_llm=True,
+        generated_at=now,
     )
 
 

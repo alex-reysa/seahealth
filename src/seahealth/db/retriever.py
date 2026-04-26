@@ -421,10 +421,42 @@ def get_retriever(
     return FaissRetriever(df=df)
 
 
+def describe_retriever_mode() -> dict[str, object]:
+    """Snapshot of which retriever the API would use right now.
+
+    Returns the same shape the ``/health/data`` endpoint surfaces. The
+    function does not actually instantiate a Vector Search client (that
+    would require a network round-trip and credentials); it reports
+    whether the configured environment variables would *route* a call to
+    Mosaic AI Vector Search vs. the local FAISS / BM25 / TF fallback.
+
+    Shape:
+        {
+            "mode": "vector_search" | "faiss_local",
+            "vs_endpoint": str | None,
+            "vs_index": str | None,
+            "chunks_parquet_resolved": str | None,
+            "chunks_parquet_exists": bool,
+        }
+    """
+    ep = os.getenv("SEAHEALTH_VS_ENDPOINT")
+    idx = os.getenv("SEAHEALTH_VS_INDEX")
+    parquet_paths = _default_chunks_parquet_paths()
+    resolved: Path | None = next((p for p in parquet_paths if p.exists()), None)
+    return {
+        "mode": "vector_search" if (ep and idx) else "faiss_local",
+        "vs_endpoint": ep,
+        "vs_index": idx,
+        "chunks_parquet_resolved": str(resolved) if resolved else None,
+        "chunks_parquet_exists": bool(resolved),
+    }
+
+
 __all__ = [
     "FaissRetriever",
     "Retriever",
     "VectorSearchRetriever",
+    "describe_retriever_mode",
     "get_retriever",
 ]
 

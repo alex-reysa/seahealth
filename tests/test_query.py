@@ -168,6 +168,51 @@ def test_query_trace_id_present(audits_parquet: str) -> None:
     assert result.query_trace_id.startswith("q_")
 
 
+def test_query_returns_four_execution_steps(audits_parquet: str) -> None:
+    """Phase 2: every successful run emits a four-step timeline."""
+    result = query.run_query(
+        "appendectomy near Patna",
+        use_llm=False,
+        audits_path=audits_parquet,
+    )
+    names = [step.name for step in result.execution_steps]
+    assert names == ["parse_intent", "retrieve", "score", "rank"]
+    # finished_at must not be before started_at for any step.
+    for step in result.execution_steps:
+        assert step.finished_at >= step.started_at
+
+
+def test_query_mlflow_fields_none_without_tracking_uri(
+    audits_parquet: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Without MLFLOW_TRACKING_URI, mlflow fields are null and used_llm=False."""
+    monkeypatch.delenv("MLFLOW_TRACKING_URI", raising=False)
+    result = query.run_query(
+        "appendectomy near Patna",
+        use_llm=False,
+        audits_path=audits_parquet,
+    )
+    assert result.mlflow_trace_id is None
+    assert result.mlflow_trace_url is None
+    assert result.used_llm is False
+    # The synthetic correlation id is always present and prefixed.
+    assert result.query_trace_id.startswith("q_")
+
+
+def test_query_retriever_mode_reports_faiss_local_by_default(
+    audits_parquet: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """When VS env vars are unset, retriever_mode is the local FAISS fallback."""
+    monkeypatch.delenv("SEAHEALTH_VS_ENDPOINT", raising=False)
+    monkeypatch.delenv("SEAHEALTH_VS_INDEX", raising=False)
+    result = query.run_query(
+        "appendectomy near Patna",
+        use_llm=False,
+        audits_path=audits_parquet,
+    )
+    assert result.retriever_mode == "faiss_local"
+
+
 # ---------------------------------------------------------------------------
 # Staffing qualifier — parsing + soft re-rank (MQ-1)
 # ---------------------------------------------------------------------------

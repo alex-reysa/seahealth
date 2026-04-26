@@ -120,6 +120,7 @@ export interface DemoFundingPriorityRegion {
   regionId: string;
   name: string;
   capability: CapabilityType;
+  /** Lens metrics are normalized 0–1; multiply by 100 for percent display. */
   priorityScore: number;
   needSignal: number;
   verifiedAccessScore: number;
@@ -484,7 +485,7 @@ export const FUNDING_PRIORITY_REGIONS: DemoFundingPriorityRegion[] = [
     regionId: 'BR_PATNA',
     name: 'Patna Appendectomy Catchment',
     capability: 'SURGERY_APPENDECTOMY',
-    priorityScore: 68,
+    priorityScore: 0.68,
     needSignal: 0.74,
     verifiedAccessScore: 0.46,
     contradictionRisk: 0.66,
@@ -541,7 +542,7 @@ export const FUNDING_PRIORITY_REGIONS: DemoFundingPriorityRegion[] = [
     regionId: 'BR_MADHUBANI',
     name: 'Rural Bihar Neonatal Priority Zone',
     capability: 'NEONATAL',
-    priorityScore: 86,
+    priorityScore: 0.86,
     needSignal: 0.91,
     verifiedAccessScore: 0.18,
     contradictionRisk: 0.82,
@@ -590,7 +591,7 @@ export const FUNDING_PRIORITY_REGIONS: DemoFundingPriorityRegion[] = [
     regionId: 'BR_STATE',
     name: 'Bihar State Background',
     capability: 'NEONATAL',
-    priorityScore: 52,
+    priorityScore: 0.52,
     needSignal: 0.62,
     verifiedAccessScore: 0.44,
     contradictionRisk: 0.48,
