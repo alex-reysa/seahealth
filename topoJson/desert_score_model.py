@@ -38,18 +38,21 @@ with mlflow.start_run() for tracing.
 from __future__ import annotations
 
 import argparse
-import json
 import logging
 import re
 import sys
 from collections import Counter
 from pathlib import Path
-from typing import Iterable, Sequence
+from typing import Sequence
 
-import geopandas as gpd
 import numpy as np
 import pandas as pd
 from sklearn.neighbors import BallTree
+
+try:
+    import geopandas as gpd
+except ImportError:  # let scoring-path callers import without geopandas
+    gpd = None  # type: ignore[assignment]
 
 try:
     import topojson as tp
@@ -331,13 +334,14 @@ def load_facilities(path: str | Path, cols: dict[str, str] | None = None) -> pd.
     df["_trust_score"] = ts
     df["_trust_weight"] = ts.map(TRUST_WEIGHTS).astype(float)
 
-    # Neonatal relevance flag
-    df["_is_neonatal"] = df.apply(
-        lambda r: is_neonatal_relevant(
-            r.get(cols["specialties"]), r.get(cols["capability"])
-        ),
-        axis=1,
-    )
+    # Neonatal relevance flag - vectorized: lower, strip non-alphanumeric,
+    # match any token. List/tuple cells coerce via str() so substring lookups
+    # still work without per-row Python.
+    spec_text = df[cols["specialties"]].fillna("").astype(str).str.lower()
+    cap_text  = df[cols["capability"]].fillna("").astype(str).str.lower()
+    blob = (spec_text + " " + cap_text).str.replace(r"[^a-z0-9]", "", regex=True)
+    pattern = "|".join(re.escape(t) for t in NEONATAL_TOKENS)
+    df["_is_neonatal"] = blob.str.contains(pattern, regex=True, na=False)
 
     df["_lat"] = df[cols["lat"]].astype(float)
     df["_lon"] = df[cols["lon"]].astype(float)
@@ -364,7 +368,7 @@ def load_nfhs(path: str | Path, cols: dict[str, str] | None = None) -> pd.DataFr
     as the primary join key against Districts.geojson.
     """
     cols = {**NFHS_COLS, **(cols or {})}
-    df = pd.read_csv(path)
+    df = pd.read_csv(path, low_memory=False)
     df.columns = [c.strip() for c in df.columns]
 
     if "Indicator" in df.columns:
@@ -403,6 +407,11 @@ def load_nfhs(path: str | Path, cols: dict[str, str] | None = None) -> pd.DataFr
 
 
 def load_districts(path: str | Path, cols: dict[str, str] | None = None) -> gpd.GeoDataFrame:
+    if gpd is None:
+        raise ImportError(
+            "geopandas is required for load_districts(). "
+            "Install with: pip install geopandas (macOS may need `brew install gdal` first)."
+        )
     cols = {**DISTRICTS_COLS, **(cols or {})}
     gdf = gpd.read_file(path)
     if gdf.crs is None:
@@ -441,11 +450,32 @@ def join_nfhs_to_districts(
 
     Primary join is on Census codes (ST_CEN_CD, DT_CEN_CD) which are exact
     integer keys present in both files. Districts that don't match by code
-    fall back to normalized (district_name, state_name). Remaining gaps are
-    imputed with state mean, then national mean.
+    fall back to normalized (district_name, state_name). Remaining NaN cells
+    are imputed with state mean, then national mean.
+
+    Output adds two provenance fields per row:
+      nfhs_match_quality: how the row's data was sourced - one of
+        'direct'        - matched by Census codes
+        'name_fallback' - matched by normalized (district, state) name
+        'state_mean'    - no row match; state-mean imputation used
+        'national_mean' - state had no data either; national-mean used
+      nfhs_imputed: True iff ANY value on this row required imputation
+        (i.e. fell back to state or national mean for at least one
+        indicator). A direct/name match with complete indicators is False.
     """
     indicator_cols = [f"_{k}" for k in NFHS_INDICATORS]
     value_cols = indicator_cols + ["_births"]
+
+    code_pairs = nfhs.dropna(subset=["_state_code", "_district_code"])[
+        ["_state_code", "_district_code"]
+    ]
+    n_dups = int(code_pairs.duplicated().sum())
+    if n_dups:
+        logger.warning(
+            "nfhs: %d duplicate (state_code, district_code) rows; "
+            "groupby-first keeps the first non-null value per indicator",
+            n_dups,
+        )
 
     nfhs_by_code = (
         nfhs[["_state_code", "_district_code", *value_cols]]
@@ -459,7 +489,9 @@ def join_nfhs_to_districts(
         on=["_state_code", "_district_code"], how="left",
     )
 
-    code_unmatched = merged[indicator_cols].isna().all(axis=1)
+    match_quality = np.array(["direct"] * len(merged), dtype=object)
+
+    code_unmatched = merged[indicator_cols].isna().all(axis=1).values
     n_code_unmatched = int(code_unmatched.sum())
     if n_code_unmatched:
         nfhs_by_name = (
@@ -473,34 +505,52 @@ def join_nfhs_to_districts(
         )
         for col in value_cols:
             merged.loc[code_unmatched, col] = name_match[col].values
+        name_helped = code_unmatched & ~merged[indicator_cols].isna().all(axis=1).values
+        match_quality[name_helped] = "name_fallback"
+        match_quality[code_unmatched & ~name_helped] = "state_mean"
         logger.info(
-            "join: %d districts unmatched by code, attempted name fallback",
+            "join: %d code-unmatched, %d resolved by name fallback, %d -> state_mean",
             n_code_unmatched,
+            int(name_helped.sum()),
+            int((code_unmatched & ~name_helped).sum()),
         )
 
-    unmatched = merged[indicator_cols].isna().all(axis=1)
-    n_unmatched = int(unmatched.sum())
-    if n_unmatched:
-        logger.warning(
-            "%d / %d districts unmatched after code+name join - applying "
-            "state-mean imputation. First 15: %s",
-            n_unmatched, len(merged),
-            merged.loc[unmatched, "_district_key"].head(15).tolist(),
-        )
-    merged["nfhs_imputed"] = unmatched.values
+    # Per-row "any cell imputed" tracker - flips on for state OR national fillna
+    imputed_any = np.zeros(len(merged), dtype=bool)
 
-    state_means = (
-        nfhs.groupby("_state_key")[value_cols].mean()
-    )
+    state_means = nfhs.groupby("_state_key")[value_cols].mean()
     for col in value_cols:
+        before = merged[col].isna().values
         fill = merged["_state_key"].map(state_means[col])
         merged[col] = merged[col].fillna(fill)
+        after = merged[col].isna().values
+        imputed_any |= (before & ~after)
 
-    # National-mean fallback for any indicator still NaN
     for col in indicator_cols:
         nat_mean = nfhs[col].mean()
-        if not pd.isna(nat_mean):
-            merged[col] = merged[col].fillna(nat_mean)
+        if pd.isna(nat_mean):
+            continue
+        before = merged[col].isna().values
+        merged[col] = merged[col].fillna(nat_mean)
+        after = merged[col].isna().values
+        nat_filled = before & ~after
+        imputed_any |= nat_filled
+        # If a row needed national-mean for any indicator, it's the worst case
+        downgrade = nat_filled & np.isin(match_quality, ["direct", "name_fallback", "state_mean"])
+        match_quality[downgrade] = "national_mean"
+
+    n_state = int(np.sum(match_quality == "state_mean"))
+    n_national = int(np.sum(match_quality == "national_mean"))
+    if n_state or n_national:
+        logger.warning(
+            "join: %d districts using state-mean, %d using national-mean (out of %d)",
+            n_state, n_national, len(merged),
+        )
+
+    merged["nfhs_match_quality"] = match_quality
+    merged["nfhs_imputed"] = imputed_any | np.isin(
+        match_quality, ["state_mean", "national_mean"]
+    )
 
     return merged
 
@@ -738,6 +788,7 @@ def build_multi_radius_topojson(
     base["institutional_births_pct"]     = layer["_institutional_births"].values
     base["anc4_plus_pct"]                = layer["_anc4_plus"].values
     base["nfhs_imputed"]                 = layer["nfhs_imputed"].astype(bool).values
+    base["nfhs_match_quality"]           = layer["nfhs_match_quality"].values
 
     # Per-radius properties  suffixed
     for r in radii_km:

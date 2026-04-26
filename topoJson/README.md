@@ -1,6 +1,6 @@
 # Layer-2: Desert Score Pipeline
 
-Turns the Layer-1 facility audits (with TrustScores) plus NFHS-5 district health indicators into a single TopoJSON the React Map Workbench renders as a choropleth of healthcare deserts.
+Turns the Layer-1 facility audits (with TrustScores) plus NFHS-5 district health indicators into a single TopoJSON intended to be consumed by the React Map Workbench as a choropleth of healthcare deserts.
 
 For each Indian district and each radius (30 / 60 / 120 km) we compute:
 
@@ -45,6 +45,8 @@ python desert_score_model.py \
     --out india_desert_layer.topojson
 ```
 
+> **macOS / geopandas note:** `pip install geopandas` builds against system GDAL/PROJ. If install fails, run `brew install gdal proj` first. Linux users typically need `apt install libgdal-dev libproj-dev`. The scoring path (BallTree, Trust weighting, NeedIndex) is testable without geopandas — only the GeoJSON loader and TopoJSON exporter need it.
+
 Optional flags:
 
 - `--radii 30 60 120` — radii (km) to compute coverage at. Each lands as a suffixed property block on every district.
@@ -66,7 +68,8 @@ Each district feature carries:
 | `skilled_birth_attendance_pct` | NFHS-5 SBA |
 | `institutional_births_pct` | NFHS-5 |
 | `anc4_plus_pct` | NFHS-5 antenatal care, 4+ visits |
-| `nfhs_imputed` | true if district had no direct NFHS match (state/national mean used) |
+| `nfhs_imputed` | `true` iff **any** indicator on this row needed state-mean or national-mean imputation. A direct/name match with complete indicators is `false`. |
+| `nfhs_match_quality` | One of `direct` (matched by Census codes), `name_fallback` (matched by normalized district + state name), `state_mean` (no row match; state-mean used), `national_mean` (state had no data either). The UI should drive a confidence indicator off this field. |
 
 **Per-radius (suffix `_30km`, `_60km`, `_120km`):**
 
@@ -101,3 +104,14 @@ A claim that contradicts the evidence is *not* nullified — it's heavily down-w
 - **India district polygons** — Census of India 2011 administrative boundaries.
 
 Both files are checked in (`!topoJson/*.csv` exception in repo `.gitignore`) so the pipeline runs from a clean clone.
+
+## Tests
+
+`test_smoke.py` covers the scoring path (coverage quality, proxy NeedIndex, desert score, risk tiers, trust-weight ordering, neonatal token detection) with synthetic fixtures so a regression in any of them is caught without needing real facility data:
+
+```bash
+python test_smoke.py            # standalone runner, no pytest required
+python -m pytest test_smoke.py  # if pytest is installed
+```
+
+The data-loading / Census-code join half is exercised against real `nfhs5_districts.csv` + `Districts.geojson.txt` interactively — see the docstring in `desert_score_model.py` for the verification snippet.
