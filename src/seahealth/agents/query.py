@@ -41,6 +41,7 @@ from seahealth.schemas import (
     TrustScore,
 )
 
+from ._mlflow_helpers import mlflow_span
 from .geocode import geocode
 from .llm_client import DEFAULT_HEAVY_MODEL
 from .tools import (
@@ -860,35 +861,30 @@ def run_query(
 
     See module docstring for the heuristic vs. LLM tool-loop split.
     """
-    # MLflow span is best-effort — never fatal.
-    if os.environ.get("MLFLOW_TRACKING_URI"):
-        try:
-            import mlflow  # type: ignore
+    # Wrap the actual parse/retrieve/score/rank work so the MLflow trace tree
+    # has a real node — the previous implementation opened the span and
+    # immediately closed it before any work ran.
+    span_attrs = {"used_llm": use_llm, "max_steps": max_steps}
+    with mlflow_span("seahealth.query", attrs=span_attrs):
+        if use_llm:
+            result = _run_llm(
+                query,
+                model=model,
+                max_steps=max_steps,
+                retries=retries,
+                audits_path=audits_path,
+                client_factory=client_factory,
+                facilities_index_path=facilities_index_path,
+            )
+            if result is not None:
+                return result
+            log.info("LLM path unavailable or failed; falling back to heuristics.")
 
-            with mlflow.start_span(name="seahealth.query"):
-                pass
-        except Exception:
-            pass
-
-    if use_llm:
-        result = _run_llm(
+        return _run_heuristic(
             query,
-            model=model,
-            max_steps=max_steps,
-            retries=retries,
             audits_path=audits_path,
-            client_factory=client_factory,
             facilities_index_path=facilities_index_path,
         )
-        if result is not None:
-            return result
-        log.info("LLM path unavailable or failed; falling back to heuristics.")
-
-    return _run_heuristic(
-        query,
-        audits_path=audits_path,
-        facilities_index_path=facilities_index_path,
-    )
 
 
 __all__ = [

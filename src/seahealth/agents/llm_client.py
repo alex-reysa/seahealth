@@ -308,3 +308,95 @@ def structured_call(
     # / static checkers happy.
     assert last_error is not None
     raise StructuredCallError(str(last_error)) from last_error
+
+
+# ---------------------------------------------------------------------------
+# Validator client adapter
+# ---------------------------------------------------------------------------
+#
+# The Validator agent (``seahealth.agents.validator``) uses the duck-typed
+# ``client.structured_call(prompt, *, model)`` shape that the test
+# ``_FakeClient`` implements. The raw ``OpenAI()`` instance returned by
+# :func:`get_client` does not expose that method, so the production LLM path
+# in ``validator.py`` was unreachable until we added this adapter. The adapter
+# forces the model into a known JSON shape via the existing module-level
+# :func:`structured_call`, returning the Pydantic instance the Validator's
+# ``_normalize_llm_response`` already knows how to consume.
+
+
+class _EvidenceAssessmentItem(BaseModel):
+    evidence_ref_id: str
+    stance: str  # "verifies" | "contradicts" | "silent"
+    reasoning: str
+
+
+class _AdditionalContradictionItem(BaseModel):
+    contradiction_type: str  # ContradictionType value
+    severity: str  # "LOW" | "MEDIUM" | "HIGH"
+    reasoning: str
+
+
+class ValidatorResponse(BaseModel):
+    """Structured payload the Validator LLM emits.
+
+    Mirrors the dict shape :func:`seahealth.agents.validator._normalize_llm_response`
+    parses. Fields are loosely typed (``str`` instead of ``Literal``) so the
+    Validator stays the single place that enforces enum membership.
+    """
+
+    evidence_assessments: list[_EvidenceAssessmentItem] = []
+    additional_contradictions: list[_AdditionalContradictionItem] = []
+    heuristic_reasoning_overrides: dict[str, str] = {}
+
+
+_VALIDATOR_SYSTEM_PROMPT = """You are SeaHealth's Validator agent.
+
+Given a Capability claim, the FacilityFacts known about the facility, the
+heuristic Contradictions already detected, and a list of retrieved evidence
+snippets, return a single JSON payload via the forced tool call. The payload
+contains:
+
+* ``evidence_assessments`` — for each retrieved evidence id, a stance
+  (verifies / contradicts / silent) and a one-sentence reasoning.
+* ``additional_contradictions`` — at most two NEW contradictions of type
+  VOLUME_MISMATCH, TEMPORAL_UNVERIFIED, or CONFLICTING_SOURCES (heuristics
+  already cover MISSING_EQUIPMENT / MISSING_STAFF / STALE_DATA).
+* ``heuristic_reasoning_overrides`` — optional one-sentence reasoning for any
+  heuristic contradiction that was emitted without one.
+
+Return only what is supported by the evidence. Empty lists / dicts are valid
+when there is nothing to add.
+"""
+
+
+class ValidatorLLMClient:
+    """Adapter exposing ``structured_call(prompt, *, model)`` for the Validator.
+
+    Internally calls :func:`structured_call` with the validator's known system
+    prompt and :class:`ValidatorResponse` schema. Returns the Pydantic instance
+    so the Validator's ``_normalize_llm_response`` (which already accepts both
+    Pydantic and dict via ``model_dump``) can consume it directly.
+    """
+
+    def __init__(self, *, system_prompt: str = _VALIDATOR_SYSTEM_PROMPT) -> None:
+        self._system_prompt = system_prompt
+
+    def structured_call(self, prompt: str, *, model: str) -> ValidatorResponse:
+        result = structured_call(
+            model=model,
+            system=self._system_prompt,
+            user=prompt,
+            response_model=ValidatorResponse,
+        )
+        # ``structured_call`` returns a ``ValidatorResponse`` here because we
+        # don't pass extra ``tools``; the cast keeps mypy happy.
+        if not isinstance(result, ValidatorResponse):
+            raise StructuredCallError(
+                f"Validator LLM returned unexpected type: {type(result).__name__}"
+            )
+        return result
+
+
+def get_validator_client() -> ValidatorLLMClient:
+    """Factory used as ``client_factory=`` by ``validate_capability``."""
+    return ValidatorLLMClient()

@@ -20,6 +20,8 @@ from seahealth.schemas import (
     TrustScore,
 )
 
+from ._mlflow_helpers import mlflow_span
+
 TraceClass = Literal["live", "synthetic", "missing"]
 
 LOCAL_TRACE_PREFIX = "local::"
@@ -85,36 +87,42 @@ def build_facility_audit(
     # without a ruff/F401 warning.
     _ = evidence_assessments
 
-    filtered_contradictions = [c for c in contradictions if c.facility_id == facility_id]
-    scored_contradiction_count = sum(len(ts.contradictions) for ts in trust_scores.values())
+    span_attrs = {
+        "facility_id": facility_id,
+        "capability_count": len(capabilities),
+        "contradiction_count": len(contradictions),
+    }
+    with mlflow_span("seahealth.facility_audit_builder.build", attrs=span_attrs):
+        filtered_contradictions = [c for c in contradictions if c.facility_id == facility_id]
+        scored_contradiction_count = sum(len(ts.contradictions) for ts in trust_scores.values())
 
-    if trust_scores:
-        last_audited_at = max(ts.computed_at for ts in trust_scores.values())
-    else:
-        last_audited_at = _utcnow()
+        if trust_scores:
+            last_audited_at = max(ts.computed_at for ts in trust_scores.values())
+        else:
+            last_audited_at = _utcnow()
 
-    # Trace id resolution: an explicitly-passed ``mlflow_trace_id`` always wins.
-    # Otherwise we walk the capabilities and pick the FIRST non-null trace id we
-    # find. The extractor stamps the same id onto every Capability emitted in a
-    # single facility run, so "first non-null" is deterministic and avoids the
-    # cost of an agreement check.
-    resolved_trace_id = mlflow_trace_id
-    if resolved_trace_id is None:
-        for cap in capabilities:
-            cap_trace = getattr(cap, "mlflow_trace_id", None)
-            if cap_trace:
-                resolved_trace_id = cap_trace
-                break
+        # Trace id resolution: an explicitly-passed ``mlflow_trace_id`` always
+        # wins. Otherwise we walk the capabilities and pick the FIRST non-null
+        # trace id we find. The extractor stamps the same id onto every
+        # Capability emitted in a single facility run, so "first non-null" is
+        # deterministic and avoids the cost of an agreement check.
+        resolved_trace_id = mlflow_trace_id
+        if resolved_trace_id is None:
+            for cap in capabilities:
+                cap_trace = getattr(cap, "mlflow_trace_id", None)
+                if cap_trace:
+                    resolved_trace_id = cap_trace
+                    break
 
-    return FacilityAudit(
-        facility_id=facility_id,
-        name=name,
-        location=location,
-        capabilities=list(capabilities),
-        trust_scores=dict(trust_scores),
-        total_contradictions=(
-            scored_contradiction_count if trust_scores else len(filtered_contradictions)
-        ),
-        last_audited_at=last_audited_at,
-        mlflow_trace_id=resolved_trace_id,
-    )
+        return FacilityAudit(
+            facility_id=facility_id,
+            name=name,
+            location=location,
+            capabilities=list(capabilities),
+            trust_scores=dict(trust_scores),
+            total_contradictions=(
+                scored_contradiction_count if trust_scores else len(filtered_contradictions)
+            ),
+            last_audited_at=last_audited_at,
+            mlflow_trace_id=resolved_trace_id,
+        )

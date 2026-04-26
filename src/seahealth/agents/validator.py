@@ -31,6 +31,7 @@ from seahealth.schemas import (
     evidence_ref_id,
 )
 
+from ._mlflow_helpers import mlflow_span
 from .heuristics import FacilityFacts, run_all_heuristics
 from .llm_client import DEFAULT_HEAVY_MODEL
 
@@ -255,6 +256,35 @@ def validate_capability(
 
     Returns:
         ``(contradictions, evidence_assessments)``.
+    """
+    span_attrs = {
+        "facility_id": cap.facility_id,
+        "capability_type": cap.capability_type.value,
+        "evidence_count": len(retrieved_evidence or []),
+        "use_llm": use_llm,
+    }
+    with mlflow_span("seahealth.validator.validate_capability", attrs=span_attrs):
+        return _validate_capability_inner(
+            cap,
+            facts,
+            retrieved_evidence,
+            use_llm=use_llm,
+            model=model,
+            client_factory=client_factory,
+        )
+
+
+def _validate_capability_inner(
+    cap: Capability,
+    facts: FacilityFacts,
+    retrieved_evidence: list[EvidenceRef] | None,
+    *,
+    use_llm: bool,
+    model: str,
+    client_factory: Callable[..., Any] | None,
+) -> tuple[list[Contradiction], list[EvidenceAssessment]]:
+    """Original heuristics + LLM body — kept private so the public entrypoint
+    can wrap it in an MLflow span without breaking ``client_factory`` mocks.
     """
     contradictions = run_all_heuristics(cap, facts, validator_id=f"{VALIDATOR_ID}.heuristics")
     assessments: list[EvidenceAssessment] = []
