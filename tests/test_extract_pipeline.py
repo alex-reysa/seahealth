@@ -104,13 +104,24 @@ def test_pipeline_writes_capabilities_parquet(
     monkeypatch.delenv("DATABRICKS_HOST", raising=False)
 
     seen: list[str] = []
+    seen_traces: list[str | None] = []
 
-    def fake_extract(facility_id: str, chunks: list[dict], *, model: str) -> ExtractedCapabilities:
+    def fake_extract(
+        facility_id: str,
+        chunks: list[dict],
+        *,
+        model: str,
+        mlflow_trace_id: str | None = None,
+    ) -> ExtractedCapabilities:
         seen.append(facility_id)
+        seen_traces.append(mlflow_trace_id)
         ctype = CapabilityType.SURGERY_GENERAL if facility_id == "vf_a" else CapabilityType.DIALYSIS
+        cap = _make_capability(facility_id, ctype).model_copy(
+            update={"mlflow_trace_id": mlflow_trace_id}
+        )
         return ExtractedCapabilities(
             facility_id=facility_id,
-            capabilities=[_make_capability(facility_id, ctype)],
+            capabilities=[cap],
         )
 
     summary = extract_pipeline.main(
@@ -133,6 +144,17 @@ def test_pipeline_writes_capabilities_parquet(
     # Evidence refs round-trip through JSON.
     sample = json.loads(df.iloc[0]["evidence_refs_json"])
     assert sample[0]["chunk_id"].endswith("::facility_note")
+    # Trace id is non-null for every row and uses the local::<fid>::<uuid> form.
+    assert "mlflow_trace_id" in df.columns
+    trace_ids = df["mlflow_trace_id"].tolist()
+    assert all(isinstance(t, str) and t for t in trace_ids)
+    for fid, t in zip(df["facility_id"].tolist(), trace_ids, strict=True):
+        assert t.startswith(f"local::{fid}::")
+    # Every facility within one main() invocation shares the same run_uuid tail.
+    run_uuids = {t.split("::", 2)[2] for t in trace_ids}
+    assert len(run_uuids) == 1
+    # Trace id seen by the extractor matches what was written to parquet.
+    assert seen_traces == trace_ids
 
 
 def test_pipeline_respects_limit(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -210,6 +232,7 @@ def test_pipeline_skips_mlflow_when_unconfigured(
         "extractor_model",
         "extracted_at",
         "evidence_refs_json",
+        "mlflow_trace_id",
     ]
 
 

@@ -21,6 +21,7 @@ import json
 import logging
 import os
 import threading
+import uuid
 from collections.abc import Iterable
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from contextlib import contextmanager, nullcontext
@@ -63,20 +64,65 @@ def _maybe_get_sql_executor():
     return getattr(module, "execute_sql", None)
 
 
+def _synthesize_local_trace_id(facility_id: str, run_uuid: str) -> str:
+    """Build the deterministic local trace id stamped on Capabilities.
+
+    Format: ``local::<facility_id>::<run_uuid>``. The ``run_uuid`` is shared
+    across every facility processed in a single ``main()`` invocation so the
+    UI can group capabilities by extraction run; the per-facility tail keeps
+    each Capability's trace id unique.
+    """
+    return f"local::{facility_id}::{run_uuid}"
+
+
+def _extract_real_trace_id(span: Any) -> str | None:
+    """Best-effort pull of the real MLflow trace id from a live span."""
+    if span is None:
+        return None
+    for attr in ("trace_id", "request_id"):
+        candidate = getattr(span, attr, None)
+        if candidate:
+            return str(candidate)
+    return None
+
+
 @contextmanager
-def _maybe_mlflow_span(name: str, attributes: dict[str, Any] | None = None):
-    """Open an MLflow span only if MLFLOW_TRACKING_URI is configured."""
+def _maybe_mlflow_span(
+    name: str,
+    attributes: dict[str, Any] | None = None,
+    *,
+    facility_id: str | None = None,
+    run_uuid: str | None = None,
+):
+    """Open an MLflow span when configured; always yield a trace_id string.
+
+    The yielded value is the trace id string a downstream UI can use to link a
+    Capability back to one extraction run:
+
+    * If ``MLFLOW_TRACKING_URI`` is set and ``mlflow`` imports cleanly, prefer
+      the real span's ``trace_id`` (or ``request_id`` on older MLflow).
+    * Otherwise (or if mlflow is unavailable), synthesize
+      ``local::<facility_id>::<run_uuid>``. Both arguments must be passed when
+      the caller wants a deterministic synthetic id; if either is missing we
+      yield ``None``.
+    """
+    fallback = (
+        _synthesize_local_trace_id(facility_id, run_uuid)
+        if facility_id and run_uuid
+        else None
+    )
     if not os.environ.get("MLFLOW_TRACKING_URI"):
-        yield None
+        yield fallback
         return
     try:
         import mlflow  # type: ignore
 
         with mlflow.start_span(name=name, attributes=attributes or {}) as span:
-            yield span
+            real = _extract_real_trace_id(span)
+            yield real or fallback
     except Exception as exc:  # pragma: no cover — trace plumbing must never crash
         logger.warning("mlflow span %s failed: %s", name, exc)
-        yield None
+        yield fallback
 
 
 # ---------------------------------------------------------------------------
@@ -110,6 +156,35 @@ def _chunks_for_facility(df: pd.DataFrame, facility_id: str) -> list[dict]:
 # ---------------------------------------------------------------------------
 
 
+def _call_extract_fn(
+    fn: Any,
+    facility_id: str,
+    chunks: list[dict[str, Any]],
+    *,
+    model: str,
+    mlflow_trace_id: str | None,
+) -> ExtractedCapabilities:
+    """Invoke ``extract_fn`` with ``mlflow_trace_id`` if its signature accepts it.
+
+    Test fakes that haven't been updated to the new keyword still work — we
+    fall back to calling without the kwarg.
+    """
+    import inspect
+
+    try:
+        sig = inspect.signature(fn)
+        params = sig.parameters
+        accepts = "mlflow_trace_id" in params or any(
+            p.kind is inspect.Parameter.VAR_KEYWORD for p in params.values()
+        )
+    except (TypeError, ValueError):
+        accepts = False
+
+    if accepts:
+        return fn(facility_id, chunks, model=model, mlflow_trace_id=mlflow_trace_id)
+    return fn(facility_id, chunks, model=model)
+
+
 def _capability_to_row(cap: Capability) -> dict[str, Any]:
     payload = cap.model_dump(mode="json")
     return {
@@ -120,6 +195,7 @@ def _capability_to_row(cap: Capability) -> dict[str, Any]:
         "extractor_model": payload["extractor_model"],
         "extracted_at": payload["extracted_at"],
         "evidence_refs_json": json.dumps(payload["evidence_refs"], ensure_ascii=False),
+        "mlflow_trace_id": payload.get("mlflow_trace_id"),
     }
 
 
@@ -137,6 +213,7 @@ def _write_parquet(rows: list[dict[str, Any]], out_path: Path) -> None:
                 "extractor_model",
                 "extracted_at",
                 "evidence_refs_json",
+                "mlflow_trace_id",
             ]
         )
         table = pa.Table.from_pandas(empty, preserve_index=False)
@@ -168,9 +245,11 @@ def _maybe_write_delta(rows: list[dict[str, Any]]) -> bool:
             execute_sql(
                 f"INSERT INTO {DELTA_TABLE_FQN} "
                 "(facility_id, capability_type, claimed, source_doc_id, "
-                "extractor_model, extracted_at, evidence_refs_json) "
+                "extractor_model, extracted_at, evidence_refs_json, "
+                "mlflow_trace_id) "
                 "VALUES (:facility_id, :capability_type, :claimed, :source_doc_id, "
-                ":extractor_model, :extracted_at, :evidence_refs_json)",
+                ":extractor_model, :extracted_at, :evidence_refs_json, "
+                ":mlflow_trace_id)",
                 params=row,
             )
         return True
@@ -247,6 +326,12 @@ def main(
         except Exception as exc:  # pragma: no cover
             logger.warning("resume failed (will overwrite): %s", exc)
 
+    # One run_uuid per main() invocation. Every facility processed in this run
+    # shares this uuid so a downstream UI can group capabilities under a single
+    # extraction run; per-Capability uniqueness still comes from the
+    # ``facility_id`` portion of the synthesized trace id.
+    run_uuid = uuid.uuid4().hex
+
     facility_count = 0
     capability_count = 0
     skipped_zero_chunk_count = 0
@@ -278,9 +363,13 @@ def main(
         with _maybe_mlflow_span(
             "extract_capabilities",
             attributes={"facility_id": fid, "chunk_count": len(chunks)},
-        ):
+            facility_id=fid,
+            run_uuid=run_uuid,
+        ) as trace_id:
             try:
-                extracted: ExtractedCapabilities = extract_fn(fid, chunks, model=model)
+                extracted: ExtractedCapabilities = _call_extract_fn(
+                    extract_fn, fid, chunks, model=model, mlflow_trace_id=trace_id
+                )
                 return ("ok", idx, fid, [_capability_to_row(c) for c in extracted.capabilities])
             except Exception as exc:  # pragma: no cover
                 return ("fail", idx, fid, str(exc))

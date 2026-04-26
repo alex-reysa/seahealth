@@ -24,3 +24,14 @@ class Capability(BaseModel):
         ...,
         description="Model id used for extraction (e.g. 'databricks-meta-llama-3-1-70b-instruct').",
     )
+    mlflow_trace_id: str | None = Field(
+        default=None,
+        description=(
+            "MLflow trace id stamped at extraction time. Either a real MLflow "
+            "trace id (when MLFLOW_TRACKING_URI is configured) or a deterministic "
+            "synthetic id of the form ``local::<facility_id>::<run_uuid>`` so a "
+            "downstream UI can still link a Capability back to one extraction "
+            "run. Older parquet rows produced before the field existed deserialize "
+            "to None and round-trip cleanly."
+        ),
+    )
