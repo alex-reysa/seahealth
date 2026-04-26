@@ -26,8 +26,11 @@ client = TestClient(app)
 
 
 @pytest.fixture(autouse=True)
-def _reset_data_mode():
-    """Ensure each test gets a fresh mode-detection."""
+def _reset_data_mode(monkeypatch):
+    """Force FIXTURE mode and reset detection cache so tests are deterministic
+    regardless of whether real `tables/facility_audits.parquet` exists locally.
+    """
+    monkeypatch.setenv("SEAHEALTH_API_MODE", "fixture")
     data_access.reset_mode_cache()
     yield
     data_access.reset_mode_cache()

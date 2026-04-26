@@ -285,6 +285,25 @@ def _run_heuristic(query: str, *, audits_path: str | None) -> QueryResult:
         radius,
         audits_path=audits_path,
     )
+    # Trust-conscious fallback: if a specialized capability (e.g. SURGERY_APPENDECTOMY)
+    # produces no candidates with a non-zero trust score, retry with the umbrella
+    # SURGERY_GENERAL. Candidates with score=0 are facilities that have the capability
+    # in their audit shape but are entirely contradicted — not meaningful matches.
+    meaningful = [c for c in candidates if int(c.get("score", 0)) > 0]
+    if not meaningful and capability == CapabilityType.SURGERY_APPENDECTOMY:
+        candidates = tool_search_facilities(
+            CapabilityType.SURGERY_GENERAL.value,
+            location.lat,
+            location.lng,
+            radius,
+            audits_path=audits_path,
+        )
+        # Re-parse trust scores against the broader capability for ranking.
+        parsed = ParsedIntent(
+            capability_type=CapabilityType.SURGERY_GENERAL,
+            location=location,
+            radius_km=radius,
+        )
     ranked = _build_ranked(candidates, parsed, audits_path=audits_path)
     return QueryResult(
         query=query,
