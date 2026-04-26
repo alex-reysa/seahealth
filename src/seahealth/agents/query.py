@@ -35,6 +35,7 @@ from seahealth.schemas import (
     ParsedIntent,
     QueryResult,
     RankedFacility,
+    StaffingQualifier,
     TrustScore,
 )
 
@@ -75,6 +76,26 @@ _CAPABILITY_KEYWORDS: list[tuple[str, CapabilityType]] = [
     ("abdominal procedure", CapabilityType.SURGERY_GENERAL),
     ("abdominal surgery", CapabilityType.SURGERY_GENERAL),
 ]
+
+# Staffing qualifier — closed taxonomy. Order matters: 24/7 must beat
+# generic "fulltime" before fulltime hits.
+_STAFFING_PATTERNS: list[tuple[re.Pattern[str], StaffingQualifier]] = [
+    (re.compile(r"\b24\s*[/x\\-]\s*7\b", re.IGNORECASE), "twentyfour_seven"),
+    (re.compile(r"\b24\s*hours?\b", re.IGNORECASE), "twentyfour_seven"),
+    (re.compile(r"\bround[\s-]the[\s-]clock\b", re.IGNORECASE), "twentyfour_seven"),
+    (re.compile(r"\bpart[\s-]?time\b", re.IGNORECASE), "parttime"),
+    (re.compile(r"\bfull[\s-]?time\b", re.IGNORECASE), "fulltime"),
+    # Fuzzier "small operation" hooks; only fire when no stronger qualifier matched.
+    (re.compile(r"\blow\s+volume\b", re.IGNORECASE), "low_volume"),
+    (re.compile(r"\bfew\s+beds\b", re.IGNORECASE), "low_volume"),
+    (re.compile(r"\bsmall\s+(?:facility|hospital|clinic)\b", re.IGNORECASE), "low_volume"),
+]
+
+# Boost / demote applied during ranking. Capped at ±5 so a strong trust
+# score can never be overridden by a staffing hunch.
+_STAFFING_BOOST = 5
+_STAFFING_DEMOTE = -5
+
 
 _RADIUS_RE = re.compile(r"\b(\d+(?:\.\d+)?)\s*(?:km|kilometre|kilometer)s?\b", re.IGNORECASE)
 _NUMBER_WORDS: dict[str, int] = {
@@ -166,6 +187,52 @@ def _number_word_to_float(raw: str) -> float | None:
     return float(total)
 
 
+def _detect_staffing_qualifier(query: str) -> StaffingQualifier | None:
+    """Detect a staffing pattern qualifier in ``query`` (parttime / 24-7 / etc.).
+
+    Returns ``None`` when none of the closed patterns match. Backward-
+    compatible: callers that ignore the result behave exactly as before.
+    """
+    for pattern, label in _STAFFING_PATTERNS:
+        if pattern.search(query):
+            return label
+    return None
+
+
+def _staffing_score_delta(
+    qualifier: StaffingQualifier | None, number_doctors: int | None
+) -> int:
+    """Soft tiebreaker delta in [-5, +5] for the given qualifier + headcount.
+
+    The trust narrative is "we don't pretend to know more than the data shows":
+    if ``number_doctors`` is missing we return 0 (no change) — the facility is
+    NOT dropped, just not boosted.
+
+    parttime / low_volume → small (1-5) doctors gets +5; large (>=15) gets -5.
+    fulltime → mirror image.
+    twentyfour_seven → boost +5 for >=10 doctors (24/7 needs staffing); else 0.
+    """
+    if qualifier is None or number_doctors is None:
+        return 0
+    if qualifier in ("parttime", "low_volume"):
+        if 1 <= number_doctors <= 5:
+            return _STAFFING_BOOST
+        if number_doctors >= 15:
+            return _STAFFING_DEMOTE
+        return 0
+    if qualifier == "fulltime":
+        if number_doctors >= 15:
+            return _STAFFING_BOOST
+        if 1 <= number_doctors <= 5:
+            return _STAFFING_DEMOTE
+        return 0
+    if qualifier == "twentyfour_seven":
+        if number_doctors >= 10:
+            return _STAFFING_BOOST
+        return 0
+    return 0
+
+
 def _detect_location(query: str) -> GeoPoint | None:
     """Look up a known Indian city referenced in the query."""
     return geocode(query)
@@ -205,7 +272,17 @@ def _build_ranked(
     *,
     audits_path: str | None,
 ) -> list[RankedFacility]:
-    """Materialize RankedFacility rows by joining search hits with audit details."""
+    """Materialize RankedFacility rows by joining search hits with audit details.
+
+    When ``parsed.staffing_qualifier`` is set, results are re-ordered using a
+    soft tiebreaker computed from each candidate's ``number_doctors`` (when
+    available). The boost is bounded to ±5 and is a stable SECONDARY sort key
+    — never a hard filter. Facilities with missing staffing data are kept and
+    contribute a neutral 0 delta.
+    """
+    qualifier = parsed.staffing_qualifier
+    # Parallel list of soft-rerank deltas, indexed by RankedFacility position.
+    deltas: list[int] = []
     ranked: list[RankedFacility] = []
     for hit in candidates[:MAX_RANKED_FACILITIES]:
         facility_id = hit.get("facility_id")
@@ -231,6 +308,12 @@ def _build_ranked(
             point = location
         else:
             continue
+        nd_raw = hit.get("number_doctors")
+        try:
+            number_doctors = int(nd_raw) if nd_raw is not None else None
+        except (TypeError, ValueError):
+            number_doctors = None
+        deltas.append(_staffing_score_delta(qualifier, number_doctors))
         ranked.append(
             RankedFacility(
                 facility_id=str(facility_id),
@@ -243,7 +326,19 @@ def _build_ranked(
                 rank=1,
             )
         )
-    ranked.sort(key=lambda item: (-item.trust_score.score, item.distance_km))
+    # Sort by adjusted score first (clamped 0..100), then raw trust score (so
+    # boosts don't override genuinely better trust), then distance. The raw
+    # ``trust_score`` on the model is left untouched — the boost is purely an
+    # ordering hint, not a stored value.
+    paired = list(zip(ranked, deltas, strict=True))
+    paired.sort(
+        key=lambda pair: (
+            -max(0, min(100, pair[0].trust_score.score + pair[1])),
+            -pair[0].trust_score.score,
+            pair[0].distance_km,
+        )
+    )
+    ranked = [item for item, _ in paired]
     for idx, item in enumerate(ranked, start=1):
         item.rank = idx
     return ranked
@@ -254,10 +349,16 @@ def _build_ranked(
 # ---------------------------------------------------------------------------
 
 
-def _run_heuristic(query: str, *, audits_path: str | None) -> QueryResult:
+def _run_heuristic(
+    query: str,
+    *,
+    audits_path: str | None,
+    facilities_index_path: str | None = None,
+) -> QueryResult:
     capability = _detect_capability(query)
     location = _detect_location(query)
     radius = _detect_radius(query)
+    staffing = _detect_staffing_qualifier(query)
     trace_id = _new_trace_id()
     now = _utcnow()
 
@@ -270,6 +371,7 @@ def _run_heuristic(query: str, *, audits_path: str | None) -> QueryResult:
                 capability_type=capability or CapabilityType.SURGERY_GENERAL,
                 location=location or GeoPoint(lat=0.0, lng=0.0),
                 radius_km=radius,
+                staffing_qualifier=staffing,
             ),
             ranked_facilities=[],
             total_candidates=0,
@@ -277,13 +379,19 @@ def _run_heuristic(query: str, *, audits_path: str | None) -> QueryResult:
             generated_at=now,
         )
 
-    parsed = ParsedIntent(capability_type=capability, location=location, radius_km=radius)
+    parsed = ParsedIntent(
+        capability_type=capability,
+        location=location,
+        radius_km=radius,
+        staffing_qualifier=staffing,
+    )
     candidates = tool_search_facilities(
         capability.value,
         location.lat,
         location.lng,
         radius,
         audits_path=audits_path,
+        facilities_index_path=facilities_index_path,
     )
     # Trust-conscious fallback: if a specialized capability (e.g. SURGERY_APPENDECTOMY)
     # produces no candidates with a non-zero trust score, retry with the umbrella
@@ -297,12 +405,14 @@ def _run_heuristic(query: str, *, audits_path: str | None) -> QueryResult:
             location.lng,
             radius,
             audits_path=audits_path,
+            facilities_index_path=facilities_index_path,
         )
         # Re-parse trust scores against the broader capability for ranking.
         parsed = ParsedIntent(
             capability_type=CapabilityType.SURGERY_GENERAL,
             location=location,
             radius_km=radius,
+            staffing_qualifier=staffing,
         )
     ranked = _build_ranked(candidates, parsed, audits_path=audits_path)
     return QueryResult(
@@ -421,7 +531,13 @@ def _iter_tool_calls(message: Any) -> list[dict[str, Any]]:
     return calls
 
 
-def _execute_tool_call(name: str, arguments: dict[str, Any], *, audits_path: str | None) -> Any:
+def _execute_tool_call(
+    name: str,
+    arguments: dict[str, Any],
+    *,
+    audits_path: str | None,
+    facilities_index_path: str | None = None,
+) -> Any:
     if name == "geocode":
         return tool_geocode(str(arguments.get("query", "")))
     if name == "search_facilities":
@@ -431,6 +547,7 @@ def _execute_tool_call(name: str, arguments: dict[str, Any], *, audits_path: str
             lng=float(arguments.get("lng", 0.0)),
             radius_km=float(arguments.get("radius_km", DEFAULT_RADIUS_KM)),
             audits_path=audits_path,
+            facilities_index_path=facilities_index_path,
         )
     if name == "get_facility_audit":
         return tool_get_facility_audit(
@@ -456,6 +573,7 @@ def _run_llm(
     retries: int,
     audits_path: str | None,
     client_factory: Callable[..., Any] | None,
+    facilities_index_path: str | None = None,
 ) -> QueryResult | None:
     """Run the bounded tool-use loop. Returns None on failure (caller should
     fall back to the heuristic path)."""
@@ -528,7 +646,12 @@ def _run_llm(
                     log.warning("emit_QueryPlan payload invalid: %s", exc)
                     return None
                 break
-            result = _execute_tool_call(tool_name, args, audits_path=audits_path)
+            result = _execute_tool_call(
+                tool_name,
+                args,
+                audits_path=audits_path,
+                facilities_index_path=facilities_index_path,
+            )
             if tool_name == "search_facilities" and isinstance(result, list):
                 last_search = result
             transcript.append(f"tool {tool_name} -> {result}")
@@ -538,10 +661,16 @@ def _run_llm(
     if plan is None:
         return None
 
+    # Detect the optional staffing qualifier from the original NL query —
+    # the LLM tool schema does not currently surface it (we keep emit_QueryPlan
+    # backward-compatible), so we re-derive it deterministically from the user
+    # text. Tests for the LLM path inherit this behavior.
+    staffing = _detect_staffing_qualifier(query)
     parsed = ParsedIntent(
         capability_type=plan.capability_type,
         location=plan.location,
         radius_km=plan.radius_km,
+        staffing_qualifier=staffing,
     )
 
     # Re-run the search authoritatively so distance/score numbers reflect the
@@ -553,6 +682,7 @@ def _run_llm(
             parsed.location.lng,
             parsed.radius_km,
             audits_path=audits_path,
+            facilities_index_path=facilities_index_path,
         )
         or last_search
     )
@@ -598,8 +728,14 @@ def run_query(
     use_llm: bool = True,
     client_factory: Callable[..., Any] | None = None,
     audits_path: str | None = None,
+    facilities_index_path: str | None = None,
 ) -> QueryResult:
     """Resolve a natural-language facility query into a ``QueryResult``.
+
+    ``facilities_index_path`` (optional) lets callers point at a non-default
+    ``facilities_index.parquet`` so the staffing-qualifier re-ranker has data
+    to operate on. When the file is absent, the qualifier is parsed but the
+    re-ranker degrades to a no-op (no boost, no demote, no drop).
 
     See module docstring for the heuristic vs. LLM tool-loop split.
     """
@@ -621,12 +757,17 @@ def run_query(
             retries=retries,
             audits_path=audits_path,
             client_factory=client_factory,
+            facilities_index_path=facilities_index_path,
         )
         if result is not None:
             return result
         log.info("LLM path unavailable or failed; falling back to heuristics.")
 
-    return _run_heuristic(query, audits_path=audits_path)
+    return _run_heuristic(
+        query,
+        audits_path=audits_path,
+        facilities_index_path=facilities_index_path,
+    )
 
 
 __all__ = [

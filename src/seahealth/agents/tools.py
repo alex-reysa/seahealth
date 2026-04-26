@@ -24,7 +24,10 @@ from seahealth.schemas import GeoPoint
 from .geocode import geocode, haversine_km
 
 DEFAULT_AUDITS_PATH = "tables/facility_audits.parquet"
+DEFAULT_FACILITIES_INDEX_PATH = "tables/facilities_index.parquet"
 _JSON_COLUMNS = {"location", "capabilities", "trust_scores"}
+# Columns we surface from facilities_index for downstream qualifier scoring.
+_FACILITIES_INDEX_COLUMNS = ("numberDoctors", "capacity", "facilityTypeId")
 
 
 def tool_geocode(query: str) -> dict:
@@ -91,6 +94,57 @@ def _read_audits(audits_path: str | None) -> list[dict[str, Any]]:
     return rows
 
 
+def _coerce_optional_int(value: Any) -> int | None:
+    """Best-effort cast of pandas/pyarrow nullable ints to plain ``int``.
+
+    Returns ``None`` for missing / unparseable values rather than raising —
+    we want the qualifier scorer to silently skip rather than drop facilities.
+    """
+    if value is None:
+        return None
+    # pandas nullable ints surface as pd.NA; pyarrow may surface np.nan.
+    try:
+        if value != value:  # NaN check without importing math
+            return None
+    except TypeError:
+        pass
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _read_facilities_index(
+    facilities_index_path: str | None,
+) -> dict[str, dict[str, Any]]:
+    """Side-load ``facilities_index.parquet`` keyed by ``facility_id``.
+
+    Returns an empty dict if the file is missing or unreadable so callers
+    degrade gracefully (qualifier scoring then becomes a no-op rather than a
+    hard error).
+    """
+    path = Path(facilities_index_path) if facilities_index_path else Path(
+        DEFAULT_FACILITIES_INDEX_PATH
+    )
+    if not path.exists():
+        return {}
+    try:
+        table = pq.read_table(path)
+    except Exception:
+        return {}
+    out: dict[str, dict[str, Any]] = {}
+    for raw in table.to_pylist():
+        fid = raw.get("facility_id")
+        if not fid:
+            continue
+        entry: dict[str, Any] = {}
+        for col in _FACILITIES_INDEX_COLUMNS:
+            if col in raw:
+                entry[col] = raw[col]
+        out[str(fid)] = entry
+    return out
+
+
 def _location_from_audit(audit: dict[str, Any]) -> GeoPoint | None:
     raw = _decode_jsonish(audit.get("location"), force=True)
     if isinstance(raw, GeoPoint):
@@ -123,16 +177,23 @@ def tool_search_facilities(
     radius_km: float,
     *,
     audits_path: str | None = None,
+    facilities_index_path: str | None = None,
 ) -> list[dict]:
     """Return facilities within ``radius_km`` of (lat, lng) that have a
     TrustScore for ``capability_type``.
 
     Sort order: score desc, then distance_km asc. Each entry is a flat dict
     safe to JSON-serialize back to the model.
+
+    When ``facilities_index_path`` resolves to an existing parquet file, each
+    result also carries the (nullable) ``number_doctors`` field pulled from
+    the index. Missing or unreadable index ⇒ field is ``None``; the qualifier
+    re-ranker treats missing data as "unknown" (no boost, no demote, no drop).
     """
     rows = _read_audits(audits_path)
     if not rows:
         return []
+    index_lookup = _read_facilities_index(facilities_index_path)
     origin = GeoPoint(lat=float(lat), lng=float(lng))
     candidates: list[dict[str, Any]] = []
     for audit in rows:
@@ -151,9 +212,14 @@ def tool_search_facilities(
             score_value = 0
         contradictions = score_obj.get("contradictions") or []
         evidence = score_obj.get("evidence") or []
+        facility_id = audit.get("facility_id")
+        idx_entry = index_lookup.get(str(facility_id)) if facility_id else None
+        number_doctors = _coerce_optional_int(
+            idx_entry.get("numberDoctors") if idx_entry else None
+        )
         candidates.append(
             {
-                "facility_id": audit.get("facility_id"),
+                "facility_id": facility_id,
                 "name": audit.get("name"),
                 "lat": location.lat,
                 "lng": location.lng,
@@ -161,6 +227,8 @@ def tool_search_facilities(
                 "score": score_value,
                 "contradictions_flagged": len(contradictions),
                 "evidence_count": len(evidence),
+                # `None` when index is missing or facility has no recorded count.
+                "number_doctors": number_doctors,
             }
         )
     candidates.sort(key=lambda c: (-c["score"], c["distance_km"]))
@@ -182,6 +250,7 @@ def tool_get_facility_audit(facility_id: str, *, audits_path: str | None = None)
 
 __all__ = [
     "DEFAULT_AUDITS_PATH",
+    "DEFAULT_FACILITIES_INDEX_PATH",
     "tool_geocode",
     "tool_get_facility_audit",
     "tool_search_facilities",
