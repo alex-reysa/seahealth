@@ -91,6 +91,38 @@ Source of truth for sprint task status. Resume work from the last `Merged` row.
 
 **Merged-branch pytest after full audit swarm integration: 255 passing.**
 
+### Phase 4-L — Live extraction + fixtures regen — MERGED (2026-04-26)
+
+| Task | Status | Commit | Notes |
+|---|---|---|---|
+| Lane A doc hygiene | Merged | `333d4d0` | DATA_CONTRACT EvidenceAssessment revert; Anthropic→Databricks doc drift |
+| Lane B spot-check | Merged | (Lane A's commit) | Al-Shifa Surgical & Maternity → MATERNAL claimed=True |
+| Lane C full pipeline (250 facilities, Kimi K2.5) | Merged | `f23b456` | 36 facilities w/ caps; 67 capability rows; 13 ranked Patna facilities |
+| Lane D fixtures from real data | Merged | `f23b456` | summary/query/audit/map all regenerated; tests deterministic via SEAHEALTH_API_MODE=fixture |
+
+**Merged-branch pytest after Phase 4-L: 255 passing.**
+
+### Phase 5 — Naomi REAL eval — MERGED (2026-04-26)
+
+| Task | Status | Commit | Notes |
+|---|---|---|---|
+| Phase 5-A docs/ROADMAP.md | Merged | (this commit) | Bird's-eye phase tracker |
+| Phase 5-B Naomi label adapter + 7 tests | Merged | (this commit) | xlsx → CSV; explode multi-value caps; row_index = source_row_number - 1 |
+| Phase 5-C Real eval run | Merged | (this commit) | Cap precision 0.196, recall 0.345, F1 0.250. ONCOLOGY F1=0.714 (best); contradiction recall 0 (heuristic taxonomy narrower than Naomi's). |
+| Re-extracted Naomi's 30 facilities (Kimi K2.5) | — | — | 20/30 succeeded → 43 cap rows; merged with demo extraction → 56 facilities total in capabilities.parquet |
+
+**Merged-branch pytest after Phase 5: 262 passing.**
+
+### Phase 6 — Demo polish + submission — TODO
+
+| Task | Status | Notes |
+|---|---|---|
+| Demo script (4 min, scripted) | Pending | Naomi drafts per PHASES.md non-negotiable |
+| Demo video (screen + voiceover) | Pending | Walkthrough: Map Workbench → Planner Query → Facility Audit on CIMS Patna |
+| One-pager PDF | Pending | Eval numbers (P=0.196, R=0.345 + per-cap F1) front and centre |
+| Submission packaging | Pending | README finalized, runtime verified on clean clone |
+| Optional: AUD-R, R-3, AUD-08 cleanup | Deferred | Non-blocking |
+
 #### Conflict resolution log
 - `src/seahealth/pipelines/build_audits.py` (AUD-03 vs AUD-06): kept AUD-03's atomic-write-with-uuid, kept BOTH `mlflow_trace_id` and `limit` params, both CLI flags, both docstring lines. Added one-line fix: `facility_ids` is now also filtered by `keep_ids` inside the `limit` block (was missed by auto-merge; surfaced by `test_build_audits_respects_limit`).
 - `tests/test_build_audits.py`: kept all three new tests (`test_build_audits_includes_zero_capability_facility_once`, `test_build_audits_threads_trace_and_json_roundtrips`, `test_build_audits_respects_limit`).
