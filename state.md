@@ -140,6 +140,27 @@ Source of truth for sprint task status. Resume work from the last `Merged` row.
 | Optional: re-extract once with MLflow trace_id column populated | Deferred | Currently 0/10000 audits have trace_id (legacy parquet lacks the column); MLT-1's graceful fallback prevents crashes. Future: re-run extraction after MLT-1 to populate. |
 | Optional: AUD-R, R-3, AUD-08 cleanup | Deferred | Non-blocking |
 
+### Product Readiness Execution — Phase 0 baseline — MERGED (2026-04-26)
+
+| Task | Status | Notes |
+|---|---|---|
+| Phase 0 baseline freeze | Merged | `docs/PRODUCT_READINESS_REPORT.md` generated; demo query + facility frozen; 279 tests passing |
+| Phase 1A real MLflow trace propagation | Pending | Add trace-prefix validation in build_audits + tests |
+| Phase 1B citation and span quality | Pending | Citation QA report + repair invalid spans |
+| Phase 1C contradiction recall lift | Pending | Heuristics for vague_claim, missing_staff, equipment_mismatch |
+| Phase 2A vector search reality check | Pending | retriever mode in /health/data |
+| Phase 2B agent bricks/genie code decision | Pending | Substitution rationale in DECISIONS + README + report |
+| Phase 3A API mode + typed fetching | Pending | apiClient + VITE_SEAHEALTH_API_MODE |
+| Phase 3B facility audit trace view | Pending | Snippets + trace IDs + missing-trace state |
+| Phase 3C map workbench choropleth | Pending | Real choropleth + planner hover/click |
+| Phase 4A naomi eval reproducibility | Pending | Clean-clone repro + limitations |
+| Phase 4B aggregate confidence intervals | Pending | UI render uncertainty cue |
+| Phase 5A clean clone runtime | Pending | README quickstart walkthrough |
+| Phase 5B API robustness + security | Pending | CORS prod config + secret scan |
+| Phase 6A demo script + video | Pending | 4-min scripted, deterministic data |
+| Phase 6B one-pager + judge notes | Pending | Real-vs-fixture clearly marked |
+| Phase 7 final integration + release | Pending | Tag `submission-YYYYMMDD` |
+
 #### Conflict resolution log
 - `src/seahealth/pipelines/build_audits.py` (AUD-03 vs AUD-06): kept AUD-03's atomic-write-with-uuid, kept BOTH `mlflow_trace_id` and `limit` params, both CLI flags, both docstring lines. Added one-line fix: `facility_ids` is now also filtered by `keep_ids` inside the `limit` block (was missed by auto-merge; surfaced by `test_build_audits_respects_limit`).
 - `tests/test_build_audits.py`: kept all three new tests (`test_build_audits_includes_zero_capability_facility_once`, `test_build_audits_threads_trace_and_json_roundtrips`, `test_build_audits_respects_limit`).
