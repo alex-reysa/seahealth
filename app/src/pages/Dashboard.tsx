@@ -52,6 +52,7 @@ import {
   getRankedFacilities,
   parseDemoCommand,
 } from '@/src/data/demoData';
+import indiaDistrictsTopoRaw from '@/src/data/indiaDistricts.topojson?raw';
 import mockIndiaRegionsTopologyRaw from '@/src/data/mockIndiaRegions.topojson?raw';
 import { useFacilityLocations } from '@/src/hooks/useFacilityLocations';
 import { useMapAggregates } from '@/src/hooks/useMapAggregates';
@@ -137,6 +138,8 @@ function isOverlayModeVisible(overlayMode: MapOverlayMode, visibleLayers: Planni
   return layerId ? visibleLayers[layerId] : true;
 }
 
+const indiaDistrictsTopo = JSON.parse(indiaDistrictsTopoRaw);
+const indiaDistrictsGeoJson = feature(indiaDistrictsTopo, indiaDistrictsTopo.objects.Districts) as any;
 const mockIndiaRegionsTopology = JSON.parse(mockIndiaRegionsTopologyRaw);
 const mockIndiaRegionsGeoJson = feature(mockIndiaRegionsTopology, mockIndiaRegionsTopology.objects.regions) as any;
 const TOPOLOGY_FEATURE_IDS: readonly string[] = mockIndiaRegionsGeoJson.features.map(
@@ -247,7 +250,7 @@ function getMapStyle(
       },
       'india-districts': {
         type: 'geojson',
-        data: 'https://raw.githubusercontent.com/udit-001/india-maps-data/main/geojson/india.geojson',
+        data: indiaDistrictsGeoJson,
         generateId: true,
       },
       'funding-regions': {
@@ -276,8 +279,18 @@ function getMapStyle(
         type: 'fill',
         source: 'india-districts',
         paint: {
-          'fill-color': '#DDEBE5',
-          'fill-opacity': 0.42,
+          'fill-color': [
+            'case',
+            ['boolean', ['feature-state', 'hover'], false],
+            '#B7DFC9',
+            '#DDEBE5',
+          ],
+          'fill-opacity': [
+            'case',
+            ['boolean', ['feature-state', 'hover'], false],
+            0.7,
+            0.42,
+          ],
         },
       },
       {
@@ -698,21 +711,25 @@ export function Dashboard() {
 
   const onMouseMove = (event: any) => {
     if (!event.features?.length) return;
-    const featureId = event.features[0].id;
+    const feat = event.features[0];
+    const featureId = feat.id;
     if (featureId == null) return;
     event.target.getCanvas().style.cursor = 'pointer';
     const map = event.target;
+    const source = feat.source || 'funding-regions';
     if (hoveredFeatureId.current !== null && hoveredFeatureId.current !== featureId) {
       map.setFeatureState({ source: 'funding-regions', id: hoveredFeatureId.current }, { hover: false });
+      map.setFeatureState({ source: 'india-districts', id: hoveredFeatureId.current }, { hover: false });
     }
     hoveredFeatureId.current = featureId;
-    map.setFeatureState({ source: 'funding-regions', id: hoveredFeatureId.current }, { hover: true });
+    map.setFeatureState({ source, id: featureId }, { hover: true });
   };
 
   const onMouseLeave = (event: any) => {
     event.target.getCanvas().style.cursor = '';
     if (hoveredFeatureId.current !== null) {
       event.target.setFeatureState({ source: 'funding-regions', id: hoveredFeatureId.current }, { hover: false });
+      event.target.setFeatureState({ source: 'india-districts', id: hoveredFeatureId.current }, { hover: false });
       hoveredFeatureId.current = null;
     }
   };
@@ -722,20 +739,33 @@ export function Dashboard() {
       <Map
         ref={mapRef}
         initialViewState={{
-          longitude: regionId === 'BR_MADHUBANI' ? MADHUBANI_CENTER[0] : PATNA_CENTER[0],
-          latitude: regionId === 'BR_MADHUBANI' ? MADHUBANI_CENTER[1] : PATNA_CENTER[1],
+          longitude: regionId ? (regionId === 'BR_MADHUBANI' ? MADHUBANI_CENTER[0] : PATNA_CENTER[0]) : INDIA_CENTER[0],
+          latitude: regionId ? (regionId === 'BR_MADHUBANI' ? MADHUBANI_CENTER[1] : PATNA_CENTER[1]) : INDIA_CENTER[1],
           zoom: regionId ? 7 : 4,
         }}
         mapStyle={getMapStyle(regionId, overlayMode, visibleLayers, coverageFeatures, fundingRegionsGeoJson, facilityLocationsGeoJson)}
         style={{ width: '100%', height: '100%' }}
-        interactiveLayerIds={['funding-fill']}
+        interactiveLayerIds={['funding-fill', 'india-fill']}
         onClick={(event: any) => {
-          const clickedRegionId = event.features?.[0]?.properties?.regionId;
+          const props = event.features?.[0]?.properties;
+          const clickedRegionId = props?.regionId;
           if (clickedRegionId) {
             selectPriorityRegion(clickedRegionId);
-          } else {
-            focusMap(regionId);
+            return;
           }
+          const stateName = props?.ST_NM;
+          const distName = props?.Dist_name;
+          if (stateName || distName) {
+            const label = distName ? `${distName}, ${stateName}` : stateName;
+            const [lng, lat] = [event.lngLat.lng, event.lngLat.lat];
+            mapRef.current?.getMap()?.flyTo({ center: [lng, lat], zoom: 7, duration: 800 });
+            const params = new URLSearchParams(searchParams);
+            params.set('region_id', distName || stateName);
+            params.set('region_name', label);
+            setSearchParams(params);
+            return;
+          }
+          focusMap(regionId);
         }}
         onMouseMove={onMouseMove}
         onMouseLeave={onMouseLeave}

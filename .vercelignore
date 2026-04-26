@@ -1,0 +1,17 @@
+tables/
+.venv/
+*.parquet
+*.csv
+*.xlsx
+topoJson/nfhs5_districts.csv
+VF_Hackathon_Dataset_India_Large.xlsx*
+india_health_facilities_check_labels_final_v2.xlsx
+.pytest_cache/
+.ruff_cache/
+__pycache__/
+.databricks/
+src/
+tests/
+fixtures/
+docs/
+.claude/worktrees/
