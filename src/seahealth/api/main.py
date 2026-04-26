@@ -61,6 +61,9 @@ class HealthDataResponse(BaseModel):
     mode: str
     facility_audits_path: str
     delta_reachable: bool
+    retriever_mode: str
+    vs_endpoint: str | None = None
+    vs_index: str | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -105,10 +108,26 @@ def health() -> dict:
 def health_data() -> HealthDataResponse:
     """Current data-mode snapshot. Useful for the demo to confirm wiring."""
     snapshot = data_access.health_snapshot()
+    # Best-effort retriever snapshot — never block /health/data on it.
+    retriever_mode = "unknown"
+    vs_endpoint: str | None = None
+    vs_index: str | None = None
+    try:
+        from seahealth.db.retriever import describe_retriever_mode
+
+        rs = describe_retriever_mode()
+        retriever_mode = str(rs.get("mode") or "unknown")
+        vs_endpoint = rs.get("vs_endpoint")  # type: ignore[assignment]
+        vs_index = rs.get("vs_index")  # type: ignore[assignment]
+    except Exception as exc:  # pragma: no cover - defensive
+        log.warning("retriever snapshot failed: %s", exc)
     return HealthDataResponse(
         mode=snapshot["mode"],
         facility_audits_path=snapshot["facility_audits_path"],
         delta_reachable=bool(snapshot.get("delta_reachable", False)),
+        retriever_mode=retriever_mode,
+        vs_endpoint=vs_endpoint,
+        vs_index=vs_index,
     )
 
 

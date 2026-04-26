@@ -34,4 +34,6 @@ Format: `YYYY-MM-DD HH:MM — <decision>. Reason: <why>. Replaces: <what it kill
 - `2026-04-25 17:30 — Three connected surfaces, no chat UI. Reason: chat bubbles signal "demo project" — planners live in spreadsheets and maps. Replaces: conversational search interface.`
 - `2026-04-25 17:00 — NGO planner is the user, not the patient. Reason: the brief explicitly calls for "actionable insights for NGO planners" in eval criteria — planners need confidence intervals and gaps, not a map pin. Replaces: generic patient-facing search UX.`
 
+- `2026-04-26 03:00 — /health/data surfaces retriever_mode + vs_endpoint + vs_index. Reason: Phase 2A — judges and the demo must be able to tell whether retrieval is going through Mosaic AI Vector Search or the local FAISS / BM25 / TF fallback without reading server logs. seahealth.db.retriever.describe_retriever_mode() snapshots the env-var posture without instantiating a VS client (no network round-trip, no credentials required), so /health/data stays fast and safe in any mode. Replaces: undocumented retriever fallback chain.`
+
 <!-- Add new entries above this line, newest at top -->

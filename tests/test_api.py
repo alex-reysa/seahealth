@@ -176,10 +176,34 @@ def test_health_data_endpoint(monkeypatch):
     resp = client.get("/health/data")
     assert resp.status_code == 200
     body = resp.json()
-    assert set(body.keys()) >= {"mode", "facility_audits_path", "delta_reachable"}
+    assert set(body.keys()) >= {
+        "mode",
+        "facility_audits_path",
+        "delta_reachable",
+        "retriever_mode",
+    }
     assert body["mode"] in {"delta", "parquet", "fixture"}
     assert isinstance(body["delta_reachable"], bool)
     assert isinstance(body["facility_audits_path"], str)
+    # Phase 2A: retriever_mode is one of the two known modes.
+    assert body["retriever_mode"] in {"vector_search", "faiss_local", "unknown"}
+
+
+def test_health_data_reports_vector_search_mode_when_env_set(monkeypatch):
+    """When SEAHEALTH_VS_ENDPOINT and SEAHEALTH_VS_INDEX are both set,
+    /health/data reports retriever_mode='vector_search' and surfaces the
+    endpoint + index ids without reaching out to the network."""
+    monkeypatch.setenv("SEAHEALTH_VS_ENDPOINT", "seahealth-vs")
+    monkeypatch.setenv("SEAHEALTH_VS_INDEX", "workspace.seahealth_silver.chunks_index")
+    monkeypatch.delenv("DATABRICKS_SQL_HTTP_PATH", raising=False)
+    monkeypatch.delenv("SEAHEALTH_API_MODE", raising=False)
+    data_access.reset_mode_cache()
+
+    resp = client.get("/health/data")
+    body = resp.json()
+    assert body["retriever_mode"] == "vector_search"
+    assert body["vs_endpoint"] == "seahealth-vs"
+    assert body["vs_index"] == "workspace.seahealth_silver.chunks_index"
 
 
 # ---------------------------------------------------------------------------
