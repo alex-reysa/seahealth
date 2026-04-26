@@ -1,0 +1,785 @@
+openapi: 3.1.0
+info:
+  title: SeaHealth API
+  description: Phase-4 surface. Endpoints read through a unified data-access layer
+    that auto-detects DELTA -> PARQUET -> FIXTURE and falls back gracefully so the
+    demo never hard-stops.
+  version: 0.2.0
+paths:
+  /health:
+    get:
+      summary: Health
+      description: Liveness probe.
+      operationId: health_health_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                additionalProperties: true
+                type: object
+                title: Response Health Health Get
+  /health/data:
+    get:
+      summary: Health Data
+      description: Current data-mode snapshot. Useful for the demo to confirm wiring.
+      operationId: health_data_health_data_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthDataResponse'
+  /summary:
+    get:
+      summary: Get Summary
+      description: Dashboard summary tile (audited / verified / flagged counts).
+      operationId: get_summary_summary_get
+      parameters:
+      - name: capability_type
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - $ref: '#/components/schemas/CapabilityType'
+          - type: 'null'
+          title: Capability Type
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SummaryMetrics'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /query:
+    post:
+      summary: Post Query
+      description: 'Planner Console query endpoint.
+
+
+        Routes through :func:`seahealth.agents.query.run_query` when real audit
+
+        data is present (DELTA / PARQUET modes). In FIXTURE mode we serve the
+
+        bundled ``demo_query_appendectomy.json`` so the demo always returns a
+
+        populated ranked list. ``use_llm`` is enabled only when
+
+        ``ANTHROPIC_API_KEY`` is present; otherwise the deterministic heuristic
+
+        path runs (no network calls).'
+      operationId: post_query_query_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/QueryRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QueryResult'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /facilities/{facility_id}:
+    get:
+      summary: Get Facility
+      description: Facility Audit page payload.
+      operationId: get_facility_facilities__facility_id__get
+      parameters:
+      - name: facility_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Facility Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FacilityAudit'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /map/aggregates:
+    get:
+      summary: Get Map Aggregates
+      description: Desert Map choropleth payload.
+      operationId: get_map_aggregates_map_aggregates_get
+      parameters:
+      - name: capability_type
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - $ref: '#/components/schemas/CapabilityType'
+          - type: 'null'
+          title: Capability Type
+      - name: radius_km
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Radius Km
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/MapRegionAggregate'
+                title: Response Get Map Aggregates Map Aggregates Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /facilities:
+    get:
+      summary: List Facilities
+      description: Faceted facility list. ``limit`` is validated to ``1 <= limit <=
+        50``.
+      operationId: list_facilities_facilities_get
+      parameters:
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 50
+          minimum: 1
+          description: Maximum number of audits to return (1-50, default 50).
+          default: 50
+          title: Limit
+        description: Maximum number of audits to return (1-50, default 50).
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/FacilityAudit'
+                title: Response List Facilities Facilities Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+components:
+  schemas:
+    Capability:
+      properties:
+        facility_id:
+          type: string
+          title: Facility Id
+        capability_type:
+          $ref: '#/components/schemas/CapabilityType'
+        claimed:
+          type: boolean
+          title: Claimed
+          description: True if the source asserts the facility offers this capability.
+        evidence_refs:
+          items:
+            $ref: '#/components/schemas/EvidenceRef'
+          type: array
+          title: Evidence Refs
+          description: All evidence supporting the claim/denial.
+        source_doc_id:
+          type: string
+          title: Source Doc Id
+          description: Primary doc the claim was extracted from.
+        extracted_at:
+          type: string
+          title: Extracted At
+        extractor_model:
+          type: string
+          title: Extractor Model
+          description: Model id used for extraction (e.g. 'databricks-meta-llama-3-1-70b-instruct').
+      type: object
+      required:
+      - facility_id
+      - capability_type
+      - claimed
+      - source_doc_id
+      - extracted_at
+      - extractor_model
+      title: Capability
+      description: A single claimed-or-denied capability for one facility, with evidence
+        chain.
+    CapabilityType:
+      type: string
+      enum:
+      - ICU
+      - SURGERY_GENERAL
+      - SURGERY_APPENDECTOMY
+      - DIALYSIS
+      - ONCOLOGY
+      - NEONATAL
+      - TRAUMA
+      - MATERNAL
+      - RADIOLOGY
+      - LAB
+      - PHARMACY
+      - EMERGENCY_24_7
+      title: CapabilityType
+      description: Closed set of facility capabilities considered in scope for the
+        hackathon demo.
+    Contradiction:
+      properties:
+        contradiction_type:
+          $ref: '#/components/schemas/ContradictionType'
+        capability_type:
+          $ref: '#/components/schemas/CapabilityType'
+        facility_id:
+          type: string
+          title: Facility Id
+        evidence_for:
+          items:
+            $ref: '#/components/schemas/EvidenceRef'
+          type: array
+          title: Evidence For
+          description: Evidence supporting the original claim.
+        evidence_against:
+          items:
+            $ref: '#/components/schemas/EvidenceRef'
+          type: array
+          title: Evidence Against
+          description: Evidence undermining the claim.
+        severity:
+          type: string
+          enum:
+          - LOW
+          - MEDIUM
+          - HIGH
+          title: Severity
+        reasoning:
+          type: string
+          title: Reasoning
+          description: One-sentence model-generated rationale.
+        detected_by:
+          type: string
+          title: Detected By
+          description: Validator agent id (e.g. 'validator.equipment_v1').
+        detected_at:
+          type: string
+          title: Detected At
+      type: object
+      required:
+      - contradiction_type
+      - capability_type
+      - facility_id
+      - severity
+      - reasoning
+      - detected_by
+      - detected_at
+      title: Contradiction
+      description: 'A single detected contradiction tying a claim to the evidence
+        that contests it.
+
+
+        Rendered as a flag in FacilityAudit and RankedFacility.'
+    ContradictionType:
+      type: string
+      enum:
+      - MISSING_EQUIPMENT
+      - MISSING_STAFF
+      - VOLUME_MISMATCH
+      - TEMPORAL_UNVERIFIED
+      - CONFLICTING_SOURCES
+      - STALE_DATA
+      title: ContradictionType
+      description: Closed taxonomy of validator-detectable contradictions for the
+        hackathon demo.
+    EvidenceRef:
+      properties:
+        source_doc_id:
+          type: string
+          title: Source Doc Id
+          description: Stable id of the originating document.
+        facility_id:
+          type: string
+          title: Facility Id
+          description: Facility this evidence is attached to.
+        chunk_id:
+          type: string
+          title: Chunk Id
+          description: Id of the chunk within the indexed doc.
+        row_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Row Id
+          description: Row id when source is tabular (staff/equipment/volume).
+        span:
+          prefixItems:
+          - type: integer
+          - type: integer
+          type: array
+          maxItems: 2
+          minItems: 2
+          title: Span
+          description: (start, end) char offsets within the chunk text.
+        snippet:
+          type: string
+          title: Snippet
+          description: The highlighted sentence rendered in the citation chip.
+        source_type:
+          type: string
+          enum:
+          - facility_note
+          - staff_roster
+          - equipment_inventory
+          - volume_report
+          - external
+          title: Source Type
+          description: Provenance class for downstream weighting.
+        source_observed_at:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Source Observed At
+          description: When the source content was published, observed, or last updated;
+            used for STALE_DATA.
+        retrieved_at:
+          type: string
+          title: Retrieved At
+          description: When the retrieval/extraction step pulled this evidence.
+      type: object
+      required:
+      - source_doc_id
+      - facility_id
+      - chunk_id
+      - span
+      - snippet
+      - source_type
+      - retrieved_at
+      title: EvidenceRef
+      description: 'A pointer to the exact span in a source document that supports
+        or refutes a claim.
+
+
+        Every UI citation chip resolves through this object.'
+    FacilityAudit:
+      properties:
+        facility_id:
+          type: string
+          title: Facility Id
+        name:
+          type: string
+          title: Name
+        location:
+          $ref: '#/components/schemas/GeoPoint'
+        capabilities:
+          items:
+            $ref: '#/components/schemas/Capability'
+          type: array
+          title: Capabilities
+        trust_scores:
+          additionalProperties:
+            $ref: '#/components/schemas/TrustScore'
+          propertyNames:
+            $ref: '#/components/schemas/CapabilityType'
+          type: object
+          title: Trust Scores
+          description: Keyed by CapabilityType for O(1) lookup from the UI.
+        total_contradictions:
+          type: integer
+          minimum: 0.0
+          title: Total Contradictions
+          description: Denormalized sum across trust_scores[*].contradictions; used
+            for UI sort/filter.
+          default: 0
+        last_audited_at:
+          type: string
+          title: Last Audited At
+        mlflow_trace_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Mlflow Trace Id
+          description: MLflow trace id linking to the agent run that produced this
+            audit (transparency view).
+      type: object
+      required:
+      - facility_id
+      - name
+      - location
+      - last_audited_at
+      title: FacilityAudit
+      description: 'Canonical per-facility audit record.
+
+
+        The Planner Console, Facility Card, Trust Score drawer, and contradiction
+        list
+
+        all read from this shape.'
+    GeoPoint:
+      properties:
+        lat:
+          type: number
+          maximum: 90.0
+          minimum: -90.0
+          title: Lat
+          description: Latitude in decimal degrees.
+        lng:
+          type: number
+          maximum: 180.0
+          minimum: -180.0
+          title: Lng
+          description: Longitude in decimal degrees.
+        pin_code:
+          anyOf:
+          - type: string
+            pattern: ^\d{6}$
+          - type: 'null'
+          title: Pin Code
+          description: Indian Postal Index Number, exactly 6 digits.
+      type: object
+      required:
+      - lat
+      - lng
+      title: GeoPoint
+      description: A geographic point with optional Indian PIN code.
+    HTTPValidationError:
+      properties:
+        detail:
+          items:
+            $ref: '#/components/schemas/ValidationError'
+          type: array
+          title: Detail
+      type: object
+      title: HTTPValidationError
+    HealthDataResponse:
+      properties:
+        mode:
+          type: string
+          title: Mode
+        facility_audits_path:
+          type: string
+          title: Facility Audits Path
+        delta_reachable:
+          type: boolean
+          title: Delta Reachable
+      type: object
+      required:
+      - mode
+      - facility_audits_path
+      - delta_reachable
+      title: HealthDataResponse
+      description: GET /health/data payload (used by the demo to confirm data wiring).
+    MapRegionAggregate:
+      properties:
+        region_id:
+          type: string
+          title: Region Id
+          description: Stable region identifier (e.g. district code).
+        region_name:
+          type: string
+          title: Region Name
+          description: Human-readable region name.
+        state:
+          type: string
+          title: State
+          description: State or province the region belongs to.
+        capability_type:
+          $ref: '#/components/schemas/CapabilityType'
+        population:
+          type: integer
+          minimum: 0.0
+          title: Population
+          description: Total population in the region.
+        verified_facilities_count:
+          type: integer
+          minimum: 0.0
+          title: Verified Facilities Count
+          description: Facilities with verified coverage for this capability.
+        flagged_facilities_count:
+          type: integer
+          minimum: 0.0
+          title: Flagged Facilities Count
+          description: Facilities flagged with at least one contradiction.
+        gap_population:
+          type: integer
+          minimum: 0.0
+          title: Gap Population
+          description: Population minus a coverage estimate for this capability (uncovered
+            population).
+        centroid:
+          $ref: '#/components/schemas/GeoPoint'
+          description: Geographic centroid of the region.
+      type: object
+      required:
+      - region_id
+      - region_name
+      - state
+      - capability_type
+      - population
+      - verified_facilities_count
+      - flagged_facilities_count
+      - gap_population
+      - centroid
+      title: MapRegionAggregate
+      description: Desert Map rollup for one region and capability, sized for the
+        UI map layer.
+    ParsedIntent:
+      properties:
+        capability_type:
+          $ref: '#/components/schemas/CapabilityType'
+        location:
+          $ref: '#/components/schemas/GeoPoint'
+        radius_km:
+          type: number
+          exclusiveMinimum: 0.0
+          title: Radius Km
+          description: Search radius around location in kilometers.
+      type: object
+      required:
+      - capability_type
+      - location
+      - radius_km
+      title: ParsedIntent
+      description: Structured query intent used by retrieval and ranking.
+    QueryRequest:
+      properties:
+        query:
+          type: string
+          title: Query
+      type: object
+      required:
+      - query
+      title: QueryRequest
+      description: POST /query body.
+    QueryResult:
+      properties:
+        query:
+          type: string
+          title: Query
+          description: Natural-language query as the user asked it.
+        parsed_intent:
+          $ref: '#/components/schemas/ParsedIntent'
+        ranked_facilities:
+          items:
+            $ref: '#/components/schemas/RankedFacility'
+          type: array
+          title: Ranked Facilities
+        total_candidates:
+          type: integer
+          minimum: 0.0
+          title: Total Candidates
+          description: Candidates considered before ranking/cutoff.
+        query_trace_id:
+          type: string
+          title: Query Trace Id
+          description: MLflow trace id for the planner run.
+        generated_at:
+          type: string
+          title: Generated At
+      type: object
+      required:
+      - query
+      - parsed_intent
+      - total_candidates
+      - query_trace_id
+      - generated_at
+      title: QueryResult
+      description: Planner Console output for the appendectomy demo query.
+    RankedFacility:
+      properties:
+        facility_id:
+          type: string
+          title: Facility Id
+        name:
+          type: string
+          title: Name
+        location:
+          $ref: '#/components/schemas/GeoPoint'
+        distance_km:
+          type: number
+          minimum: 0.0
+          title: Distance Km
+          description: Great-circle distance from query origin.
+        trust_score:
+          $ref: '#/components/schemas/TrustScore'
+          description: TrustScore for the capability the query asked about.
+        contradictions_flagged:
+          type: integer
+          minimum: 0.0
+          title: Contradictions Flagged
+        evidence_count:
+          type: integer
+          minimum: 0.0
+          title: Evidence Count
+        rank:
+          type: integer
+          minimum: 1.0
+          title: Rank
+          description: 1-indexed rank in the result list.
+      type: object
+      required:
+      - facility_id
+      - name
+      - location
+      - distance_km
+      - trust_score
+      - contradictions_flagged
+      - evidence_count
+      - rank
+      title: RankedFacility
+      description: One row in a QueryResult with the relevant capability's TrustScore.
+    SummaryMetrics:
+      properties:
+        audited_count:
+          type: integer
+          minimum: 0.0
+          title: Audited Count
+          description: Total audited facilities (or rows when capability_type is set).
+        verified_count:
+          type: integer
+          minimum: 0.0
+          title: Verified Count
+          description: Count where TrustScore.score >= 80 AND no HIGH-severity contradiction.
+        flagged_count:
+          type: integer
+          minimum: 0.0
+          title: Flagged Count
+          description: Count where total_contradictions > 0.
+        last_audited_at:
+          type: string
+          title: Last Audited At
+          description: Most recent FacilityAudit.last_audited_at across the aggregate.
+        capability_type:
+          anyOf:
+          - $ref: '#/components/schemas/CapabilityType'
+          - type: 'null'
+          description: When set, all counts are restricted to this capability; otherwise
+            global.
+      type: object
+      required:
+      - audited_count
+      - verified_count
+      - flagged_count
+      - last_audited_at
+      title: SummaryMetrics
+      description: 'High-level audit tallies for the home/summary tile.
+
+
+        Verified = TrustScore.score >= 80 AND no HIGH-severity contradiction.
+
+        Flagged  = total_contradictions > 0.'
+    TrustScore:
+      properties:
+        capability_type:
+          $ref: '#/components/schemas/CapabilityType'
+        claimed:
+          type: boolean
+          title: Claimed
+        evidence:
+          items:
+            $ref: '#/components/schemas/EvidenceRef'
+          type: array
+          title: Evidence
+        contradictions:
+          items:
+            $ref: '#/components/schemas/Contradiction'
+          type: array
+          title: Contradictions
+        confidence:
+          type: number
+          maximum: 1.0
+          minimum: 0.0
+          title: Confidence
+          description: Model-reported probability the claim is true.
+        confidence_interval:
+          prefixItems:
+          - type: number
+          - type: number
+          type: array
+          maxItems: 2
+          minItems: 2
+          title: Confidence Interval
+          description: 95% CI on confidence; both endpoints in [0.0, 1.0], lo <= hi.
+        score:
+          type: integer
+          maximum: 100.0
+          minimum: 0.0
+          title: Score
+          description: Derived 0-100 headline number per the docstring formula.
+        reasoning:
+          type: string
+          title: Reasoning
+          description: Short paragraph, model-generated, shown in the Trust Score
+            drawer.
+        computed_at:
+          type: string
+          title: Computed At
+      type: object
+      required:
+      - capability_type
+      - claimed
+      - confidence
+      - confidence_interval
+      - score
+      - reasoning
+      - computed_at
+      title: TrustScore
+      description: "Per-capability trust assessment. First-class structured object\
+        \ \u2014 never a bare float.\n\nScore derivation (deterministic, document\
+        \ the mapping here so downstream agents agree):\n  base        = round(confidence\
+        \ * 100)            # 0..100\n  penalty     = sum of severity weights across\
+        \ contradictions\n                (LOW=5, MEDIUM=15, HIGH=30)\n  score   \
+        \    = max(0, min(100, base - penalty))\n\nBands used by the UI:\n  80-100\
+        \ = green, 50-79 = amber, 0-49 = red."
+    ValidationError:
+      properties:
+        loc:
+          items:
+            anyOf:
+            - type: string
+            - type: integer
+          type: array
+          title: Location
+        msg:
+          type: string
+          title: Message
+        type:
+          type: string
+          title: Error Type
+        input:
+          title: Input
+        ctx:
+          type: object
+          title: Context
+      type: object
+      required:
+      - loc
+      - msg
+      - type
+      title: ValidationError

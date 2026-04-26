@@ -1,0 +1,30 @@
+[
+  {
+    "chunk_id": "vf_00042_janta_hospital_patna::facility_note",
+    "facility_id": "vf_00042_janta_hospital_patna",
+    "source_type": "facility_note",
+    "source_doc_id": "vf_00042_janta_hospital_patna",
+    "text": "Janta Hospital is a 50-bed multispecialty hospital in Patna offering general surgery including appendectomy."
+  },
+  {
+    "chunk_id": "vf_00042_janta_hospital_patna::staff_roster",
+    "facility_id": "vf_00042_janta_hospital_patna",
+    "source_type": "staff_roster",
+    "source_doc_id": "vf_00042_janta_hospital_patna",
+    "text": "On-site staff: 4 general surgeons, no dedicated anesthesiologist."
+  },
+  {
+    "chunk_id": "vf_00042_janta_hospital_patna::equipment_inventory",
+    "facility_id": "vf_00042_janta_hospital_patna",
+    "source_type": "equipment_inventory",
+    "source_doc_id": "vf_00042_janta_hospital_patna",
+    "text": "Equipment: anesthesia machine, laparoscopy tower, X-ray, ultrasound."
+  },
+  {
+    "chunk_id": "vf_00042_janta_hospital_patna::volume_report",
+    "facility_id": "vf_00042_janta_hospital_patna",
+    "source_type": "volume_report",
+    "source_doc_id": "vf_00042_janta_hospital_patna",
+    "text": "Capacity: 50 beds, 2 operation theaters."
+  }
+]

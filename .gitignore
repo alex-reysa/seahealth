@@ -25,6 +25,10 @@ venv/
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+__main__.py.cache
 
 # Node / app
 node_modules/
@@ -40,6 +44,14 @@ build/
 *.xlsx
 *.parquet
 data/
+tables/
+!app/src/data/
+!app/src/data/demoData.ts
+
+# But DO commit small synthetic fixtures used by tests
+!tests/fixtures/**/*.csv
+!tests/fixtures/**/*.parquet
+!tests/fixtures/**/*.xlsx
 
 # MLflow / Databricks
 mlruns/

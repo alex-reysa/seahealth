@@ -1,0 +1,185 @@
+{
+  "_meta": {
+    "comment": "Hand-crafted scenarios driving the trust_scorer band tests. Each scenario contains the exact JSON needed to construct a Capability and a list of Contradictions via Pydantic. Scores derived per DATA_CONTRACT formula (see seahealth.agents.trust_scorer):\n  clean   -> confidence=0.95, score=95 (green band, >=80)\n  flagged -> confidence=0.95, penalty=60, score=35 (red band, <=49)\n  mixed   -> confidence=0.80, penalty=20, score=60 (amber band, 50-79)\n\nNote: the brief listed mixed as '1 evidence_ref + 1 MED + 1 LOW' but that math falls below 50 with the locked formula; we use 2 evidence_refs (still small, still mixed) so the deterministic recipe lands inside the amber band as required.",
+    "facility_id": "vf_00042_janta_hospital_patna"
+  },
+  "clean": {
+    "capability": {
+      "facility_id": "vf_00042_janta_hospital_patna",
+      "capability_type": "SURGERY_APPENDECTOMY",
+      "claimed": true,
+      "evidence_refs": [
+        {
+          "source_doc_id": "doc_clean_1",
+          "facility_id": "vf_00042_janta_hospital_patna",
+          "chunk_id": "chunk_facility_note",
+          "row_id": null,
+          "span": [0, 41],
+          "snippet": "Performs appendectomies via laparoscopy.",
+          "source_type": "facility_note",
+          "source_observed_at": "2025-12-01T00:00:00Z",
+          "retrieved_at": "2026-04-25T22:30:00Z"
+        },
+        {
+          "source_doc_id": "doc_clean_2",
+          "facility_id": "vf_00042_janta_hospital_patna",
+          "chunk_id": "chunk_staff_roster",
+          "row_id": "staff_42",
+          "span": [0, 36],
+          "snippet": "Two general surgeons on staff.",
+          "source_type": "staff_roster",
+          "source_observed_at": "2025-12-01T00:00:00Z",
+          "retrieved_at": "2026-04-25T22:30:00Z"
+        },
+        {
+          "source_doc_id": "doc_clean_3",
+          "facility_id": "vf_00042_janta_hospital_patna",
+          "chunk_id": "chunk_equipment_inventory",
+          "row_id": "equip_42",
+          "span": [0, 38],
+          "snippet": "Anesthesia machine and laparoscope.",
+          "source_type": "equipment_inventory",
+          "source_observed_at": "2025-12-01T00:00:00Z",
+          "retrieved_at": "2026-04-25T22:30:00Z"
+        }
+      ],
+      "source_doc_id": "doc_clean_1",
+      "extracted_at": "2026-04-25T22:30:00Z",
+      "extractor_model": "claude-sonnet-4-6"
+    },
+    "contradictions": [],
+    "expected_score_band": [80, 100],
+    "expected_score": 95
+  },
+  "flagged": {
+    "capability": {
+      "facility_id": "vf_00042_janta_hospital_patna",
+      "capability_type": "SURGERY_APPENDECTOMY",
+      "claimed": true,
+      "evidence_refs": [
+        {
+          "source_doc_id": "doc_flag_1",
+          "facility_id": "vf_00042_janta_hospital_patna",
+          "chunk_id": "chunk_facility_note",
+          "row_id": null,
+          "span": [0, 41],
+          "snippet": "Performs appendectomies via laparoscopy.",
+          "source_type": "facility_note",
+          "source_observed_at": "2025-12-01T00:00:00Z",
+          "retrieved_at": "2026-04-25T22:30:00Z"
+        },
+        {
+          "source_doc_id": "doc_flag_2",
+          "facility_id": "vf_00042_janta_hospital_patna",
+          "chunk_id": "chunk_staff_roster",
+          "row_id": "staff_42",
+          "span": [0, 36],
+          "snippet": "Two general surgeons on staff.",
+          "source_type": "staff_roster",
+          "source_observed_at": "2025-12-01T00:00:00Z",
+          "retrieved_at": "2026-04-25T22:30:00Z"
+        },
+        {
+          "source_doc_id": "doc_flag_3",
+          "facility_id": "vf_00042_janta_hospital_patna",
+          "chunk_id": "chunk_equipment_inventory",
+          "row_id": "equip_42",
+          "span": [0, 38],
+          "snippet": "Anesthesia machine and laparoscope.",
+          "source_type": "equipment_inventory",
+          "source_observed_at": "2025-12-01T00:00:00Z",
+          "retrieved_at": "2026-04-25T22:30:00Z"
+        }
+      ],
+      "source_doc_id": "doc_flag_1",
+      "extracted_at": "2026-04-25T22:30:00Z",
+      "extractor_model": "claude-sonnet-4-6"
+    },
+    "contradictions": [
+      {
+        "contradiction_type": "MISSING_STAFF",
+        "capability_type": "SURGERY_APPENDECTOMY",
+        "facility_id": "vf_00042_janta_hospital_patna",
+        "evidence_for": [],
+        "evidence_against": [],
+        "severity": "HIGH",
+        "reasoning": "Staff roster lists no general surgeon on duty.",
+        "detected_by": "validator.heuristics_v1",
+        "detected_at": "2026-04-25T22:30:00Z"
+      },
+      {
+        "contradiction_type": "CONFLICTING_SOURCES",
+        "capability_type": "SURGERY_APPENDECTOMY",
+        "facility_id": "vf_00042_janta_hospital_patna",
+        "evidence_for": [],
+        "evidence_against": [],
+        "severity": "HIGH",
+        "reasoning": "External directory denies surgical capability.",
+        "detected_by": "validator.v1.llm",
+        "detected_at": "2026-04-25T22:30:00Z"
+      }
+    ],
+    "expected_score_band": [0, 49],
+    "expected_score": 35
+  },
+  "mixed": {
+    "capability": {
+      "facility_id": "vf_00042_janta_hospital_patna",
+      "capability_type": "ICU",
+      "claimed": true,
+      "evidence_refs": [
+        {
+          "source_doc_id": "doc_mixed_1",
+          "facility_id": "vf_00042_janta_hospital_patna",
+          "chunk_id": "chunk_facility_note",
+          "row_id": null,
+          "span": [0, 30],
+          "snippet": "ICU available with 4 beds.",
+          "source_type": "facility_note",
+          "source_observed_at": "2024-01-01T00:00:00Z",
+          "retrieved_at": "2026-04-25T22:30:00Z"
+        },
+        {
+          "source_doc_id": "doc_mixed_2",
+          "facility_id": "vf_00042_janta_hospital_patna",
+          "chunk_id": "chunk_equipment_inventory",
+          "row_id": "equip_42",
+          "span": [0, 26],
+          "snippet": "One ventilator on site.",
+          "source_type": "equipment_inventory",
+          "source_observed_at": "2024-01-01T00:00:00Z",
+          "retrieved_at": "2026-04-25T22:30:00Z"
+        }
+      ],
+      "source_doc_id": "doc_mixed_1",
+      "extracted_at": "2026-04-25T22:30:00Z",
+      "extractor_model": "claude-sonnet-4-6"
+    },
+    "contradictions": [
+      {
+        "contradiction_type": "MISSING_STAFF",
+        "capability_type": "ICU",
+        "facility_id": "vf_00042_janta_hospital_patna",
+        "evidence_for": [],
+        "evidence_against": [],
+        "severity": "MEDIUM",
+        "reasoning": "Staff count below ICU threshold of 3.",
+        "detected_by": "validator.heuristics_v1",
+        "detected_at": "2026-04-25T22:30:00Z"
+      },
+      {
+        "contradiction_type": "STALE_DATA",
+        "capability_type": "ICU",
+        "facility_id": "vf_00042_janta_hospital_patna",
+        "evidence_for": [],
+        "evidence_against": [],
+        "severity": "LOW",
+        "reasoning": "Source last updated 27 months ago.",
+        "detected_by": "validator.heuristics_v1",
+        "detected_at": "2026-04-25T22:30:00Z"
+      }
+    ],
+    "expected_score_band": [50, 79],
+    "expected_score": 60
+  }
+}

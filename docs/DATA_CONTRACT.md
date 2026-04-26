@@ -32,9 +32,9 @@ class GeoPoint(BaseModel):
 
 ```python
 # src/schemas/capability_type.py — module contract.
-from enum import Enum
+from enum import StrEnum
 
-class CapabilityType(str, Enum):
+class CapabilityType(StrEnum):
     """Closed set of facility capabilities considered in scope for the hackathon demo."""
     ICU = "ICU"
     SURGERY_GENERAL = "SURGERY_GENERAL"
@@ -123,7 +123,7 @@ The taxonomy is **closed**. New types require an explicit DECISIONS.md entry and
 ```python
 # src/schemas/contradiction.py — module contract.
 from datetime import datetime
-from enum import Enum
+from enum import StrEnum
 from pydantic import BaseModel, Field
 from typing import List, Literal
 
@@ -132,7 +132,7 @@ from typing import List, Literal
 
 STALE_DATA_THRESHOLD_MONTHS: int = 24  # Evidence older than this trips STALE_DATA.
 
-class ContradictionType(str, Enum):
+class ContradictionType(StrEnum):
     """Closed taxonomy of validator-detectable contradictions for the hackathon demo."""
     MISSING_EQUIPMENT = "MISSING_EQUIPMENT"
     MISSING_STAFF = "MISSING_STAFF"
@@ -160,23 +160,27 @@ class Contradiction(BaseModel):
 
 ```python
 # src/schemas/evidence_assessment.py — module contract.
+from datetime import datetime
+from typing import Literal
 from pydantic import BaseModel, Field
-from typing import Optional
 
 # from .capability_type import CapabilityType
-# from .contradiction import ContradictionType
-# from .evidence import EvidenceRef, EvidenceStance
 
 class EvidenceAssessment(BaseModel):
-    """Validator judgment tying one evidence span to one capability."""
-    evidence_ref: EvidenceRef
-    stance: EvidenceStance
-    capability_type: CapabilityType
-    contradiction_type: Optional[ContradictionType] = Field(
-        default=None,
-        description="Set when stance='contradicts' and the contradiction maps to the closed taxonomy.",
+    """Validator's per-evidence stance, joined into the Facility Audit View.
+
+    Each row pins one evidence span to one capability claim and records whether the
+    Validator agent thinks that span verifies, contradicts, or is silent on the claim.
+    The join key is the EvidenceRef id — see seahealth.schemas.evidence_ref_id().
+    """
+    evidence_ref_id: str = Field(..., description="Stable id of the EvidenceRef this assessment refers to.")
+    capability_type: CapabilityType = Field(..., description="The capability this evidence was assessed against.")
+    facility_id: str = Field(..., description="Facility the evidence belongs to.")
+    stance: Literal["verifies", "contradicts", "silent"] = Field(
+        ..., description="Validator stance on this evidence relative to the capability claim."
     )
-    rationale: str = Field(..., description="One-sentence rationale for the stance.")
+    reasoning: str = Field(..., description="One-sentence Validator rationale for the stance.")
+    assessed_at: datetime = Field(..., description="When the Validator produced this stance.")
 ```
 
 ---
@@ -214,7 +218,7 @@ class TrustScore(BaseModel):
     confidence: float = Field(..., ge=0.0, le=1.0, description="Model-reported probability the claim is true.")
     confidence_interval: Tuple[float, float] = Field(
         ...,
-        description="95% CI on confidence; both endpoints in [0.0, 1.0], lo <= hi.",
+        description="95% CI on confidence; endpoints in [0.0, 1.0], lo <= confidence <= hi.",
     )
     score: int = Field(..., ge=0, le=100, description="Derived 0-100 headline number per the docstring formula.")
     reasoning: str = Field(..., description="Short paragraph, model-generated, shown in the Trust Score drawer.")
@@ -225,6 +229,7 @@ class TrustScore(BaseModel):
         lo, hi = self.confidence_interval
         if not (0.0 <= lo <= hi <= 1.0):
             raise ValueError("confidence_interval must satisfy 0.0 <= lo <= hi <= 1.0")
+        self.confidence_interval = (min(lo, self.confidence), max(hi, self.confidence))
         base = round(self.confidence * 100)
         penalty = sum(SEVERITY_PENALTY[c.severity] for c in self.contradictions)
         expected_score = max(0, min(100, base - penalty))
@@ -329,7 +334,7 @@ class RankedFacility(BaseModel):
     rank: int = Field(..., ge=1, description="1-indexed rank in the result list.")
 
 class QueryResult(BaseModel):
-    """Planner Console output. Drives the demo query: e.g. 'Which facilities within 50km can perform an appendectomy?'"""
+    """Planner Console output. Drives the demo query: e.g. 'Which facilities within 50km of Patna can perform an appendectomy?'"""
     query: str = Field(..., description="Natural-language query as the user asked it.")
     parsed_intent: ParsedIntent
     ranked_facilities: List[RankedFacility] = Field(default_factory=list)
@@ -378,9 +383,163 @@ class MapRegionAggregate(BaseModel):
 
 ---
 
+## Phase-1 additions (UI-driven)
+
+These three shapes are required by UI surfaces and were not previously defined in this contract. The implementations live in `src/seahealth/schemas/{evidence_assessment,summary,map}.py` and are re-exported from `src/seahealth/schemas/__init__.py`. Where a name overlaps with an earlier section (e.g. `EvidenceAssessment`, `PopulationReference`, `MapRegionAggregate`), the Phase-1 shape below is the slim variant the UI consumes; the richer Delta-rollup shapes from earlier sections remain valid for downstream gold tables, but the schema package exports the Phase-1 variant.
+
+### EvidenceAssessment
+
+```python
+# src/seahealth/schemas/evidence_assessment.py — module contract.
+# Validator's per-evidence stance, joined into the Facility Audit View.
+from datetime import datetime
+from typing import Literal
+from pydantic import BaseModel, Field
+
+# from .capability_type import CapabilityType
+
+class EvidenceAssessment(BaseModel):
+    """Validator's per-evidence stance, joined into the Facility Audit View."""
+    evidence_ref_id: str = Field(..., description="Stable id of the EvidenceRef this assessment refers to.")
+    capability_type: CapabilityType
+    facility_id: str
+    stance: Literal["verifies", "contradicts", "silent"]
+    reasoning: str = Field(..., description="One-sentence Validator rationale for the stance.")
+    assessed_at: datetime
+```
+
+> The evidence_ref_id MUST be `f"{source_doc_id}:{chunk_id}"`. See `seahealth.schemas.evidence_ref_id`.
+
+
+### SummaryMetrics
+
+```python
+# src/seahealth/schemas/summary.py — module contract.
+# Verified = TrustScore.score >= 80 AND no HIGH-severity contradiction.
+# Flagged  = total_contradictions > 0.
+from datetime import datetime
+from typing import Optional
+from pydantic import BaseModel, Field
+
+# from .capability_type import CapabilityType
+
+class SummaryMetrics(BaseModel):
+    """High-level audit tallies for the home/summary tile."""
+    audited_count: int = Field(..., ge=0)
+    verified_count: int = Field(..., ge=0, description="score>=80 AND no HIGH-severity contradiction.")
+    flagged_count: int = Field(..., ge=0, description="total_contradictions > 0.")
+    last_audited_at: datetime
+    capability_type: Optional[CapabilityType] = None
+```
+
+### MapRegionAggregate / PopulationReference
+
+```python
+# src/seahealth/schemas/map.py — module contract.
+from pydantic import BaseModel, Field
+
+# from .capability_type import CapabilityType
+# from .geo import GeoPoint
+
+class PopulationReference(BaseModel):
+    """Population denominator for one map region (UI variant)."""
+    region_id: str
+    population_total: int = Field(..., ge=0)
+
+class MapRegionAggregate(BaseModel):
+    """Desert Map rollup for one region and capability, sized for the UI map layer."""
+    region_id: str
+    region_name: str
+    state: str
+    capability_type: CapabilityType
+    population: int = Field(..., ge=0)
+    verified_facilities_count: int = Field(..., ge=0)
+    flagged_facilities_count: int = Field(..., ge=0)
+    gap_population: int = Field(..., ge=0, description="Population minus a coverage estimate for this capability.")
+    centroid: GeoPoint
+```
+
+---
+
+## Schema invariants
+
+These invariants are enforced in `src/seahealth/schemas/` and must remain stable unless
+`DECISIONS.md` records a schema bump.
+
+- All schema datetime fields are normalized to timezone-aware UTC. JSON serialization
+  uses ISO-8601 UTC with a trailing `Z` (for example, `2026-04-25T22:30:00Z`).
+- Nullable UI-facing fields stay nullable: `GeoPoint.pin_code`, `EvidenceRef.row_id`,
+  `EvidenceRef.source_observed_at`, `IndexedDoc.facility_id`,
+  `IndexedDoc.source_observed_at`, `FacilityAudit.mlflow_trace_id`, and
+  `SummaryMetrics.capability_type` may be `null`.
+- `EvidenceRef.span` must satisfy `start >= 0`, `end >= 0`, and `start <= end`.
+- `evidence_ref_id(ref)` is the canonical join id for `EvidenceAssessment` and is
+  exactly `f"{ref.source_doc_id}:{ref.chunk_id}"`; it is deterministic and total for
+  any valid `EvidenceRef`.
+- `IndexedDoc.embedding` length is pinned by the exported `EMBEDDING_DIM` constant
+  (`1024`). Do not duplicate the dimension in callers.
+- `TrustScore.confidence_interval` input bounds must satisfy `0.0 <= lo <= hi <= 1.0`;
+  valid bounds are normalized outward when necessary so the stored model satisfies
+  `lo <= confidence <= hi`.
+- `TrustScore.score` is deterministic:
+  `clamp(round(confidence * 100) - severity_penalty_sum, 0, 100)`, where
+  `LOW=5`, `MEDIUM=15`, and `HIGH=30`.
+- `MapRegionAggregate.gap_population` must be non-negative.
+
+---
+
 ## Change log
 
 _Any change to this file after hour 4 must be logged here AND in `DECISIONS.md`._
 
-- **2026-04-25** — Initial schema lock — all canonical schemas defined (`GeoPoint`, `CapabilityType`, `EvidenceRef`, `Capability`, `ContradictionType`, `Contradiction`, `TrustScore`, `FacilityAudit`, `IndexedDoc`, `QueryResult`, `RankedFacility`). Schema owner: **Alejandro (acting schema owner).**
+- **2026-04-25** — Initial schema lock — all canonical schemas defined (`GeoPoint`, `CapabilityType`, `EvidenceRef`, `EvidenceStance`, `EvidenceAssessment`, `Capability`, `ContradictionType`, `Contradiction`, `TrustScore`, `FacilityAudit`, `IndexedDoc`, `ParsedIntent`, `QueryResult`, `RankedFacility`, `PopulationReference`, `MapRegionAggregate`). Schema owner: **Alejandro (acting schema owner).**
 - **2026-04-25** — Schema-lock hardening: added `EvidenceStance`, `EvidenceAssessment`, typed source dates, aligned `SourceType`, typed `ParsedIntent`, ranked facility location, Desert Map population aggregates, and deterministic `TrustScore.score` validation.
+- **2026-04-25 22:30** — Added `EvidenceAssessment`, `SummaryMetrics`, `MapRegionAggregate`, `PopulationReference`. Reason: required by UI surfaces; not previously defined.
+- **2026-04-25** — Added schema invariants for UTC/Z datetime serialization, evidence span bounds, confidence interval containment, embedding dimension source of truth, non-negative map gap population, and `evidence_ref_id` join semantics.
+- **2026-04-26 — MLT-1: `Capability.mlflow_trace_id`.** Added `Optional[str]` field to `Capability` (default `None`). Stamped at extraction time by `seahealth.pipelines.extract`, which (a) prefers a real MLflow trace id when `MLFLOW_TRACKING_URI` is configured and (b) otherwise synthesizes a deterministic local id of the form `local::<facility_id>::<run_uuid>` — `run_uuid` is generated once per `extract.main()` invocation so every Capability emitted by the same run shares it, and the per-facility prefix keeps each Capability's id unique. Capabilities serialized before this field existed deserialize as `mlflow_trace_id=None` and round-trip cleanly. Downstream `FacilityAudit.mlflow_trace_id` is resolved by `build_facility_audit` as: explicit `mlflow_trace_id` argument wins; otherwise pick the first non-null `mlflow_trace_id` across `capabilities`. The Phase-2 capabilities parquet gains an `mlflow_trace_id` column; `seahealth.pipelines.build_audits` tolerates a missing column for legacy parquets produced before this change.
+- **2026-04-26** — `ParsedIntent.staffing_qualifier` (MQ-1).
+
+---
+
+## ParsedIntent.staffing_qualifier (MQ-1, append-only)
+
+`ParsedIntent` gains an OPTIONAL closed-taxonomy qualifier so the locked example
+query — *"Find the nearest facility in rural Bihar that can perform an emergency
+appendectomy and typically leverages parttime doctors."* — parses end-to-end.
+
+```python
+StaffingQualifier = Literal["parttime", "fulltime", "twentyfour_seven", "low_volume"]
+
+class ParsedIntent(BaseModel):
+    capability_type: CapabilityType
+    location: GeoPoint
+    radius_km: float = Field(..., gt=0.0, ...)
+    staffing_qualifier: StaffingQualifier | None = None  # NEW (MQ-1)
+```
+
+**Backward compatibility.** The field is optional with a `None` default.
+Every existing producer / consumer continues to validate without change.
+
+**Heuristic parser hooks** (case-insensitive, in `seahealth.agents.query`):
+
+- `parttime`, `part-time`, `part time` → `"parttime"`
+- `24/7`, `24x7`, `24 hours`, `round-the-clock` → `"twentyfour_seven"`
+- `fulltime`, `full-time` → `"fulltime"`
+- `low volume`, `few beds`, `small (facility|hospital|clinic)` → `"low_volume"`
+
+**Re-rank semantics — soft tiebreaker, never a hard filter.** When a
+qualifier is present, each candidate's `numberDoctors` (read from
+`tables/facilities_index.parquet`, side-loaded by `tool_search_facilities`)
+contributes a delta in `[-5, +5]` to a *sort-only* boosted score. The raw
+`TrustScore.score` is left untouched on the wire. Facilities with missing
+`numberDoctors` contribute a neutral 0 delta and are never dropped — the
+trust narrative is "we don't pretend to know more than the data shows."
+
+| qualifier         | numberDoctors ∈ [1, 5] | numberDoctors ≥ 10 | numberDoctors ≥ 15 | missing |
+| ----------------- | ---------------------- | ------------------ | ------------------ | ------- |
+| `parttime`        | +5                     | 0                  | -5                 | 0       |
+| `low_volume`      | +5                     | 0                  | -5                 | 0       |
+| `fulltime`        | -5                     | 0                  | +5                 | 0       |
+| `twentyfour_seven`| 0                      | +5                 | +5                 | 0       |
+
+Sort key: `(-clamp(score+delta, 0, 100), -score, distance_km)`.
