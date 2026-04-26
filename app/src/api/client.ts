@@ -46,11 +46,15 @@ interface ImportMetaEnvShape {
 }
 
 function readEnv(): ImportMetaEnvShape {
-  // Vite injects build-time env into `import.meta.env`. Guard for tests /
-  // SSR where it might be undefined.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const env = (import.meta as any)?.env ?? {};
-  return env as ImportMetaEnvShape;
+  // Vite only replaces *static* `import.meta.env.VITE_FOO` references at
+  // build time. A dynamic `(import.meta as any).env` access stays in the
+  // bundle as a runtime read — and `import.meta.env` is undefined in a
+  // plain browser, so every var silently resolved to undefined and the UI
+  // stayed in demo mode no matter what was set in Vercel project env.
+  return {
+    VITE_SEAHEALTH_API_BASE: import.meta.env.VITE_SEAHEALTH_API_BASE,
+    VITE_SEAHEALTH_API_MODE: import.meta.env.VITE_SEAHEALTH_API_MODE,
+  };
 }
 
 export function resolveApiMode(): ApiMode {

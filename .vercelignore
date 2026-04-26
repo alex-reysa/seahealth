@@ -1,6 +1,4 @@
-tables/
 .venv/
-*.parquet
 *.csv
 *.xlsx
 topoJson/
@@ -10,8 +8,19 @@ india_health_facilities_check_labels_final_v2.xlsx
 .ruff_cache/
 __pycache__/
 .databricks/
-src/seahealth/
 tests/
 /fixtures/
 docs/
-.claude/worktrees/
+.claude/
+
+# Keep pyproject.toml out so Vercel's Python builder falls back to the
+# trimmed requirements.txt (pyproject.toml lists databricks-sdk +
+# pandas which together push the bundle past Lambda's 500 MB limit).
+pyproject.toml
+
+# Keep the unused 3.7 MB chunks parquet out of the function bundle —
+# the unwired retriever is the only consumer and the API never touches it.
+tables/chunks.parquet
+tables/capabilities.parquet
+tables/contradictions.parquet
+tables/evidence_assessments.parquet

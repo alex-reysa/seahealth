@@ -35,6 +35,7 @@ from seahealth.schemas import (
     TrustScore,
 )
 
+from ._mlflow_helpers import mlflow_span
 from .llm_client import DEFAULT_LIGHT_MODEL
 
 log = logging.getLogger(__name__)
@@ -233,30 +234,37 @@ def score_capability(
     Returns:
         A fully-validated :class:`TrustScore`.
     """
-    confidence = _compute_confidence(cap)
-    score = _score_from(confidence, contradictions)
-    ci_lo, ci_hi = _bootstrap_ci(confidence, contradictions, rng_seed=rng_seed)
+    span_attrs = {
+        "facility_id": cap.facility_id,
+        "capability_type": cap.capability_type.value,
+        "contradiction_count": len(contradictions),
+        "use_llm": use_llm,
+    }
+    with mlflow_span("seahealth.trust_scorer.score_capability", attrs=span_attrs):
+        confidence = _compute_confidence(cap)
+        score = _score_from(confidence, contradictions)
+        ci_lo, ci_hi = _bootstrap_ci(confidence, contradictions, rng_seed=rng_seed)
 
-    reasoning: str | None = None
-    if use_llm:
-        reasoning = _llm_reasoning(
-            cap,
-            contradictions,
-            score,
-            model=model,
-            client_factory=client_factory,
+        reasoning: str | None = None
+        if use_llm:
+            reasoning = _llm_reasoning(
+                cap,
+                contradictions,
+                score,
+                model=model,
+                client_factory=client_factory,
+            )
+        if reasoning is None:
+            reasoning = _templated_reasoning(score, len(cap.evidence_refs), contradictions)
+
+        return TrustScore(
+            capability_type=cap.capability_type,
+            claimed=cap.claimed,
+            evidence=list(cap.evidence_refs),
+            contradictions=list(contradictions),
+            confidence=confidence,
+            confidence_interval=(ci_lo, ci_hi),
+            score=score,
+            reasoning=reasoning,
+            computed_at=_utcnow(),
         )
-    if reasoning is None:
-        reasoning = _templated_reasoning(score, len(cap.evidence_refs), contradictions)
-
-    return TrustScore(
-        capability_type=cap.capability_type,
-        claimed=cap.claimed,
-        evidence=list(cap.evidence_refs),
-        contradictions=list(contradictions),
-        confidence=confidence,
-        confidence_interval=(ci_lo, ci_hi),
-        score=score,
-        reasoning=reasoning,
-        computed_at=_utcnow(),
-    )
