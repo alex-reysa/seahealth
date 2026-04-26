@@ -9,11 +9,13 @@ import { TrustScore } from '@/src/components/domain/TrustScore';
 import { TracePanel } from '@/src/components/domain/TracePanel';
 import {
   APPENDECTOMY_QUERY_RESULT,
+  CHALLENGE_QUERY,
   DEMO_QUERY,
   type CapabilityType,
   getCapabilityAudit,
   getCapabilityLabel,
   getFacilityRowsForRegion,
+  getQueryResultForCommand,
   getRankedFacilities,
   parseDemoCommand,
 } from '@/src/data/demoData';
@@ -39,13 +41,15 @@ export function PlannerQuery() {
   const [stage, setStage] = React.useState<AgentStage>(qParam ? 'complete' : 'idle');
   const [sortKey, setSortKey] = React.useState<SortKey>('rank');
   const [sortDirection, setSortDirection] = React.useState<'asc' | 'desc'>('asc');
+  const [expandedRows, setExpandedRows] = React.useState<Set<string>>(new Set());
 
   const intent = React.useMemo(() => parseDemoCommand(query || DEMO_QUERY), [query]);
+  const currentResult = React.useMemo(() => getQueryResultForCommand(query || DEMO_QUERY), [query]);
   const capability = intent.capability;
   const rows = React.useMemo(() => {
     const ranked =
-      capability === 'SURGERY_APPENDECTOMY' && intent.location === 'Patna'
-        ? getRankedFacilities(APPENDECTOMY_QUERY_RESULT)
+      capability === 'SURGERY_APPENDECTOMY'
+        ? getRankedFacilities(currentResult)
         : getFacilityRowsForRegion(intent.regionId, capability);
 
     return ranked
@@ -54,7 +58,7 @@ export function PlannerQuery() {
         return { facility, audit, rank: index + 1 };
       })
       .filter((row) => row.audit);
-  }, [capability, intent.regionId, intent.location]);
+  }, [capability, currentResult, intent.regionId]);
 
   const sortedRows = React.useMemo(() => {
     const sorted = [...rows].sort((a, b) => {
@@ -77,16 +81,11 @@ export function PlannerQuery() {
     return sorted;
   }, [rows, sortDirection, sortKey]);
 
-  const isInitialMount = React.useRef(true);
-
   React.useEffect(() => {
-    if (isInitialMount.current) {
-      isInitialMount.current = false;
-      if (qParam) {
-        setQuery(qParam);
-        setHasSearched(true);
-        setStage('complete');
-      }
+    if (qParam) {
+      setQuery(qParam);
+      setHasSearched(true);
+      setStage('complete');
     }
   }, [qParam]);
 
@@ -124,6 +123,28 @@ export function PlannerQuery() {
     navigate(`/facilities/${facilityId}?capability=${capability}&from=planner-query&q=${encodeURIComponent(query)}`);
   };
 
+  const toggleRow = (facilityId: string) => {
+    setExpandedRows((current) => {
+      const next = new Set(current);
+      if (next.has(facilityId)) {
+        next.delete(facilityId);
+      } else {
+        next.add(facilityId);
+      }
+      return next;
+    });
+  };
+
+  const getRankRationale = (facilityId: string, rank: number) => {
+    if (currentResult.queryTraceId === 'query_rural_bihar_appendectomy_staffing' && facilityId === 'facility_patna_medical') {
+      return 'Ranked first because it is the nearest staffing-matching facility with verified appendectomy evidence, part-time doctor notes, and the HIGH missing-anesthesiologist contradiction kept visible rather than hidden.';
+    }
+    if (currentResult.queryTraceId === APPENDECTOMY_QUERY_RESULT.queryTraceId) {
+      return `Rank #${rank} follows Trust Score descending with distance as the tie-breaker for the Patna appendectomy report.`;
+    }
+    return `Rank #${rank} follows the active capability score and regional distance rules.`;
+  };
+
   const exportCsv = () => {
     const header = [
       'query',
@@ -151,11 +172,11 @@ export function PlannerQuery() {
     const lines = sortedRows.map(({ facility, audit, rank }) =>
       [
         query,
-        APPENDECTOMY_QUERY_RESULT.queryTraceId,
-        APPENDECTOMY_QUERY_RESULT.generatedAt,
+        currentResult.queryTraceId,
+        currentResult.generatedAt,
         capability,
-        intent.location === 'Patna' ? APPENDECTOMY_QUERY_RESULT.parsedIntent.lat : '',
-        intent.location === 'Patna' ? APPENDECTOMY_QUERY_RESULT.parsedIntent.lng : '',
+        currentResult.parsedIntent.lat,
+        currentResult.parsedIntent.lng,
         intent.pinCode,
         intent.radiusKm,
         rank,
@@ -228,14 +249,21 @@ export function PlannerQuery() {
               {stage !== 'idle' && stage !== 'complete' ? 'Running...' : 'Run Query'}
             </Button>
           </div>
-          <div className="flex items-center gap-2 text-caption">
-            <span className="text-content-secondary">Demo chip:</span>
+          <div className="flex items-center gap-2 text-caption flex-wrap">
+            <span className="text-content-secondary">Demo chips:</span>
+            <button
+              type="button"
+              onClick={() => handleChipClick(CHALLENGE_QUERY)}
+              className="bg-surface-sunken hover:bg-border-subtle text-content-primary px-3 py-1 rounded-full transition-colors border border-border-default"
+            >
+              Challenge staffing query
+            </button>
             <button
               type="button"
               onClick={() => handleChipClick(DEMO_QUERY)}
               className="bg-surface-sunken hover:bg-border-subtle text-content-primary px-3 py-1 rounded-full transition-colors border border-border-default"
             >
-              {DEMO_QUERY}
+              Patna 50km appendectomy
             </button>
           </div>
         </form>
@@ -268,35 +296,67 @@ export function PlannerQuery() {
                     </tr>
                   </thead>
                   <tbody>
-                    {sortedRows.map(({ facility, audit, rank }) => (
-                      <tr
-                        key={facility.id}
-                        tabIndex={0}
-                        onClick={() => handleRowOpen(facility.id)}
-                        onKeyDown={(event) => event.key === 'Enter' && handleRowOpen(facility.id)}
-                        className="border-b border-border-subtle hover:bg-surface-canvas-tint focus:bg-surface-canvas-tint focus:outline-none cursor-pointer transition-colors group"
-                      >
-                        <td className="px-4 py-4 text-body font-mono text-content-secondary">#{rank}</td>
-                        <td className="px-4 py-4 text-body font-medium text-content-primary">{facility.name}</td>
-                        <td className="px-4 py-4 text-body text-content-secondary">PIN {facility.pinCode}</td>
-                        <td className="px-4 py-4 text-body text-content-secondary">{facility.distanceKm} km</td>
-                        <td className="px-4 py-4">{audit && <TrustScore score={audit.score} confidenceInterval={audit.confidenceInterval} showLabel={false} />}</td>
-                        <td className="px-4 py-4 text-center">
-                          {(audit?.contradictionCount ?? 0) > 0 ? (
-                            <div className="inline-flex items-center gap-1 text-semantic-critical bg-semantic-critical-subtle px-2 py-0.5 rounded-sm text-caption font-medium">
-                              <ShieldAlert className="w-3.5 h-3.5" />
-                              {audit?.contradictionCount}
-                            </div>
-                          ) : (
-                            <span className="text-content-tertiary">-</span>
+                    {sortedRows.map(({ facility, audit, rank }) => {
+                      const isExpanded = expandedRows.has(facility.id);
+                      return (
+                        <React.Fragment key={facility.id}>
+                          <tr className="border-b border-border-subtle hover:bg-surface-canvas-tint transition-colors group">
+                            <td className="px-4 py-4 text-body font-mono text-content-secondary">#{rank}</td>
+                            <td className="px-4 py-4 text-body font-medium text-content-primary">{facility.name}</td>
+                            <td className="px-4 py-4 text-body text-content-secondary">PIN {facility.pinCode}</td>
+                            <td className="px-4 py-4 text-body text-content-secondary">{facility.distanceKm} km</td>
+                            <td className="px-4 py-4">{audit && <TrustScore score={audit.score} confidenceInterval={audit.confidenceInterval} showLabel={false} />}</td>
+                            <td className="px-4 py-4 text-center">
+                              {(audit?.contradictionCount ?? 0) > 0 ? (
+                                <div className="inline-flex items-center gap-1 text-semantic-critical bg-semantic-critical-subtle px-2 py-0.5 rounded-sm text-caption font-medium">
+                                  <ShieldAlert className="w-3.5 h-3.5" />
+                                  HIGH / {audit?.contradictionCount}
+                                </div>
+                              ) : (
+                                <span className="text-content-tertiary">-</span>
+                              )}
+                            </td>
+                            <td className="px-4 py-4 text-center text-body text-content-secondary">{audit?.evidenceCount}</td>
+                            <td className="px-4 py-4 text-right">
+                              <div className="flex items-center justify-end gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => toggleRow(facility.id)}
+                                  className="text-caption text-accent-primary hover:text-accent-primary-hover"
+                                  aria-expanded={isExpanded}
+                                >
+                                  Why this rank?
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleRowOpen(facility.id)}
+                                  className="inline-flex items-center gap-1 text-caption text-content-secondary hover:text-accent-primary"
+                                >
+                                  Open audit
+                                  <ChevronRight className="w-4 h-4" />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                          {isExpanded && (
+                            <tr className="border-b border-border-subtle bg-surface-canvas-tint">
+                              <td colSpan={8} className="px-4 py-4">
+                                <div className="grid grid-cols-[1fr_auto] gap-4 rounded-lg border border-border-subtle bg-white p-4">
+                                  <div>
+                                    <div className="text-caption font-semibold uppercase tracking-wider text-content-secondary">Ranking rationale</div>
+                                    <p className="mt-2 text-body text-content-primary">{getRankRationale(facility.id, rank)}</p>
+                                    <p className="mt-2 text-caption text-content-secondary">
+                                      Trace: geocode, search, audit fetch, validation, and ranking steps are preserved in the side panel.
+                                    </p>
+                                  </div>
+                                  {audit && <TrustScore score={audit.score} confidenceInterval={audit.confidenceInterval} />}
+                                </div>
+                              </td>
+                            </tr>
                           )}
-                        </td>
-                        <td className="px-4 py-4 text-center text-body text-content-secondary">{audit?.evidenceCount}</td>
-                        <td className="px-4 py-4 text-right">
-                          <ChevronRight className="w-5 h-5 text-content-tertiary group-hover:text-accent-primary transition-colors inline-block" />
-                        </td>
-                      </tr>
-                    ))}
+                        </React.Fragment>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -323,17 +383,23 @@ export function PlannerQuery() {
                     <span className="text-caption text-content-tertiary">Radius</span>
                     <div className="text-body font-mono text-content-primary">{intent.radiusKm}km</div>
                   </div>
+                  {intent.staffingConstraint && (
+                    <div>
+                      <span className="text-caption text-content-tertiary">Staffing Constraint</span>
+                      <div className="text-body font-mono text-content-primary">{intent.staffingConstraint}</div>
+                    </div>
+                  )}
                   <div className="h-px bg-border-subtle my-1" />
                   <div>
                     <span className="text-caption text-content-tertiary">Candidates Evaluated</span>
-                    <div className="text-body font-medium text-content-primary">{APPENDECTOMY_QUERY_RESULT.totalCandidates} facilities</div>
+                    <div className="text-body font-medium text-content-primary">{currentResult.totalCandidates} facilities</div>
                   </div>
                 </Card>
               </div>
 
               <div className="flex flex-col gap-3">
                 <h3 className="text-caption font-semibold text-content-secondary uppercase tracking-wider">Agent Trace</h3>
-                <TracePanel queryTraceId={APPENDECTOMY_QUERY_RESULT.queryTraceId} spans={APPENDECTOMY_QUERY_RESULT.spans} />
+                <TracePanel queryTraceId={currentResult.queryTraceId} spans={currentResult.spans} />
               </div>
 
               <div className="flex flex-col gap-3 mt-4">

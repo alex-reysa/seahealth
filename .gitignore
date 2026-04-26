@@ -45,6 +45,8 @@ build/
 *.parquet
 data/
 tables/
+!app/src/data/
+!app/src/data/demoData.ts
 
 # But DO commit small synthetic fixtures used by tests
 !tests/fixtures/**/*.csv
