@@ -1,13 +1,12 @@
 import React from 'react';
 import { NavLink, useLocation, useSearchParams } from 'react-router-dom';
-import { LayoutDashboard, Map as MapIcon, Search, Stethoscope, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Map as MapIcon, Search, Stethoscope, ChevronLeft, ChevronRight } from 'lucide-react';
 import { cn } from '@/src/lib/utils';
 import { motion } from 'motion/react';
 
 const NAV_ITEMS = [
-  { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, path: '/' },
+  { id: 'map-workbench', label: 'Map Workbench', icon: MapIcon, path: '/' },
   { id: 'query', label: 'Planner Query', icon: Search, path: '/planner-query' },
-  { id: 'map', label: 'Desert Map', icon: MapIcon, path: '/desert-map' },
 ];
 
 export function Sidebar() {
@@ -79,8 +78,8 @@ export function Sidebar() {
       {expanded && (
         <div className="m-3 rounded-lg border border-border-subtle bg-surface-sunken p-3">
           <div className="text-caption text-content-secondary uppercase tracking-wider">Demo Status</div>
-          <div className="mt-1 text-heading-s text-content-primary">Synthetic gold audits</div>
-          <div className="mt-1 text-caption text-content-secondary">Backend detached · traces faked</div>
+          <div className="mt-1 text-heading-s text-content-primary">Agentic map workbench</div>
+          <div className="mt-1 text-caption text-content-secondary">Synthetic audits · visible tool calls</div>
         </div>
       )}
     </div>

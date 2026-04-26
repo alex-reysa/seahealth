@@ -57,8 +57,9 @@ export function FacilityAudit() {
 
   const handleBack = () => {
     const capability = selectedCapabilityId ?? 'SURGERY_APPENDECTOMY';
-    if (from === 'desert-map') {
-      navigate(`/desert-map?capability=${capability}&radius_km=50&region_id=${facility.regionId}`);
+    if (from === 'desert-map' || from === 'map-workbench') {
+      const query = q ? `&q=${encodeURIComponent(q)}` : '';
+      navigate(`/?capability=${capability}&radius_km=50&region_id=${facility.regionId}&pin_code=${facility.pinCode}${query}`);
     } else if (from === 'planner-query') {
       navigate(q ? `/planner-query?q=${encodeURIComponent(q)}` : '/planner-query');
     } else if (from === 'dashboard') {
