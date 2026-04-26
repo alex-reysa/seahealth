@@ -251,6 +251,40 @@ def get_facility(facility_id: str) -> FacilityAudit:
     return audit
 
 
+class FacilityLocationRow(BaseModel):
+    """Lightweight geo marker returned by /facilities/geo."""
+
+    facility_id: str
+    name: str
+    lat: float
+    lng: float
+    score: int = 0
+    has_contradictions: bool = False
+
+
+@app.get("/facilities/geo", response_model=list[FacilityLocationRow])
+def get_facility_locations() -> list[FacilityLocationRow]:
+    """All facility locations for the map dot layer — no pagination cap."""
+    try:
+        audits = data_access.load_all_audits()
+    except DataLayerError as exc:
+        raise _data_503(exc) from exc
+    rows: list[FacilityLocationRow] = []
+    for a in audits:
+        best_score = max((ts.score for ts in a.trust_scores.values()), default=0)
+        rows.append(
+            FacilityLocationRow(
+                facility_id=a.facility_id,
+                name=a.name,
+                lat=a.location.lat,
+                lng=a.location.lng,
+                score=best_score,
+                has_contradictions=a.total_contradictions > 0,
+            )
+        )
+    return rows
+
+
 @app.get("/map/aggregates", response_model=list[MapRegionAggregate])
 def get_map_aggregates(
     capability_type: CapabilityType | None = None,

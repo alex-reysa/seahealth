@@ -53,6 +53,7 @@ import {
   parseDemoCommand,
 } from '@/src/data/demoData';
 import mockIndiaRegionsTopologyRaw from '@/src/data/mockIndiaRegions.topojson?raw';
+import { useFacilityLocations } from '@/src/hooks/useFacilityLocations';
 import { useMapAggregates } from '@/src/hooks/useMapAggregates';
 import { useSummary } from '@/src/hooks/useSummary';
 import { decorateFeaturesWithJoin, joinAggregatesToFeatures } from '@/src/lib/mapJoin';
@@ -211,12 +212,24 @@ function formatPercentMetric(value: number) {
   return `${Math.round(value * 100)}%`;
 }
 
+function facilityDotsGeoJson(locations: Array<{ facility_id: string; name: string; lat: number; lng: number; score: number; has_contradictions: boolean }>): any {
+  return {
+    type: 'FeatureCollection',
+    features: locations.map((f) => ({
+      type: 'Feature',
+      geometry: { type: 'Point', coordinates: [f.lng, f.lat] },
+      properties: { id: f.facility_id, name: f.name, score: f.score, flagged: f.has_contradictions ? 1 : 0 },
+    })),
+  };
+}
+
 function getMapStyle(
   regionId: string,
   overlayMode: MapOverlayMode,
   visibleLayers: PlanningLayerVisibility,
   coverageFeatures: any,
   fundingRegionsGeoJson: any,
+  facilityLocationsGeoJson: any,
 ) {
   const overlayVisible = isOverlayModeVisible(overlayMode, visibleLayers);
   const fundingFillOpacity = overlayVisible
@@ -245,6 +258,10 @@ function getMapStyle(
       'coverage-radius': {
         type: 'geojson',
         data: coverageFeatures,
+      },
+      'facility-dots': {
+        type: 'geojson',
+        data: facilityLocationsGeoJson,
       },
     },
     layers: [
@@ -335,6 +352,23 @@ function getMapStyle(
           'line-opacity': 0.45,
           'line-width': 1.4,
           'line-dasharray': [2, 1.2],
+        },
+      },
+      {
+        id: 'facility-dots',
+        type: 'circle',
+        source: 'facility-dots',
+        paint: {
+          'circle-radius': ['interpolate', ['linear'], ['zoom'], 3, 1.5, 7, 3.5, 10, 6],
+          'circle-color': [
+            'case',
+            ['==', ['get', 'flagged'], 1],
+            '#C56556',
+            '#3D9D89',
+          ],
+          'circle-opacity': 0.7,
+          'circle-stroke-color': '#ffffff',
+          'circle-stroke-width': 0.5,
         },
       },
     ],
@@ -463,6 +497,7 @@ export function Dashboard() {
   // that have no backend equivalent yet).
   const summaryFetch = useSummary(capability);
   const aggregatesFetch = useMapAggregates(capability);
+  const locationsFetch = useFacilityLocations();
 
   const aggregates: MapRegionAggregate[] = aggregatesFetch.data ?? [];
   const join = React.useMemo(
@@ -511,6 +546,10 @@ export function Dashboard() {
   const coverageFeatures = React.useMemo(
     () => buildCoverageFeatureCollection(mapFacilities.slice(0, 7), radiusKm),
     [mapFacilities, radiusKm],
+  );
+  const facilityLocationsGeoJson = React.useMemo(
+    () => facilityDotsGeoJson(locationsFetch.data ?? []),
+    [locationsFetch.data],
   );
   const selectedRegionCentroid = regionCentroidsById.get(fundingRegion.regionId);
 
@@ -687,7 +726,7 @@ export function Dashboard() {
           latitude: regionId === 'BR_MADHUBANI' ? MADHUBANI_CENTER[1] : PATNA_CENTER[1],
           zoom: regionId ? 7 : 4,
         }}
-        mapStyle={getMapStyle(regionId, overlayMode, visibleLayers, coverageFeatures, fundingRegionsGeoJson)}
+        mapStyle={getMapStyle(regionId, overlayMode, visibleLayers, coverageFeatures, fundingRegionsGeoJson, facilityLocationsGeoJson)}
         style={{ width: '100%', height: '100%' }}
         interactiveLayerIds={['funding-fill']}
         onClick={(event: any) => {
@@ -718,6 +757,30 @@ export function Dashboard() {
             </button>
           </Marker>
         ))}
+
+        {aggregates.map((zone) => {
+          const total = zone.verified_facilities_count + zone.flagged_facilities_count;
+          if (total === 0) return null;
+          const size = Math.min(56, Math.max(20, 12 + Math.sqrt(total) * 5));
+          const flaggedRatio = total > 0 ? zone.flagged_facilities_count / total : 0;
+          const bg = flaggedRatio > 0.5 ? 'bg-semantic-critical/30 border-semantic-critical/50' : 'bg-accent-primary/25 border-accent-primary/40';
+          return (
+            <Marker key={zone.region_id} longitude={zone.centroid.lng} latitude={zone.centroid.lat} anchor="center">
+              <button
+                type="button"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  setRegionInUrl(zone.region_id);
+                }}
+                title={`${zone.region_name}: ${zone.verified_facilities_count} verified, ${zone.flagged_facilities_count} flagged`}
+                className={`pointer-events-auto flex items-center justify-center rounded-full border-2 text-mono-s font-bold text-content-primary backdrop-blur-sm transition-transform hover:scale-110 ${bg}`}
+                style={{ width: size, height: size }}
+              >
+                {total}
+              </button>
+            </Marker>
+          );
+        })}
 
         {selectedRegionCentroid && (
           <Marker longitude={selectedRegionCentroid[0]} latitude={selectedRegionCentroid[1]} anchor="center">
