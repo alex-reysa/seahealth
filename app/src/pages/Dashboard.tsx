@@ -49,7 +49,6 @@ import {
   getFundingPriorityRegion,
   getFacilityRowsForRegion,
   getQueryResultForCommand,
-  getRankedFacilities,
   parseDemoCommand,
 } from '@/src/data/demoData';
 import indiaDistrictsTopoRaw from '@/src/data/indiaDistricts.topojson?raw';
@@ -494,7 +493,7 @@ function getCandidateRecommendation(
   const dataBackedRecommendation = getFundingCandidateRecommendation(fundingRegion, facility.id);
   if (dataBackedRecommendation) return dataBackedRecommendation;
 
-  const capabilityLabel = getCapabilityLabel(fundingRegion.capability);
+  const capabilityLabel = fundingRegion ? getCapabilityLabel(fundingRegion.capability) : '';
   return {
     facilityId: facility.id,
     whyFund:
@@ -1195,20 +1194,24 @@ export function Dashboard() {
               <div className="text-mono-s uppercase text-content-tertiary">Current request</div>
               <p className="mt-1 line-clamp-2 text-body text-content-secondary">{queryResult?.query ?? command}</p>
             </div>
-            <div className="mt-4 grid grid-cols-2 gap-3">
-              <div className="rounded-lg bg-white/65 p-3">
-                <div className="text-caption text-content-tertiary">Priority Zone</div>
-                <div className="mt-1 text-heading-s text-content-primary">{fundingRegion.name}</div>
-              </div>
-              <div className="rounded-lg bg-white/65 p-3">
-                <div className="text-caption text-content-tertiary">Priority Score</div>
-                <div className="mt-1 text-heading-s text-accent-primary">{Math.round(fundingRegion.priorityScore * 100)}/100</div>
-              </div>
-            </div>
-            <div className="mt-3 rounded-xl border border-border-subtle bg-white/62 p-3">
-              <div className="text-mono-s uppercase text-content-tertiary">Funding rationale</div>
-              <p className="mt-1 text-caption text-content-secondary">{fundingRegion.fundingRationale}</p>
-            </div>
+            {fundingRegion && (
+              <>
+                <div className="mt-4 grid grid-cols-2 gap-3">
+                  <div className="rounded-lg bg-white/65 p-3">
+                    <div className="text-caption text-content-tertiary">Priority Zone</div>
+                    <div className="mt-1 text-heading-s text-content-primary">{fundingRegion.name}</div>
+                  </div>
+                  <div className="rounded-lg bg-white/65 p-3">
+                    <div className="text-caption text-content-tertiary">Priority Score</div>
+                    <div className="mt-1 text-heading-s text-accent-primary">{Math.round(fundingRegion.priorityScore * 100)}/100</div>
+                  </div>
+                </div>
+                <div className="mt-3 rounded-xl border border-border-subtle bg-white/62 p-3">
+                  <div className="text-mono-s uppercase text-content-tertiary">Funding rationale</div>
+                  <p className="mt-1 text-caption text-content-secondary">{fundingRegion.fundingRationale}</p>
+                </div>
+              </>
+            )}
             <div className="mt-4 flex flex-wrap gap-2 text-caption">
               <button
                 type="button"
@@ -1444,41 +1447,48 @@ export function Dashboard() {
             </aside>
 
             <main className="flex-1 overflow-y-auto p-7">
-              <section className="rounded-2xl border border-accent-primary/15 bg-accent-primary-subtle p-5 shadow-elevation-1">
-                <div className="mb-3 flex items-center justify-between gap-4">
-                  <div>
-                    <div className="text-caption font-semibold uppercase tracking-wider text-content-secondary">Funding relevance</div>
-                    <h3 className="mt-1 text-heading-l text-content-primary">{fundingRegion.name}</h3>
+              {fundingRegion ? (
+                <section className="rounded-2xl border border-accent-primary/15 bg-accent-primary-subtle p-5 shadow-elevation-1">
+                  <div className="mb-3 flex items-center justify-between gap-4">
+                    <div>
+                      <div className="text-caption font-semibold uppercase tracking-wider text-content-secondary">Funding relevance</div>
+                      <h3 className="mt-1 text-heading-l text-content-primary">{fundingRegion.name}</h3>
+                    </div>
+                    <span className="rounded-full bg-white/70 px-3 py-1 text-caption font-semibold text-accent-primary">
+                      Priority {Math.round(fundingRegion.priorityScore * 100)}/100
+                    </span>
                   </div>
-                  <span className="rounded-full bg-white/70 px-3 py-1 text-caption font-semibold text-accent-primary">
-                    Priority {Math.round(fundingRegion.priorityScore * 100)}/100
-                  </span>
-                </div>
-                <p className="text-body-l text-content-primary">
-                  {selectedFundingAudit
-                    ? `${selectedFacility.name} could help close the ${getCapabilityLabel(capability).toLowerCase()} access gap for ${fundingRegion.name}, but its current Trust Score is ${selectedFundingAudit.score} and ${selectedFundingAudit.contradictionCount} contradiction${selectedFundingAudit.contradictionCount === 1 ? '' : 's'} must be weighed before funding.`
-                    : `${selectedFacility.name} is relevant to ${fundingRegion.name}, but the current evidence does not verify ${getCapabilityLabel(capability).toLowerCase()} readiness.`}
-                </p>
-                {selectedFundingRecommendation && (
-                  <div className="mt-4 grid gap-3 md:grid-cols-3">
-                    <div className="rounded-xl bg-white/72 p-3">
-                      <div className="text-mono-s uppercase text-content-tertiary">Why fund</div>
-                      <p className="mt-1 text-caption text-content-primary">{selectedFundingRecommendation.whyFund}</p>
+                  <p className="text-body-l text-content-primary">
+                    {selectedFundingAudit
+                      ? `${selectedFacility.name} could help close the ${getCapabilityLabel(capability).toLowerCase()} access gap for ${fundingRegion.name}, but its current Trust Score is ${selectedFundingAudit.score} and ${selectedFundingAudit.contradictionCount} contradiction${selectedFundingAudit.contradictionCount === 1 ? '' : 's'} must be weighed before funding.`
+                      : `${selectedFacility.name} is relevant to ${fundingRegion.name}, but the current evidence does not verify ${getCapabilityLabel(capability).toLowerCase()} readiness.`}
+                  </p>
+                  {selectedFundingRecommendation && (
+                    <div className="mt-4 grid gap-3 md:grid-cols-3">
+                      <div className="rounded-xl bg-white/72 p-3">
+                        <div className="text-mono-s uppercase text-content-tertiary">Why fund</div>
+                        <p className="mt-1 text-caption text-content-primary">{selectedFundingRecommendation.whyFund}</p>
+                      </div>
+                      <div className="rounded-xl bg-white/72 p-3">
+                        <div className="text-mono-s uppercase text-content-tertiary">Risk</div>
+                        <p className="mt-1 text-caption text-content-primary">{selectedFundingRecommendation.trustRisk}</p>
+                      </div>
+                      <div className="rounded-xl bg-white/72 p-3">
+                        <div className="text-mono-s uppercase text-content-tertiary">Resolve first</div>
+                        <p className="mt-1 text-caption text-content-primary">{selectedFundingRecommendation.missingResource}</p>
+                      </div>
                     </div>
-                    <div className="rounded-xl bg-white/72 p-3">
-                      <div className="text-mono-s uppercase text-content-tertiary">Risk</div>
-                      <p className="mt-1 text-caption text-content-primary">{selectedFundingRecommendation.trustRisk}</p>
-                    </div>
-                    <div className="rounded-xl bg-white/72 p-3">
-                      <div className="text-mono-s uppercase text-content-tertiary">Resolve first</div>
-                      <p className="mt-1 text-caption text-content-primary">{selectedFundingRecommendation.missingResource}</p>
-                    </div>
-                  </div>
-                )}
-                <p className="mt-4 rounded-xl border border-border-subtle bg-white/62 p-3 text-caption font-medium text-content-primary">
-                  {selectedFundingRecommendation?.recommendedNextStep ?? fundingRegion.recommendedAction}
-                </p>
-              </section>
+                  )}
+                  <p className="mt-4 rounded-xl border border-border-subtle bg-white/62 p-3 text-caption font-medium text-content-primary">
+                    {selectedFundingRecommendation?.recommendedNextStep ?? fundingRegion.recommendedAction}
+                  </p>
+                </section>
+              ) : (
+                <section className="rounded-2xl border border-border-subtle bg-white p-5 shadow-elevation-1">
+                  <div className="text-caption font-semibold uppercase tracking-wider text-content-secondary">Facility detail</div>
+                  <p className="mt-2 text-body text-content-secondary">Select a Bihar priority zone on the map to see funding relevance for this facility.</p>
+                </section>
+              )}
 
               <section className="mt-5 rounded-2xl border border-border-subtle bg-white p-5 shadow-elevation-1">
                 <div className="mb-4 flex items-start justify-between gap-4">

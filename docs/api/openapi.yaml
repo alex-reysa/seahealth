@@ -120,6 +120,21 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+  /facilities/geo:
+    get:
+      summary: Get Facility Locations
+      description: All facility locations for the map dot layer — no pagination cap.
+      operationId: get_facility_locations_facilities_geo_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/FacilityLocationRow'
+                type: array
+                title: Response Get Facility Locations Facilities Geo Get
   /map/aggregates:
     get:
       summary: Get Map Aggregates
@@ -483,6 +498,36 @@ components:
         The Planner Console, Facility Card, Trust Score drawer, and contradiction list
 
         all read from this shape.'
+    FacilityLocationRow:
+      properties:
+        facility_id:
+          type: string
+          title: Facility Id
+        name:
+          type: string
+          title: Name
+        lat:
+          type: number
+          title: Lat
+        lng:
+          type: number
+          title: Lng
+        score:
+          type: integer
+          title: Score
+          default: 0
+        has_contradictions:
+          type: boolean
+          title: Has Contradictions
+          default: false
+      type: object
+      required:
+      - facility_id
+      - name
+      - lat
+      - lng
+      title: FacilityLocationRow
+      description: Lightweight geo marker returned by /facilities/geo.
     GeoPoint:
       properties:
         lat:
