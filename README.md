@@ -12,11 +12,23 @@ git clone https://github.com/alex-reysa/seahealth.git
 cd seahealth
 pip install -e ".[dev]"
 cp .env.example .env                       # update DATABRICKS_TOKEN before live mode
-pytest -q                                  # ~300 tests, all green
+pytest -q                                  # ≥ 316 tests, all green
 python -m seahealth.db.smoke_test          # exercises the data layer
 uvicorn seahealth.api.main:app --reload    # FastAPI on :8000
 cd app && npm install && npm run dev       # Vite dev server on :5173
 ```
+
+For a one-page reviewer recipe (with copy-paste curl + browser steps), see
+`docs/eval/live_smoke.md`.
+
+### Frontend modes
+
+The React app is mode-aware via two env vars:
+
+| Mode | env | Behavior |
+|---|---|---|
+| **live** | `VITE_SEAHEALTH_API_BASE=http://localhost:8000` (and unset/`live` for `VITE_SEAHEALTH_API_MODE`) | Every page consumes the FastAPI surface through typed hooks. The data-mode banner shows `live · parquet · faiss_local` (or whatever the backend reports). |
+| **demo** | `VITE_SEAHEALTH_API_MODE=demo` | No backend required. Pages render against bundled `app/src/data/fixtures/*.json`. The banner shows `demo (offline fixtures)`. |
 
 `/health/data` reports the active data and retriever modes:
 

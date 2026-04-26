@@ -448,6 +448,7 @@ def _delta_select_map_aggregates(
                         lng=float(centroid["lng"]),
                         pin_code=centroid.get("pin_code"),
                     ),
+                    population_source="delta",
                 )
             )
         except (KeyError, TypeError, ValueError, ValidationError) as exc:
@@ -577,6 +578,9 @@ def _aggregate_map_from_audits(
                     flagged_facilities_count=flagged,
                     gap_population=0,
                     centroid=GeoPoint(lat=lat, lng=lng, pin_code=None),
+                    # PARQUET mode has no population source on the audit row;
+                    # honesty over phantom denominators.
+                    population_source="unavailable",
                 )
             )
         except ValidationError as exc:  # pragma: no cover

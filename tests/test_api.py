@@ -299,3 +299,24 @@ def test_query_endpoint_returns_query_trace_id_in_body_too(monkeypatch):
     body = resp.json()
     header_id = resp.headers.get("X-Query-Trace-Id")
     assert body["query_trace_id"] == header_id
+
+
+def test_cors_exposes_query_trace_id_header(monkeypatch):
+    """Browsers must be allowed to read X-Query-Trace-Id off the response.
+
+    Without ``expose_headers``, a cross-origin client can see the header in
+    devtools but not in JS — `Response.headers.get('X-Query-Trace-Id')` is
+    forbidden. The body field stays canonical, but the header should still
+    be reachable when the React app needs it.
+    """
+    monkeypatch.delenv("DATABRICKS_TOKEN", raising=False)
+    data_access.reset_mode_cache()
+    resp = client.post(
+        "/query",
+        json={"query": "appendectomy near Patna?"},
+        headers={"Origin": "http://localhost:3000"},
+    )
+    assert resp.status_code == 200
+    expose = resp.headers.get("access-control-expose-headers", "")
+    # Header names are case-insensitive but Starlette echoes what we set.
+    assert "X-Query-Trace-Id" in expose

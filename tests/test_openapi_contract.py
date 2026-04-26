@@ -78,3 +78,56 @@ def test_committed_openapi_matches_runtime_summary_metrics() -> None:
         f"docs/api/openapi.yaml SummaryMetrics missing: {sorted(missing_committed)}"
     )
     assert not missing_live, f"runtime SummaryMetrics missing: {sorted(missing_live)}"
+
+
+def test_committed_openapi_matches_runtime_query_result() -> None:
+    """Phase 2 added trace + lifecycle fields onto QueryResult."""
+    committed = _committed_openapi()
+    live = _live_openapi()
+    committed_props = _props(committed["components"]["schemas"]["QueryResult"])
+    live_props = _props(live["components"]["schemas"]["QueryResult"])
+    must_have = {
+        "query",
+        "parsed_intent",
+        "ranked_facilities",
+        "total_candidates",
+        "query_trace_id",
+        "mlflow_trace_id",
+        "mlflow_trace_url",
+        "execution_steps",
+        "retriever_mode",
+        "used_llm",
+        "generated_at",
+    }
+    missing_committed = must_have - committed_props
+    missing_live = must_have - live_props
+    assert not missing_committed, (
+        f"docs/api/openapi.yaml QueryResult missing: {sorted(missing_committed)}"
+    )
+    assert not missing_live, f"runtime QueryResult missing: {sorted(missing_live)}"
+
+
+def test_committed_openapi_matches_runtime_map_region_aggregate() -> None:
+    """Phase 4 added population_source so the UI can be honest about denominators."""
+    committed = _committed_openapi()
+    live = _live_openapi()
+    committed_props = _props(committed["components"]["schemas"]["MapRegionAggregate"])
+    live_props = _props(live["components"]["schemas"]["MapRegionAggregate"])
+    must_have = {
+        "region_id",
+        "region_name",
+        "state",
+        "capability_type",
+        "population",
+        "verified_facilities_count",
+        "flagged_facilities_count",
+        "gap_population",
+        "centroid",
+        "population_source",
+    }
+    missing_committed = must_have - committed_props
+    missing_live = must_have - live_props
+    assert not missing_committed, (
+        f"docs/api/openapi.yaml MapRegionAggregate missing: {sorted(missing_committed)}"
+    )
+    assert not missing_live, f"runtime MapRegionAggregate missing: {sorted(missing_live)}"

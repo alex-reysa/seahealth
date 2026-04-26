@@ -7,7 +7,7 @@
             "lng": 85.14,
             "pin_code": "800001"
         },
-        "radius_km": 50.0,
+        "radius_km": 50,
         "staffing_qualifier": null
     },
     "ranked_facilities": [
@@ -1990,7 +1990,7 @@
                 ],
                 "confidence": 0.05,
                 "confidence_interval": [
-                    0.0,
+                    0,
                     0.05
                 ],
                 "score": 0,
@@ -2040,7 +2040,7 @@
                 ],
                 "confidence": 0.05,
                 "confidence_interval": [
-                    0.0,
+                    0,
                     0.05
                 ],
                 "score": 0,
@@ -2090,7 +2090,7 @@
                 ],
                 "confidence": 0.05,
                 "confidence_interval": [
-                    0.0,
+                    0,
                     0.05
                 ],
                 "score": 0,
@@ -2140,7 +2140,7 @@
                 ],
                 "confidence": 0.05,
                 "confidence_interval": [
-                    0.0,
+                    0,
                     0.05
                 ],
                 "score": 0,
@@ -2154,5 +2154,39 @@
     ],
     "total_candidates": 21,
     "query_trace_id": "q_d35b05439bd7438ab8890bd8d1dce465",
-    "generated_at": "2026-04-26T02:46:45.568701Z"
+    "generated_at": "2026-04-26T02:46:45.568701Z",
+    "mlflow_trace_id": null,
+    "mlflow_trace_url": null,
+    "retriever_mode": "fixture",
+    "used_llm": false,
+    "execution_steps": [
+        {
+            "name": "parse_intent",
+            "started_at": "2026-04-26T02:46:44.068Z",
+            "finished_at": "2026-04-26T02:46:44.148Z",
+            "status": "ok",
+            "detail": "Parsed natural language to capability=SURGERY_GENERAL, radius=50km."
+        },
+        {
+            "name": "retrieve",
+            "started_at": "2026-04-26T02:46:44.158Z",
+            "finished_at": "2026-04-26T02:46:44.478Z",
+            "status": "ok",
+            "detail": "Fetched 21 candidate facilities from offline fixture."
+        },
+        {
+            "name": "score",
+            "started_at": "2026-04-26T02:46:44.488Z",
+            "finished_at": "2026-04-26T02:46:45.028Z",
+            "status": "ok",
+            "detail": "Computed trust score per candidate from evidence + contradictions."
+        },
+        {
+            "name": "rank",
+            "started_at": "2026-04-26T02:46:45.038Z",
+            "finished_at": "2026-04-26T02:46:45.168Z",
+            "status": "ok",
+            "detail": "Sorted by score descending; distance as tie-breaker."
+        }
+    ]
 }

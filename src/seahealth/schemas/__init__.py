@@ -13,7 +13,15 @@ from .facility_audit import FacilityAudit
 from .geo import GeoPoint
 from .indexed_doc import EMBEDDING_DIM, IndexedDoc
 from .map import MapRegionAggregate, PopulationReference
-from .query_result import ParsedIntent, QueryResult, RankedFacility, StaffingQualifier
+from .query_result import (
+    ExecutionStep,
+    ExecutionStepStatus,
+    ParsedIntent,
+    QueryResult,
+    RankedFacility,
+    RetrieverMode,
+    StaffingQualifier,
+)
 from .summary import SummaryMetrics
 from .trust_score import SEVERITY_PENALTY, TrustScore
 
@@ -24,6 +32,8 @@ __all__ = [
     "STALE_DATA_THRESHOLD_MONTHS",
     # type aliases
     "EvidenceStance",
+    "ExecutionStepStatus",
+    "RetrieverMode",
     "SourceType",
     "StaffingQualifier",
     # core models
@@ -33,6 +43,7 @@ __all__ = [
     "ContradictionType",
     "EvidenceAssessment",
     "EvidenceRef",
+    "ExecutionStep",
     "FacilityAudit",
     "GeoPoint",
     "IndexedDoc",

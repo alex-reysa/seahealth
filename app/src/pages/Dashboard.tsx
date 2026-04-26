@@ -17,15 +17,22 @@ import {
   Search,
   ShieldAlert,
   Target,
-  Terminal,
   X,
 } from 'lucide-react';
 import 'maplibre-gl/dist/maplibre-gl.css';
 
+import { Breadcrumbs } from '@/src/components/domain/Breadcrumbs';
+import { MapLegend } from '@/src/components/domain/MapLegend';
 import { TrustScore } from '@/src/components/domain/TrustScore';
 import { Button } from '@/src/components/ui/Button';
 import { Card } from '@/src/components/ui/Card';
 import { Input } from '@/src/components/ui/Input';
+// NOTE: demoData drives the funding/lens helpers (committee scores, ranked
+// candidate copy). Those values are explicitly out-of-scope for backend
+// wiring per the live-backend connection plan: the data spine has no
+// "fundingRationale" or "needLayerLabel" yet. The visible /summary counts
+// and the choropleth fill come from the API hooks below — see useSummary
+// and useMapAggregates. Only the funding-rationale UX leans on demoData.
 import {
   CAPABILITIES,
   CHALLENGE_QUERY,
@@ -46,6 +53,11 @@ import {
   parseDemoCommand,
 } from '@/src/data/demoData';
 import mockIndiaRegionsTopologyRaw from '@/src/data/mockIndiaRegions.topojson?raw';
+import { useMapAggregates } from '@/src/hooks/useMapAggregates';
+import { useSummary } from '@/src/hooks/useSummary';
+import { decorateFeaturesWithJoin, joinAggregatesToFeatures } from '@/src/lib/mapJoin';
+import { getBounds } from '@/src/lib/regionTree';
+import type { MapRegionAggregate, PopulationSource } from '@/src/types/api';
 
 const INDIA_CENTER = [78.9629, 20.5937] as [number, number];
 const PATNA_CENTER = [85.14, 25.61] as [number, number];
@@ -126,12 +138,22 @@ function isOverlayModeVisible(overlayMode: MapOverlayMode, visibleLayers: Planni
 
 const mockIndiaRegionsTopology = JSON.parse(mockIndiaRegionsTopologyRaw);
 const mockIndiaRegionsGeoJson = feature(mockIndiaRegionsTopology, mockIndiaRegionsTopology.objects.regions) as any;
+const TOPOLOGY_FEATURE_IDS: readonly string[] = mockIndiaRegionsGeoJson.features.map(
+  (regionFeature: any) => regionFeature.properties.regionId as string,
+);
 const regionCentroidsById = new globalThis.Map<string, [number, number]>(
   mockIndiaRegionsGeoJson.features.map((regionFeature: any) => [
     regionFeature.properties.regionId as string,
     regionFeature.properties.centroid as [number, number],
   ]),
 );
+
+const FLAGGED_LEGEND_STOPS = [
+  { threshold: 0, color: '#E4F3EC', label: '0 flagged' },
+  { threshold: 1, color: '#B7DFC9', label: '1–9' },
+  { threshold: 10, color: '#72B7A8', label: '10–49' },
+  { threshold: 50, color: '#2F7F72', label: '≥ 50' },
+];
 
 function getOverlayFillColor(overlayMode: MapOverlayMode, visibleLayers: PlanningLayerVisibility): any {
   if (!isOverlayModeVisible(overlayMode, visibleLayers)) {
@@ -194,6 +216,7 @@ function getMapStyle(
   overlayMode: MapOverlayMode,
   visibleLayers: PlanningLayerVisibility,
   coverageFeatures: any,
+  fundingRegionsGeoJson: any,
 ) {
   const overlayVisible = isOverlayModeVisible(overlayMode, visibleLayers);
   const fundingFillOpacity = overlayVisible
@@ -216,7 +239,7 @@ function getMapStyle(
       },
       'funding-regions': {
         type: 'geojson',
-        data: mockIndiaRegionsGeoJson,
+        data: fundingRegionsGeoJson,
         generateId: true,
       },
       'coverage-radius': {
@@ -423,6 +446,8 @@ export function Dashboard() {
   const [selectedFacilityId, setSelectedFacilityId] = React.useState<string | null>(null);
   const [selectedFacilityCapabilityId, setSelectedFacilityCapabilityId] = React.useState<CapabilityType | null>(null);
   const [overlayMode, setOverlayMode] = React.useState<MapOverlayMode>('priority_score');
+  const [isPlanningLayersOpen, setIsPlanningLayersOpen] = React.useState(false);
+  const [isPriorityZoneOpen, setIsPriorityZoneOpen] = React.useState(true);
   const [visibleLayers, setVisibleLayers] = React.useState<PlanningLayerVisibility>(DEFAULT_PLANNING_LAYER_VISIBILITY);
 
   const parsed = parseDemoCommand(command);
@@ -431,6 +456,47 @@ export function Dashboard() {
   const regionId = searchParams.get('region_id') || parsed.regionId;
   const pinCode = searchParams.get('pin_code') || parsed.pinCode;
   const fundingRegion = getFundingPriorityRegion(regionId, capability);
+
+  // Backend-driven counts + per-region signal. The summary tile and the
+  // choropleth fill MUST come from these — never from demoData. The funding
+  // copy below still leans on demoData for now (committee-supplied values
+  // that have no backend equivalent yet).
+  const summaryFetch = useSummary(capability);
+  const aggregatesFetch = useMapAggregates(capability);
+
+  const aggregates: MapRegionAggregate[] = aggregatesFetch.data ?? [];
+  const join = React.useMemo(
+    () => joinAggregatesToFeatures(aggregates, TOPOLOGY_FEATURE_IDS),
+    [aggregates],
+  );
+  React.useEffect(() => {
+    if (
+      typeof process !== 'undefined' &&
+      process.env?.NODE_ENV !== 'production' &&
+      join.unmatched.length > 0
+    ) {
+      // eslint-disable-next-line no-console
+      console.warn(
+        `[Dashboard] ${join.unmatched.length} /map/aggregates row(s) did not match any topology feature; rendering neutral fill.`,
+        join.unmatched.map((row) => row.region_id),
+      );
+    }
+  }, [join]);
+
+  const fundingRegionsGeoJson = React.useMemo(() => {
+    return {
+      ...mockIndiaRegionsGeoJson,
+      features: decorateFeaturesWithJoin(mockIndiaRegionsGeoJson.features, join),
+    };
+  }, [join]);
+
+  // Choose a per-region aggregate for the side panel. Prefer the row that
+  // matched the currently selected region's feature; fall back to the first
+  // aggregate so the legend has something coherent to show.
+  const selectedAggregate: MapRegionAggregate | undefined =
+    join.byFeatureId.get(regionId)?.aggregate ?? aggregates[0];
+  const populationSource: PopulationSource | null = selectedAggregate?.population_source ?? null;
+  const populationUnavailable = populationSource === 'unavailable';
   const regionFacilities = getFacilityRowsForRegion(regionId, capability);
   const rankedFacilities = getRankedFacilities(activeResult);
   const fundingFacilities = fundingRegion.recommendedFacilities.map((id) => getFacilityById(id)).filter(Boolean) as DemoFacility[];
@@ -448,9 +514,13 @@ export function Dashboard() {
   );
   const selectedRegionCentroid = regionCentroidsById.get(fundingRegion.regionId);
 
-  const auditedCount = 2145;
-  const verifiedCount = regionFacilities.filter((facility) => (getCapabilityAudit(facility, capability)?.score ?? 0) >= 70).length;
-  const flaggedCount = regionFacilities.filter((facility) => facility.totalContradictions > 0).length;
+  // /summary is the canonical source for the audit/verified/flagged counts.
+  // Until the fetch resolves we render dashes so the page never advertises a
+  // stale demo number as a backend number.
+  const summary = summaryFetch.data;
+  const auditedCount = summary?.audited_count ?? null;
+  const verifiedCount = summary?.verified_count ?? null;
+  const flaggedCount = summary?.flagged_count ?? null;
   const isRunning = activeStep !== null;
   const activeOverlayOption = OVERLAY_MODE_OPTIONS.find((option) => option.id === overlayMode) ?? OVERLAY_MODE_OPTIONS[0];
   const selectedFundingAudit = selectedFacility ? getCapabilityAudit(selectedFacility, capability) : undefined;
@@ -465,12 +535,39 @@ export function Dashboard() {
   }, []);
 
   const focusMap = (nextRegionId: string) => {
-    mapRef.current?.getMap()?.flyTo({
+    const map = mapRef.current?.getMap();
+    if (!map) return;
+    // Prefer the canonical hierarchy bounds (set in regionHierarchy.json) so
+    // every level — including the synthetic India root — knows where to fly.
+    const bounds = getBounds(nextRegionId);
+    if (bounds) {
+      map.fitBounds(bounds, { padding: 60, duration: 800, maxZoom: 9 });
+      return;
+    }
+    // Fall back to the legacy hard-coded centers for districts the topology
+    // already paints; keeps behaviour identical for unknown ids.
+    map.flyTo({
       center: nextRegionId === 'BR_MADHUBANI' ? MADHUBANI_CENTER : PATNA_CENTER,
       zoom: nextRegionId === 'BR_MADHUBANI' ? 8 : 7,
-      duration: 900,
+      duration: 800,
     });
   };
+
+  const setRegionInUrl = (nextRegionId: string) => {
+    const params = new URLSearchParams(searchParams);
+    params.set('region_id', nextRegionId);
+    setSearchParams(params);
+    setIsPriorityZoneOpen(true);
+    focusMap(nextRegionId);
+  };
+
+  // URL is the source of truth for selection: a fresh load (or a pasted URL)
+  // restores the map zoom for whatever ?region_id=… is in the address bar.
+  React.useEffect(() => {
+    if (regionId) focusMap(regionId);
+    // We intentionally only react to regionId changes; map ref is stable.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [regionId]);
 
   const applyCommand = (nextCommand: string, animate = true) => {
     const nextParsed = parseDemoCommand(nextCommand);
@@ -479,6 +576,7 @@ export function Dashboard() {
     timersRef.current = [];
     setCommand(nextCommand);
     setActiveResult(nextResult);
+    setIsPriorityZoneOpen(true);
     if (animate) setAgentPanelView('trace');
     setSearchParams({
       q: nextCommand,
@@ -524,6 +622,7 @@ export function Dashboard() {
     setCommand(nextCommand);
     setActiveResult(getQueryResultForCommand(nextCommand));
     setAgentPanelView('facilities');
+    setIsPriorityZoneOpen(true);
     setSearchParams({
       q: nextCommand,
       capability: nextFundingRegion.capability,
@@ -541,7 +640,10 @@ export function Dashboard() {
     if (next.regionId) params.set('region_id', next.regionId);
     if (next.pinCode) params.set('pin_code', next.pinCode);
     setSearchParams(params);
-    if (next.regionId) focusMap(next.regionId);
+    if (next.regionId) {
+      setIsPriorityZoneOpen(true);
+      focusMap(next.regionId);
+    }
   };
 
   const onCommandSubmit = (event: React.FormEvent) => {
@@ -585,7 +687,7 @@ export function Dashboard() {
           latitude: regionId === 'BR_MADHUBANI' ? MADHUBANI_CENTER[1] : PATNA_CENTER[1],
           zoom: regionId ? 7 : 4,
         }}
-        mapStyle={getMapStyle(regionId, overlayMode, visibleLayers, coverageFeatures)}
+        mapStyle={getMapStyle(regionId, overlayMode, visibleLayers, coverageFeatures, fundingRegionsGeoJson)}
         style={{ width: '100%', height: '100%' }}
         interactiveLayerIds={['funding-fill']}
         onClick={(event: any) => {
@@ -623,83 +725,96 @@ export function Dashboard() {
           </Marker>
         )}
 
-        {selectedRegionCentroid && (
-          <Marker
-            longitude={selectedRegionCentroid[0]}
-            latitude={selectedRegionCentroid[1]}
-            anchor="top-left"
-            offset={[14, 12]}
+      </Map>
+
+      {selectedRegionCentroid && isPriorityZoneOpen && (
+        <div className="pointer-events-auto absolute left-1/2 top-[44%] z-40 w-[460px] -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-border-subtle bg-white/90 p-4 pr-10 shadow-elevation-4 backdrop-blur-xl">
+          <button
+            type="button"
+            onClick={() => setIsPriorityZoneOpen(false)}
+            className="absolute right-3 top-3 rounded-full border border-border-subtle bg-white/70 p-1.5 text-content-tertiary transition-colors hover:text-content-primary"
+            aria-label="Close selected priority zone"
           >
-            <div
-              className="pointer-events-auto w-[300px] rounded-2xl border border-border-subtle bg-white/86 p-4 shadow-elevation-3 backdrop-blur-xl"
-              onClick={(event) => event.stopPropagation()}
-            >
+            <X className="h-3.5 w-3.5" />
+          </button>
+          <div className="grid grid-cols-[1.15fr_0.85fr] gap-4">
+            <div>
               <div className="text-caption font-semibold uppercase tracking-wider text-content-secondary">Selected priority zone</div>
               <h2 className="mt-1 text-heading-m text-content-primary">{fundingRegion.name}</h2>
               <p className="mt-2 text-caption text-content-secondary">{fundingRegion.regionSummary}</p>
-
-              <div className="mt-4 grid grid-cols-2 gap-2">
-                <div className="rounded-xl bg-white/70 p-3">
-                  <div className="text-mono-s uppercase text-content-tertiary">Priority score</div>
-                  <div className="mt-1 text-heading-m text-accent-primary">{Math.round(fundingRegion.priorityScore * 100)}/100</div>
-                </div>
-                <div className="rounded-xl bg-white/70 p-3">
-                  <div className="text-mono-s uppercase text-content-tertiary">Gap population</div>
-                  <div className="mt-1 text-heading-m text-content-primary">{formatNumber(fundingRegion.gapPopulation)}</div>
-                </div>
-                <div className="rounded-xl bg-white/70 p-3">
-                  <div className="text-mono-s uppercase text-content-tertiary">Need signal</div>
-                  <div className="mt-1 text-caption font-semibold text-content-primary">
-                    {getMetricLabel(fundingRegion.needSignal, ['Low', 'Moderate', 'High'])} ({formatPercentMetric(fundingRegion.needSignal)})
-                  </div>
-                  <div className="mt-1 text-mono-s text-content-tertiary">{fundingRegion.needLayerLabel}</div>
-                </div>
-                <div className="rounded-xl bg-white/70 p-3">
-                  <div className="text-mono-s uppercase text-content-tertiary">Verified access</div>
-                  <div className="mt-1 text-caption font-semibold text-content-primary">
-                    {getMetricLabel(fundingRegion.verifiedAccessScore, ['Low', 'Mixed', 'High'])} ({formatPercentMetric(fundingRegion.verifiedAccessScore)})
-                  </div>
-                  <div className="mt-1 text-mono-s text-content-tertiary">{fundingRegion.supplyLayerLabel}</div>
-                </div>
-              </div>
-
-              <div className="mt-3 rounded-xl border border-border-subtle bg-white/62 p-3">
-                <div className="flex items-center justify-between gap-3 text-caption">
-                  <span className="text-content-secondary">Nearest verified {getCapabilityLabel(fundingRegion.capability).toLowerCase()}</span>
-                  <span className="font-semibold text-content-primary">{fundingRegion.nearestVerifiedKm}km</span>
-                </div>
-                <div className="mt-2 flex items-center justify-between gap-3 text-caption">
-                  <span className="text-content-secondary">Contradiction risk</span>
-                  <span className="font-semibold text-semantic-critical">
-                    {getMetricLabel(fundingRegion.contradictionRisk, ['Low', 'Moderate', 'High'])} ({formatPercentMetric(fundingRegion.contradictionRisk)})
-                  </span>
-                </div>
-              </div>
-
-              <p className="mt-3 text-caption font-medium text-content-primary">{fundingRegion.recommendedAction}</p>
             </div>
-          </Marker>
-        )}
-      </Map>
+            <div className="grid grid-cols-2 gap-2">
+              <div className="rounded-xl bg-white/70 p-2.5">
+                <div className="text-mono-s uppercase text-content-tertiary">Priority</div>
+                <div className="mt-1 text-heading-s text-accent-primary">{Math.round(fundingRegion.priorityScore * 100)}/100</div>
+              </div>
+              {populationUnavailable ? (
+                <div className="rounded-xl bg-white/70 p-2.5">
+                  <div className="text-mono-s uppercase text-content-tertiary">Verified / flagged</div>
+                  <div className="mt-1 text-heading-s text-content-primary">
+                    {selectedAggregate?.verified_facilities_count ?? 0}
+                    <span className="text-content-tertiary"> / </span>
+                    {selectedAggregate?.flagged_facilities_count ?? 0}
+                  </div>
+                </div>
+              ) : (
+                <div className="rounded-xl bg-white/70 p-2.5">
+                  <div className="text-mono-s uppercase text-content-tertiary">Gap pop.</div>
+                  <div className="mt-1 text-heading-s text-content-primary">{formatNumber(fundingRegion.gapPopulation)}</div>
+                </div>
+              )}
+              <div className="rounded-xl bg-white/70 p-2.5">
+                <div className="text-mono-s uppercase text-content-tertiary">Need</div>
+                <div className="mt-1 text-caption font-semibold text-content-primary">
+                  {getMetricLabel(fundingRegion.needSignal, ['Low', 'Moderate', 'High'])} ({formatPercentMetric(fundingRegion.needSignal)})
+                </div>
+              </div>
+              <div className="rounded-xl bg-white/70 p-2.5">
+                <div className="text-mono-s uppercase text-content-tertiary">Access</div>
+                <div className="mt-1 text-caption font-semibold text-content-primary">
+                  {getMetricLabel(fundingRegion.verifiedAccessScore, ['Low', 'Mixed', 'High'])} ({formatPercentMetric(fundingRegion.verifiedAccessScore)})
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-3 grid grid-cols-2 gap-2 rounded-xl border border-border-subtle bg-white/62 p-3">
+            <div className="flex items-center justify-between gap-3 text-caption">
+              <span className="text-content-secondary">Nearest verified care</span>
+              <span className="font-semibold text-content-primary">{fundingRegion.nearestVerifiedKm}km</span>
+            </div>
+            <div className="flex items-center justify-between gap-3 text-caption">
+              <span className="text-content-secondary">Contradiction risk</span>
+              <span className="font-semibold text-semantic-critical">
+                {getMetricLabel(fundingRegion.contradictionRisk, ['Low', 'Moderate', 'High'])} ({formatPercentMetric(fundingRegion.contradictionRisk)})
+              </span>
+            </div>
+          </div>
+
+          <p className="mt-3 text-caption font-medium text-content-primary">{fundingRegion.recommendedAction}</p>
+        </div>
+      )}
 
       <div className={`pointer-events-none absolute left-6 ${isAgentPanelOpen ? 'right-[500px]' : 'right-6'} top-5 z-20 flex flex-col gap-2 transition-all duration-300`}>
         <div className="pointer-events-auto flex flex-wrap items-center gap-2">
           <Card variant="glass" className="flex items-center gap-3 rounded-2xl bg-white/58 px-3 py-2 shadow-elevation-1">
             <div>
-              <div className="text-body font-semibold text-content-primary">{auditedCount.toLocaleString()}</div>
+              <div className="text-body font-semibold text-content-primary">
+                {auditedCount === null ? '—' : auditedCount.toLocaleString()}
+              </div>
               <div className="text-mono-s uppercase text-content-secondary">Audited</div>
             </div>
             <div className="h-7 w-px bg-border-default" />
             <div>
               <div className="flex items-center gap-1.5 text-body font-semibold text-semantic-verified">
-                {verifiedCount} <CheckCircle2 className="h-3.5 w-3.5" />
+                {verifiedCount === null ? '—' : verifiedCount} <CheckCircle2 className="h-3.5 w-3.5" />
               </div>
               <div className="text-mono-s uppercase text-content-secondary">Verified</div>
             </div>
             <div className="h-7 w-px bg-border-default" />
             <div>
               <div className="flex items-center gap-1.5 text-body font-semibold text-semantic-critical">
-                {flaggedCount} <AlertCircle className="h-3.5 w-3.5" />
+                {flaggedCount === null ? '—' : flaggedCount} <AlertCircle className="h-3.5 w-3.5" />
               </div>
               <div className="text-mono-s uppercase text-content-secondary">Flagged</div>
             </div>
@@ -713,57 +828,82 @@ export function Dashboard() {
       </div>
 
       <div className="pointer-events-auto absolute left-6 top-24 z-20 flex max-h-[calc(100vh-190px)] w-[350px] flex-col gap-3 overflow-y-auto pr-1">
-        <Card variant="glass-control" className="pointer-events-auto rounded-2xl p-4">
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <div className="text-caption font-semibold uppercase tracking-wider text-content-secondary">Planning layers</div>
-              <div className="mt-1 text-heading-s text-content-primary">{activeOverlayOption.label}</div>
-            </div>
-            <span className="rounded-full bg-white/70 px-2 py-1 text-mono-s text-content-secondary">{activeOverlayOption.legend}</span>
-          </div>
+        <Card variant="glass-control" className="pointer-events-auto rounded-2xl p-2.5">
+          <button
+            type="button"
+            onClick={() => setIsPlanningLayersOpen((isOpen) => !isOpen)}
+            aria-expanded={isPlanningLayersOpen}
+            className="flex w-full items-center justify-between gap-3 rounded-xl px-1.5 py-1 text-left transition-colors hover:bg-white/40"
+          >
+            <span>
+              <span className="block text-caption font-semibold uppercase tracking-wider text-content-secondary">Planning layers</span>
+              <span className="mt-0.5 block text-heading-s text-content-primary">{activeOverlayOption.label}</span>
+            </span>
+            <span className="flex items-center gap-2">
+              <span className="rounded-full bg-white/70 px-2 py-1 text-mono-s text-content-secondary">{activeOverlayOption.legend}</span>
+              <ChevronRight className={`h-4 w-4 text-content-tertiary transition-transform ${isPlanningLayersOpen ? 'rotate-90' : ''}`} />
+            </span>
+          </button>
 
-          <div className="mt-4">
-            <div className="mb-2 text-mono-s uppercase text-content-tertiary">Color map by</div>
-            <div className="grid grid-cols-2 gap-1 rounded-xl bg-surface-sunken p-1">
-              {OVERLAY_MODE_OPTIONS.map((option) => (
-                <button
-                  key={option.id}
-                  type="button"
-                  onClick={() => setOverlayMode(option.id)}
-                  className={`rounded-lg px-2 py-1.5 text-left text-caption font-semibold transition-colors ${
-                    overlayMode === option.id ? 'bg-white text-content-primary shadow-elevation-1' : 'text-content-secondary hover:text-content-primary'
-                  }`}
-                >
-                  {option.label}
-                </button>
-              ))}
-            </div>
-          </div>
+          {isPlanningLayersOpen && (
+            <div className="mt-3 border-t border-border-subtle pt-3">
+              <div>
+                <div className="mb-2 text-mono-s uppercase text-content-tertiary">Color map by</div>
+                <div className="grid grid-cols-2 gap-1 rounded-xl bg-surface-sunken p-1">
+                  {OVERLAY_MODE_OPTIONS.map((option) => (
+                    <button
+                      key={option.id}
+                      type="button"
+                      onClick={() => setOverlayMode(option.id)}
+                      className={`rounded-lg px-2 py-1.5 text-left text-caption font-semibold transition-colors ${
+                        overlayMode === option.id ? 'bg-white text-content-primary shadow-elevation-1' : 'text-content-secondary hover:text-content-primary'
+                      }`}
+                    >
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
 
-          <div className="mt-4 flex flex-col gap-2">
-            {PLANNING_LAYER_OPTIONS.map((layer) => {
-              const isVisible = visibleLayers[layer.id];
-              return (
-                <button
-                  key={layer.id}
-                  type="button"
-                  aria-pressed={isVisible}
-                  onClick={() => setVisibleLayers((current) => ({ ...current, [layer.id]: !current[layer.id] }))}
-                  className="flex items-center justify-between gap-3 rounded-xl border border-border-subtle bg-white/62 px-3 py-2 text-left transition-colors hover:border-accent-primary-soft hover:bg-white"
-                >
-                  <span>
-                    <span className="block text-caption font-semibold text-content-primary">{layer.label}</span>
-                    <span className="block text-mono-s text-content-tertiary">{layer.detail}</span>
-                  </span>
-                  <span className={`h-5 w-9 rounded-full p-0.5 transition-colors ${isVisible ? 'bg-accent-primary' : 'bg-content-tertiary/25'}`}>
-                    <span className={`block h-4 w-4 rounded-full bg-white shadow-elevation-1 transition-transform ${isVisible ? 'translate-x-4' : ''}`} />
-                  </span>
-                </button>
-              );
-            })}
-          </div>
+              <div className="mt-4 flex flex-col gap-2">
+                {PLANNING_LAYER_OPTIONS.map((layer) => {
+                  const isVisible = visibleLayers[layer.id];
+                  return (
+                    <button
+                      key={layer.id}
+                      type="button"
+                      aria-pressed={isVisible}
+                      onClick={() => setVisibleLayers((current) => ({ ...current, [layer.id]: !current[layer.id] }))}
+                      className="flex items-center justify-between gap-3 rounded-xl border border-border-subtle bg-white/62 px-3 py-2 text-left transition-colors hover:border-accent-primary-soft hover:bg-white"
+                    >
+                      <span>
+                        <span className="block text-caption font-semibold text-content-primary">{layer.label}</span>
+                        <span className="block text-mono-s text-content-tertiary">{layer.detail}</span>
+                      </span>
+                      <span className={`h-5 w-9 rounded-full p-0.5 transition-colors ${isVisible ? 'bg-accent-primary' : 'bg-content-tertiary/25'}`}>
+                        <span className={`block h-4 w-4 rounded-full bg-white shadow-elevation-1 transition-transform ${isVisible ? 'translate-x-4' : ''}`} />
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </Card>
 
+      </div>
+
+      <div
+        className="absolute bottom-12 z-20 transition-all duration-300"
+        style={{ right: isAgentPanelOpen ? '500px' : '24px' }}
+      >
+        <MapLegend
+          title="Flagged facilities"
+          caption="live"
+          stops={FLAGGED_LEGEND_STOPS}
+          populationSource={populationSource}
+          unmatchedCount={join.unmatched.length}
+        />
       </div>
 
       <div
@@ -869,16 +1009,12 @@ export function Dashboard() {
         Reset map
       </button>
 
-      <div className="absolute bottom-0 inset-x-0 z-10 flex h-8 items-center gap-4 border-t border-border-default bg-surface-raised px-4 text-mono-s text-content-tertiary">
-        <span className="flex items-center gap-1">
-          <CheckCircle2 className="h-3 w-3" /> Map Workbench active
-        </span>
-        <span className="flex items-center gap-1">
-          <Terminal className="h-3 w-3" /> Query trace {activeResult.queryTraceId}
-        </span>
-        <span className="flex items-center gap-1">
-          <AlertCircle className="h-3 w-3" /> Backend detached mock events
-        </span>
+      <div className="pointer-events-none absolute inset-x-0 bottom-2 z-10 flex justify-center">
+        <Breadcrumbs
+          regionId={regionId}
+          onSelect={setRegionInUrl}
+          className="pointer-events-auto border-white/50 bg-white/45 px-2 py-0.5 opacity-80 shadow-none"
+        />
       </div>
 
       {!isAgentPanelOpen && (

@@ -7,8 +7,9 @@
  *   - `live` (default when `VITE_SEAHEALTH_API_BASE` is set): fetches the
  *     real FastAPI surface at `${VITE_SEAHEALTH_API_BASE}` (default
  *     `http://localhost:8000`).
- *   - `demo`: returns the bundled fixtures from `app/src/data/demoData.ts`
- *     so the UI can run without a backend (judges, offline review).
+ *   - `demo`: returns the bundled API-shape fixtures from
+ *     `app/src/data/fixtures/*.json` so the UI can run without a backend
+ *     (judges, offline review).
  *
  * Each fetcher returns `Promise<T>` and throws an `ApiError` on non-2xx.
  * Callers should pair this with their own loading / error states.
@@ -21,6 +22,7 @@
  */
 
 import type {
+  CapabilityType,
   FacilityAudit,
   HealthData,
   MapRegionAggregate,
@@ -99,9 +101,19 @@ import demoSummary from '@/src/data/fixtures/summary_demo.json';
 // Public API
 // ---------------------------------------------------------------------------
 
-export async function fetchSummary(mode: ApiMode = resolveApiMode()): Promise<SummaryMetrics> {
-  if (mode === 'live') return jsonFetch<SummaryMetrics>('/summary');
-  return demoSummary as unknown as SummaryMetrics;
+export async function fetchSummary(
+  mode: ApiMode = resolveApiMode(),
+  capabilityType?: CapabilityType,
+): Promise<SummaryMetrics> {
+  if (mode === 'live') {
+    const qs = capabilityType ? `?capability_type=${encodeURIComponent(capabilityType)}` : '';
+    return jsonFetch<SummaryMetrics>(`/summary${qs}`);
+  }
+  const summary = demoSummary as unknown as SummaryMetrics;
+  if (capabilityType) {
+    return { ...summary, capability_type: capabilityType };
+  }
+  return summary;
 }
 
 export async function fetchQuery(
@@ -129,9 +141,14 @@ export async function fetchFacility(
 
 export async function fetchMapAggregates(
   mode: ApiMode = resolveApiMode(),
+  capabilityType?: CapabilityType,
 ): Promise<MapRegionAggregate[]> {
-  if (mode === 'live') return jsonFetch<MapRegionAggregate[]>('/map/aggregates');
-  return demoMapAggregates as unknown as MapRegionAggregate[];
+  if (mode === 'live') {
+    const qs = capabilityType ? `?capability_type=${encodeURIComponent(capabilityType)}` : '';
+    return jsonFetch<MapRegionAggregate[]>(`/map/aggregates${qs}`);
+  }
+  const all = demoMapAggregates as unknown as MapRegionAggregate[];
+  return capabilityType ? all.filter((row) => row.capability_type === capabilityType) : all;
 }
 
 export async function fetchHealthData(): Promise<HealthData | null> {
