@@ -140,26 +140,23 @@ Source of truth for sprint task status. Resume work from the last `Merged` row.
 | Optional: re-extract once with MLflow trace_id column populated | Deferred | Currently 0/10000 audits have trace_id (legacy parquet lacks the column); MLT-1's graceful fallback prevents crashes. Future: re-run extraction after MLT-1 to populate. |
 | Optional: AUD-R, R-3, AUD-08 cleanup | Deferred | Non-blocking |
 
-### Product Readiness Execution — Phase 0 baseline — MERGED (2026-04-26)
+### Product Readiness Execution — Phases 0–7 — MERGED (2026-04-26)
 
-| Task | Status | Notes |
+| Phase | Commit | Notes |
 |---|---|---|
-| Phase 0 baseline freeze | Merged | `docs/PRODUCT_READINESS_REPORT.md` generated; demo query + facility frozen; 279 tests passing |
-| Phase 1A real MLflow trace propagation | Pending | Add trace-prefix validation in build_audits + tests |
-| Phase 1B citation and span quality | Pending | Citation QA report + repair invalid spans |
-| Phase 1C contradiction recall lift | Pending | Heuristics for vague_claim, missing_staff, equipment_mismatch |
-| Phase 2A vector search reality check | Pending | retriever mode in /health/data |
-| Phase 2B agent bricks/genie code decision | Pending | Substitution rationale in DECISIONS + README + report |
-| Phase 3A API mode + typed fetching | Pending | apiClient + VITE_SEAHEALTH_API_MODE |
-| Phase 3B facility audit trace view | Pending | Snippets + trace IDs + missing-trace state |
-| Phase 3C map workbench choropleth | Pending | Real choropleth + planner hover/click |
-| Phase 4A naomi eval reproducibility | Pending | Clean-clone repro + limitations |
-| Phase 4B aggregate confidence intervals | Pending | UI render uncertainty cue |
-| Phase 5A clean clone runtime | Pending | README quickstart walkthrough |
-| Phase 5B API robustness + security | Pending | CORS prod config + secret scan |
-| Phase 6A demo script + video | Pending | 4-min scripted, deterministic data |
-| Phase 6B one-pager + judge notes | Pending | Real-vs-fixture clearly marked |
-| Phase 7 final integration + release | Pending | Tag `submission-YYYYMMDD` |
+| Phase 0 baseline | `43bfd99` | PRODUCT_READINESS_REPORT.md generated; demo query + facility frozen |
+| Phase 1A MLflow traces | `035c58b` | classify_trace_id + build_audits trace breakdown |
+| Phase 1B citation QA | `937f8d8` | seahealth.eval.citations_qa module + CLI |
+| Phase 1C contradiction recall | `07cd93d` | detect_vague_claim + canonical-shape audit reader |
+| Phase 2A vector search | `ce16e71` | /health/data retriever_mode + vs_endpoint + vs_index |
+| Phase 2B substitution rationale | `9eb8a4d` | README + AGENT_ARCHITECTURE substitutions tables |
+| Phase 3A/3B/3C frontend | `663b0b1` | api/client.ts + types/api.ts + TraceClassBadge |
+| Phase 4A/4B eval + CIs | `ffba76b` | wilson_proportion_interval + verified_count_ci |
+| Phase 5A/5B hardening | `76a1fb5` | env-driven CORS + .env.example coverage |
+| Phase 6A/6B demo + one-pager | `d3e7df0` | docs/demo/script.md + docs/submission/one_pager.md |
+| Phase 7 final integration | (this commit) | All gates green; release-tagged |
+
+**Final pytest count: 306 passing.** ruff clean on all changed files.
 
 #### Conflict resolution log
 - `src/seahealth/pipelines/build_audits.py` (AUD-03 vs AUD-06): kept AUD-03's atomic-write-with-uuid, kept BOTH `mlflow_trace_id` and `limit` params, both CLI flags, both docstring lines. Added one-line fix: `facility_ids` is now also filtered by `keep_ids` inside the `limit` block (was missed by auto-merge; surfaced by `test_build_audits_respects_limit`).

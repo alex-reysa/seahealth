@@ -19,7 +19,6 @@ Pure-Python; no scipy required.
 from __future__ import annotations
 
 import math
-from typing import Tuple
 
 # 1.96 ≈ z(1 - 0.025) for a 95% two-sided CI. Hard-coded so the module has
 # no scipy dependency. 99% CI would use 2.5758.
@@ -31,7 +30,7 @@ def wilson_proportion_interval(
     trials: int,
     *,
     z: float = _Z_95,
-) -> Tuple[float, float]:
+) -> tuple[float, float]:
     """Wilson score interval on the proportion ``successes / trials``.
 
     Returns ``(lo, hi)`` in ``[0.0, 1.0]``. When ``trials == 0`` the interval
@@ -64,7 +63,7 @@ def count_interval(
     trials: int,
     *,
     z: float = _Z_95,
-) -> Tuple[int, int]:
+) -> tuple[int, int]:
     """Wilson interval scaled back to integer counts in ``[0, trials]``.
 
     Result satisfies ``0 <= lo <= successes <= hi <= trials``.
