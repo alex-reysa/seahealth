@@ -250,14 +250,23 @@ class FacilityLocationRow(BaseModel):
 
 @app.get("/facilities/geo", response_model=list[FacilityLocationRow])
 def get_facility_locations() -> list[FacilityLocationRow]:
-    """All facility locations for the map dot layer — no pagination cap."""
+    """All facility locations for the map dot layer.
+
+    Audited facilities (~5) carry a real best_score and contradictions flag;
+    everything else in ``facilities_index`` is surfaced as a neutral marker
+    (score=0) so the dot-cloud reflects the full ~10k-facility corpus.
+    """
     try:
         audits = data_access.load_all_audits()
     except DataLayerError as exc:
         raise _data_503(exc) from exc
+
     rows: list[FacilityLocationRow] = []
+    seen_ids: set[str] = set()
+
     for a in audits:
         best_score = max((ts.score for ts in a.trust_scores.values()), default=0)
+        seen_ids.add(a.facility_id)
         rows.append(
             FacilityLocationRow(
                 facility_id=a.facility_id,
@@ -268,6 +277,39 @@ def get_facility_locations() -> list[FacilityLocationRow]:
                 has_contradictions=a.total_contradictions > 0,
             )
         )
+
+    # Augment with the broader facilities_index so the map dot-cloud reflects
+    # the full corpus, not just the handful of audited rows. Best-effort: if
+    # the index is missing we degrade to audits-only.
+    try:
+        from seahealth.agents.tools import _read_facilities_index_full
+
+        for row in _read_facilities_index_full(None):
+            fid = row.get("facility_id")
+            lat = row.get("latitude")
+            lng = row.get("longitude")
+            if not fid or lat is None or lng is None:
+                continue
+            fid_s = str(fid)
+            if fid_s in seen_ids:
+                continue
+            try:
+                rows.append(
+                    FacilityLocationRow(
+                        facility_id=fid_s,
+                        name=str(row.get("name") or fid_s),
+                        lat=float(lat),
+                        lng=float(lng),
+                        score=0,
+                        has_contradictions=False,
+                    )
+                )
+            except (TypeError, ValueError):
+                continue
+            seen_ids.add(fid_s)
+    except Exception as exc:  # pragma: no cover - defensive
+        log.warning("facilities_index augmentation failed: %s", exc)
+
     return rows
 
 
