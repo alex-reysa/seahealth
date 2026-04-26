@@ -137,14 +137,34 @@ def test_heuristic_radius_default(audits_parquet: str) -> None:
 
 
 def test_query_no_match_returns_empty_result(audits_parquet: str) -> None:
-    """Unknown city geocodes to None -> empty ranked_facilities, total 0."""
+    """Unknown city geocodes to None -> capability-only relaxed search now
+    returns results (national top-50 for the matched capability)."""
     result = query.run_query(
         "appendectomy near Atlantis",
         use_llm=False,
         audits_path=audits_parquet,
     )
+    # Relaxed parser: capability matched, location did not -> still emit results.
+    assert result.parsed_intent.capability_type is CapabilityType.SURGERY_APPENDECTOMY
+    assert result.parsed_intent.location is None
+    assert result.total_candidates >= 1
+    assert len(result.ranked_facilities) >= 1
+
+
+def test_query_unparseable_returns_empty_with_hint(audits_parquet: str) -> None:
+    """Truly unparseable input (no capability, no location) -> empty result + hint."""
+    result = query.run_query(
+        "asdf qwer zxcv",
+        use_llm=False,
+        audits_path=audits_parquet,
+    )
     assert result.ranked_facilities == []
     assert result.total_candidates == 0
+    assert result.parsed_intent.capability_type is None
+    assert result.parsed_intent.location is None
+    # Detail message should include the hint to retry with a sample query.
+    detail = " ".join(step.detail or "" for step in result.execution_steps)
+    assert "cancer" in detail or "PIN" in detail
 
 
 def test_query_empty_candidate_state_returns_empty(tmp_path: Path) -> None:
@@ -488,3 +508,140 @@ def test_llm_path_max_steps_guard_falls_back(
     assert len(calls) == 2
     assert result.parsed_intent.capability_type is CapabilityType.SURGERY_APPENDECTOMY
     assert result.ranked_facilities
+
+
+# ---------------------------------------------------------------------------
+# Relaxed heuristic + capability keyword + tool_call shape (Worktree B)
+# ---------------------------------------------------------------------------
+
+
+def test_run_heuristic_location_only_returns_results(audits_parquet: str) -> None:
+    """Bare 'Patna' (no capability) -> relaxed search across capabilities."""
+    result = query.run_query("Patna", use_llm=False, audits_path=audits_parquet)
+    # Location parsed.
+    assert result.parsed_intent.location is not None
+    assert abs(result.parsed_intent.location.lat - 25.61) < 0.01
+    # Capability missing — relaxed semantics fan out across CapabilityType enum.
+    assert result.parsed_intent.capability_type is None
+    # parse_intent step succeeded (not "fallback") because location was found.
+    assert result.execution_steps[0].name == "parse_intent"
+    assert result.execution_steps[0].status == "ok"
+    # Fixture has SURGERY_APPENDECTOMY trust scores — they should surface.
+    assert len(result.ranked_facilities) > 0
+
+
+def test_run_heuristic_capability_only_returns_results(audits_parquet: str) -> None:
+    """Bare capability ('oncology') with no location -> national-scale relaxed search."""
+    # Use 'appendectomy' since the audits fixture only carries SURGERY_APPENDECTOMY
+    # trust scores. The behaviour we're testing is "capability-only triggers the
+    # relaxed national-scale search" — the actual capability keyword is incidental.
+    result = query.run_query(
+        "appendectomy", use_llm=False, audits_path=audits_parquet
+    )
+    assert result.parsed_intent.capability_type is CapabilityType.SURGERY_APPENDECTOMY
+    assert result.parsed_intent.location is None
+    assert result.execution_steps[0].status == "ok"
+    assert len(result.ranked_facilities) > 0
+
+
+def test_iter_tool_calls_openai_shape() -> None:
+    """OpenAI-shape message.tool_calls -> normalized [{id, name, input}]."""
+    msg = {
+        "tool_calls": [
+            {
+                "id": "c1",
+                "type": "function",
+                "function": {
+                    "name": "geocode",
+                    "arguments": json.dumps({"query": "Patna"}),
+                },
+            }
+        ]
+    }
+    calls = query._iter_tool_calls(msg)
+    assert len(calls) == 1
+    assert calls[0]["id"] == "c1"
+    assert calls[0]["name"] == "geocode"
+    assert calls[0]["input"] == {"query": "Patna"}
+
+
+def test_iter_tool_calls_openai_malformed_arguments_skipped() -> None:
+    """Bad-JSON arguments -> that call is skipped, not raised."""
+    msg = {
+        "tool_calls": [
+            {
+                "id": "c1",
+                "type": "function",
+                "function": {"name": "geocode", "arguments": "not json"},
+            }
+        ]
+    }
+    calls = query._iter_tool_calls(msg)
+    assert calls == []
+
+
+def test_iter_tool_calls_openai_attribute_access() -> None:
+    """OpenAI shape works with attribute access too (Pydantic-like objects)."""
+
+    class _Fn:
+        def __init__(self, name: str, arguments: str) -> None:
+            self.name = name
+            self.arguments = arguments
+
+    class _Call:
+        def __init__(self, call_id: str, fn: _Fn) -> None:
+            self.id = call_id
+            self.type = "function"
+            self.function = fn
+
+    class _Msg:
+        def __init__(self, calls: list[_Call]) -> None:
+            self.tool_calls = calls
+            self.content = None  # No anthropic blocks.
+
+    msg = _Msg([_Call("c2", _Fn("search_facilities", json.dumps({"q": 1})))])
+    calls = query._iter_tool_calls(msg)
+    assert len(calls) == 1
+    assert calls[0]["name"] == "search_facilities"
+    assert calls[0]["input"] == {"q": 1}
+
+
+def test_capability_keyword_radiology_matches() -> None:
+    """X-ray query is RADIOLOGY, not surgery (radiology is keyed first)."""
+    assert query._detect_capability("need x-ray near me") is CapabilityType.RADIOLOGY
+
+
+def test_capability_keyword_pharmacy_matches() -> None:
+    """Pharmacy query routes to PHARMACY capability."""
+    assert query._detect_capability("nearest pharmacy") is CapabilityType.PHARMACY
+
+
+def test_capability_keyword_maternal_matches() -> None:
+    """Maternal/obstetric synonyms route to MATERNAL."""
+    assert query._detect_capability("looking for maternity ward") is CapabilityType.MATERNAL
+    assert query._detect_capability("obstetric care") is CapabilityType.MATERNAL
+
+
+def test_capability_keyword_lab_matches() -> None:
+    """Lab/diagnostic/pathology synonyms route to LAB."""
+    assert query._detect_capability("blood lab") is CapabilityType.LAB
+    assert query._detect_capability("pathology services") is CapabilityType.LAB
+
+
+def test_synthetic_unaudited_trust_score_is_neutral_amber() -> None:
+    """``_synthetic_unaudited_trust`` must produce a TrustScore that passes
+    the model_validator: confidence=0.5 + zero contradictions => score=50,
+    claimed=True, no evidence. Amber band so the UI distinguishes it from
+    a real audited score.
+    """
+    trust = query._synthetic_unaudited_trust(CapabilityType.ONCOLOGY)
+    assert trust.capability_type is CapabilityType.ONCOLOGY
+    assert trust.score == 50
+    assert trust.claimed is True
+    assert trust.evidence == []
+    assert trust.contradictions == []
+    assert trust.confidence == 0.5
+    # Confidence interval brackets the point estimate per the validator's
+    # post-hoc widening rule (lo<=confidence<=hi).
+    lo, hi = trust.confidence_interval
+    assert lo <= 0.5 <= hi

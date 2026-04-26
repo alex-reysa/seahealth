@@ -18,10 +18,28 @@ StaffingQualifier = Literal["parttime", "fulltime", "twentyfour_seven", "low_vol
 
 
 class ParsedIntent(BaseModel):
-    """Structured query intent used by retrieval and ranking."""
+    """Structured query intent used by retrieval and ranking.
 
-    capability_type: CapabilityType
-    location: GeoPoint
+    ``capability_type`` and ``location`` are optional so the relaxed query
+    path can return partial intents (capability-only or location-only
+    searches). Backward-compatible: callers that always supply both keep
+    working unchanged.
+    """
+
+    capability_type: CapabilityType | None = Field(
+        default=None,
+        description=(
+            "Detected capability. ``None`` means a location-only or fully "
+            "ambiguous query — relaxed search semantics apply."
+        ),
+    )
+    location: GeoPoint | None = Field(
+        default=None,
+        description=(
+            "Detected query origin. ``None`` means a capability-only or "
+            "fully ambiguous query — relaxed national-scale search applies."
+        ),
+    )
     radius_km: float = Field(
         ..., gt=0.0, description="Search radius around location in kilometers."
     )

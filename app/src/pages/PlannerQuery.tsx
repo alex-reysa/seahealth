@@ -347,13 +347,19 @@ export function PlannerQuery() {
               <Card variant="glass" className="p-4 flex flex-col gap-3">
                 <div>
                   <span className="text-caption text-content-tertiary">Capability</span>
-                  <div className="text-body font-mono text-content-primary">{result.parsed_intent.capability_type}</div>
+                  <div className="text-body font-mono text-content-primary">{result.parsed_intent.capability_type ?? '—'}</div>
                 </div>
                 <div>
                   <span className="text-caption text-content-tertiary">Location</span>
                   <div className="text-body font-mono text-content-primary">
-                    {result.parsed_intent.location.lat.toFixed(2)}, {result.parsed_intent.location.lng.toFixed(2)}
-                    {result.parsed_intent.location.pin_code && ` · PIN ${result.parsed_intent.location.pin_code}`}
+                    {result.parsed_intent.location ? (
+                      <>
+                        {result.parsed_intent.location.lat.toFixed(2)}, {result.parsed_intent.location.lng.toFixed(2)}
+                        {result.parsed_intent.location.pin_code && ` · PIN ${result.parsed_intent.location.pin_code}`}
+                      </>
+                    ) : (
+                      '—'
+                    )}
                   </div>
                 </div>
                 <div>

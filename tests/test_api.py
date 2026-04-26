@@ -103,6 +103,21 @@ def test_facility_audit_unknown_id_returns_404():
     assert resp.status_code == 404
 
 
+def test_facilities_geo_route_is_not_shadowed_by_facility_id():
+    """Regression: /facilities/geo must resolve to the geo handler, not be
+    captured by /facilities/{facility_id} as `facility_id="geo"` (which would
+    404 with 'facility not found: geo'). The geo route must be declared
+    before the parameterized one for FastAPI to match it correctly.
+    """
+    resp = client.get("/facilities/geo")
+    assert resp.status_code == 200
+    payload = resp.json()
+    assert isinstance(payload, list)
+    for row in payload:
+        assert "lat" in row
+        assert "lng" in row
+
+
 def test_map_aggregates_returns_valid_rows_and_capability_filter_works():
     resp = client.get("/map/aggregates")
     assert resp.status_code == 200

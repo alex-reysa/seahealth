@@ -19,6 +19,7 @@ Both paths emit the same ``QueryResult`` shape.
 
 from __future__ import annotations
 
+import json
 import logging
 import os
 import re
@@ -74,6 +75,27 @@ _CAPABILITY_KEYWORDS: list[tuple[str, CapabilityType]] = [
     ("emergency", CapabilityType.EMERGENCY_24_7),
     ("icu", CapabilityType.ICU),
     ("intensive care", CapabilityType.ICU),
+    # Maternal — all four synonyms keyed BEFORE generic SURGERY_* so that
+    # "obstetric surgery" stays MATERNAL rather than degrading to surgery.
+    ("maternity", CapabilityType.MATERNAL),
+    ("maternal", CapabilityType.MATERNAL),
+    ("obstetric", CapabilityType.MATERNAL),
+    ("gynec", CapabilityType.MATERNAL),
+    # Radiology — keyed BEFORE SURGERY_* so "x-ray facility" doesn't become
+    # SURGERY_GENERAL via the dangling "ray"-less substring race.
+    ("radiology", CapabilityType.RADIOLOGY),
+    ("imaging", CapabilityType.RADIOLOGY),
+    ("x-ray", CapabilityType.RADIOLOGY),
+    ("xray", CapabilityType.RADIOLOGY),
+    ("mri", CapabilityType.RADIOLOGY),
+    ("sonography", CapabilityType.RADIOLOGY),
+    # Lab / Pharmacy — also placed BEFORE SURGERY_* for the same reason.
+    ("lab", CapabilityType.LAB),
+    ("diagnostic", CapabilityType.LAB),
+    ("pathology", CapabilityType.LAB),
+    ("pharmacy", CapabilityType.PHARMACY),
+    ("chemist", CapabilityType.PHARMACY),
+    ("medical store", CapabilityType.PHARMACY),
     ("surgery", CapabilityType.SURGERY_GENERAL),
     ("operation", CapabilityType.SURGERY_GENERAL),
     ("abdominal procedure", CapabilityType.SURGERY_GENERAL),
@@ -299,6 +321,30 @@ def _trust_score_from_audit(
         return None
 
 
+def _synthetic_unaudited_trust(capability_type: CapabilityType) -> TrustScore:
+    """Neutral TrustScore for facilities surfaced via heuristic name match only.
+
+    Used when the search returned a hit from facilities_index that has no
+    corresponding audit row. Confidence is set to 0.5 with a wide CI so the
+    score lands at 50 (amber band) — the UI distinguishes these from audited
+    facilities by the absent evidence/contradictions counts.
+    """
+    return TrustScore(
+        capability_type=capability_type,
+        claimed=True,
+        evidence=[],
+        contradictions=[],
+        confidence=0.5,
+        confidence_interval=(0.2, 0.8),
+        score=50,
+        reasoning=(
+            "Unverified — name-keyword match against the facilities index. "
+            "No audit run yet for this facility."
+        ),
+        computed_at=_utcnow(),
+    )
+
+
 def _build_ranked(
     candidates: list[dict[str, Any]],
     parsed: ParsedIntent,
@@ -321,36 +367,67 @@ def _build_ranked(
         facility_id = hit.get("facility_id")
         if not facility_id:
             continue
+        # Pick the right capability for the trust-score join. ``parsed``
+        # carries the user-asked capability when present; the relaxed
+        # location-only path leaves it ``None`` and instead annotates each
+        # candidate with ``_matched_capability``.
+        trust_capability = parsed.capability_type
+        if trust_capability is None:
+            matched = hit.get("_matched_capability")
+            if matched:
+                try:
+                    trust_capability = CapabilityType(matched)
+                except ValueError:
+                    trust_capability = None
+        if trust_capability is None:
+            continue
+
         audit = tool_get_facility_audit(facility_id, audits_path=audits_path)
-        if not audit:
-            continue
-        trust = _trust_score_from_audit(audit, parsed.capability_type)
+        trust: TrustScore | None = None
+        if audit is not None:
+            trust = _trust_score_from_audit(audit, trust_capability)
         if trust is None:
-            continue
-        location = audit.get("location")
-        if isinstance(location, dict):
+            # Heuristic-matched facility from facilities_index without a real
+            # audit. Synthesize a neutral TrustScore so the candidate can
+            # still surface in results — UI distinguishes via score band /
+            # missing evidence count.
+            trust = _synthetic_unaudited_trust(trust_capability)
+
+        # Resolve location: audit row first (richer, has pin_code); fall back
+        # to the hit's lat/lng when the facility is unaudited.
+        point: GeoPoint | None = None
+        if audit is not None:
+            location = audit.get("location")
+            if isinstance(location, dict):
+                try:
+                    point = GeoPoint(
+                        lat=float(location["lat"]),
+                        lng=float(location["lng"]),
+                        pin_code=location.get("pin_code"),
+                    )
+                except (KeyError, TypeError, ValueError):
+                    point = None
+            elif isinstance(location, GeoPoint):
+                point = location
+        if point is None:
             try:
                 point = GeoPoint(
-                    lat=float(location["lat"]),
-                    lng=float(location["lng"]),
-                    pin_code=location.get("pin_code"),
+                    lat=float(hit["lat"]),
+                    lng=float(hit["lng"]),
                 )
             except (KeyError, TypeError, ValueError):
                 continue
-        elif isinstance(location, GeoPoint):
-            point = location
-        else:
-            continue
         nd_raw = hit.get("number_doctors")
         try:
             number_doctors = int(nd_raw) if nd_raw is not None else None
         except (TypeError, ValueError):
             number_doctors = None
         deltas.append(_staffing_score_delta(qualifier, number_doctors))
+        display_name = (audit.get("name") if audit else None) or hit.get("name") or facility_id
         ranked.append(
             RankedFacility(
                 facility_id=str(facility_id),
-                name=str(audit.get("name") or facility_id),
+                name=str(display_name),
                 location=point,
                 distance_km=float(hit.get("distance_km", 0.0)),
                 trust_score=trust,
@@ -375,6 +452,103 @@ def _build_ranked(
     for idx, item in enumerate(ranked, start=1):
         item.rank = idx
     return ranked
+
+
+# ---------------------------------------------------------------------------
+# Relaxed search wrapper
+# ---------------------------------------------------------------------------
+
+# Centroid + radius used when the user gave us a capability but no location.
+# Pinned to (22.5, 79.0) — roughly the geographic centre of mainland India —
+# with a 3000 km radius so the haversine cap admits Kashmir to Kanyakumari.
+_INDIA_CENTROID_LAT = 22.5
+_INDIA_CENTROID_LNG = 79.0
+_INDIA_NATIONAL_RADIUS_KM = 3000.0
+_RELAXED_TOP_N = 50
+
+
+def tool_search_facilities_relaxed(
+    capability_type: str | None,
+    lat: float | None,
+    lng: float | None,
+    radius_km: float,
+    *,
+    audits_path: str | None = None,
+    facilities_index_path: str | None = None,
+) -> list[dict[str, Any]]:
+    """Search facilities with relaxed semantics — capability OR location may be omitted.
+
+    Modes:
+
+    * **lat/lng missing** — iterate every ``CapabilityType`` (or just the
+      provided one) at the India-wide centroid + 3000 km radius, merge,
+      dedupe by ``facility_id``, return top ``_RELAXED_TOP_N``.
+    * **capability_type missing** — iterate every ``CapabilityType`` at the
+      caller-supplied lat/lng/radius, merge & dedupe by ``facility_id``.
+    * **both present** — degrade to a normal :func:`tool_search_facilities`
+      call (no merging, no truncation).
+
+    NOTE: this wrapper lives here (not in ``tools.py``) so the worktree
+    that owns the search internals can iterate independently.
+    """
+    has_capability = bool(capability_type)
+    has_location = lat is not None and lng is not None
+
+    if has_capability and has_location:
+        # Both present — straight passthrough; preserves prior shape exactly.
+        return tool_search_facilities(
+            capability_type=str(capability_type),
+            lat=float(lat),  # type: ignore[arg-type]
+            lng=float(lng),  # type: ignore[arg-type]
+            radius_km=float(radius_km),
+            audits_path=audits_path,
+            facilities_index_path=facilities_index_path,
+        )
+
+    # Decide the (lat, lng, radius) to use.
+    if has_location:
+        search_lat, search_lng = float(lat), float(lng)  # type: ignore[arg-type]
+        search_radius = float(radius_km)
+    else:
+        search_lat, search_lng = _INDIA_CENTROID_LAT, _INDIA_CENTROID_LNG
+        search_radius = _INDIA_NATIONAL_RADIUS_KM
+
+    # Decide which capability(ies) to iterate.
+    capabilities: list[str]
+    if has_capability:
+        capabilities = [str(capability_type)]
+    else:
+        capabilities = [c.value for c in CapabilityType]
+
+    seen: set[str] = set()
+    merged: list[dict[str, Any]] = []
+    for cap in capabilities:
+        try:
+            hits = tool_search_facilities(
+                capability_type=cap,
+                lat=search_lat,
+                lng=search_lng,
+                radius_km=search_radius,
+                audits_path=audits_path,
+                facilities_index_path=facilities_index_path,
+            )
+        except Exception as exc:  # pragma: no cover - defensive
+            log.warning("relaxed search failed for capability=%s: %s", cap, exc)
+            continue
+        for hit in hits:
+            fid = hit.get("facility_id")
+            if not fid or fid in seen:
+                continue
+            seen.add(str(fid))
+            # Stash which capability matched so the downstream ranker can
+            # look up the correct TrustScore from the audit row.
+            annotated = dict(hit)
+            annotated["_matched_capability"] = cap
+            merged.append(annotated)
+
+    # Stable, deterministic top-N: highest score first, then nearest distance.
+    merged.sort(key=lambda c: (-int(c.get("score", 0)), float(c.get("distance_km", 0.0))))
+    return merged[:_RELAXED_TOP_N]
 
 
 # ---------------------------------------------------------------------------
@@ -413,21 +587,29 @@ def _run_heuristic(
     radius = _detect_radius(query)
     staffing = _detect_staffing_qualifier(query)
     trace_id = _new_trace_id()
-    parse_status = "ok" if (capability is not None and location is not None) else "fallback"
+    # Relaxed parser: we now treat capability-only OR location-only queries
+    # as a successful parse. Only "neither detected" still flips to fallback.
+    if capability is not None and location is not None:
+        parse_status = "ok"
+    elif capability is None and location is None:
+        parse_status = "fallback"
+    else:
+        parse_status = "ok"
     parse_detail = (
-        f"capability={capability.value if capability else 'unknown'} radius_km={radius:.0f}"
+        f"capability={capability.value if capability else 'unknown'} "
+        f"location={'known' if location else 'unknown'} radius_km={radius:.0f}"
         + (f" staffing={staffing}" if staffing else "")
     )
     steps.append(_step("parse_intent", parse_start, parse_status, parse_detail))
 
-    if capability is None or location is None:
-        # We can still emit a shape-correct empty result so callers (e.g. the
-        # API stub) don't crash on unknown queries.
+    if capability is None and location is None:
+        # Both unparseable — keep the original empty-result shape but emit a
+        # more actionable detail so the UI / planner can suggest a retry.
         return QueryResult(
             query=query,
             parsed_intent=ParsedIntent(
-                capability_type=capability or CapabilityType.SURGERY_GENERAL,
-                location=location or GeoPoint(lat=0.0, lng=0.0),
+                capability_type=None,
+                location=None,
                 radius_km=radius,
                 staffing_qualifier=staffing,
             ),
@@ -436,7 +618,16 @@ def _run_heuristic(
             query_trace_id=trace_id,
             mlflow_trace_id=mlflow_id,
             mlflow_trace_url=mlflow_url,
-            execution_steps=steps,
+            execution_steps=steps
+            + [
+                _step(
+                    "retrieve",
+                    _utcnow(),
+                    "fallback",
+                    "could not detect capability or location; "
+                    "try 'cancer in Mumbai' or 'PIN 800001'",
+                )
+            ],
             retriever_mode=retriever_mode,
             used_llm=False,
             generated_at=_utcnow(),
@@ -450,10 +641,10 @@ def _run_heuristic(
     )
 
     retrieve_start = _utcnow()
-    candidates = tool_search_facilities(
-        capability.value,
-        location.lat,
-        location.lng,
+    candidates = tool_search_facilities_relaxed(
+        capability.value if capability is not None else None,
+        location.lat if location is not None else None,
+        location.lng if location is not None else None,
         radius,
         audits_path=audits_path,
         facilities_index_path=facilities_index_path,
@@ -463,8 +654,13 @@ def _run_heuristic(
     # produces no candidates with a non-zero trust score, retry with the umbrella
     # SURGERY_GENERAL. Candidates with score=0 are facilities that have the capability
     # in their audit shape but are entirely contradicted — not meaningful matches.
+    # Only meaningful when location is known (specialized->general retry needs an origin).
     meaningful = [c for c in candidates if int(c.get("score", 0)) > 0]
-    if not meaningful and capability == CapabilityType.SURGERY_APPENDECTOMY:
+    if (
+        not meaningful
+        and capability == CapabilityType.SURGERY_APPENDECTOMY
+        and location is not None
+    ):
         candidates = tool_search_facilities(
             CapabilityType.SURGERY_GENERAL.value,
             location.lat,
@@ -618,6 +814,19 @@ def _block_field(block: Any, field: str) -> Any:
 
 
 def _iter_tool_calls(message: Any) -> list[dict[str, Any]]:
+    """Normalize tool calls from EITHER Anthropic content-blocks OR OpenAI shape.
+
+    The Query Agent's LLM client (``seahealth.agents.llm_client``) speaks the
+    OpenAI Chat Completions wire format, so messages carry tool calls under
+    ``message.tool_calls`` with ``function.name`` + JSON-string
+    ``function.arguments``. The legacy Anthropic shape used
+    ``message.content`` blocks of ``type=="tool_use"``. We try Anthropic
+    first (it's the older path with explicit input dicts); if no calls were
+    extracted we then look for OpenAI ``tool_calls``. Malformed entries
+    (missing function, bad JSON in arguments) are silently skipped so a
+    single bad block can't take the whole loop down.
+    """
+    # ---- Anthropic content-block path ----
     blocks = _block_field(message, "content") or []
     calls: list[dict[str, Any]] = []
     for block in blocks:
@@ -628,6 +837,40 @@ def _iter_tool_calls(message: Any) -> list[dict[str, Any]]:
                 "id": _block_field(block, "id"),
                 "name": _block_field(block, "name"),
                 "input": _block_field(block, "input") or {},
+            }
+        )
+    if calls:
+        return calls
+
+    # ---- OpenAI tool_calls path ----
+    raw_tool_calls = _block_field(message, "tool_calls") or []
+    for entry in raw_tool_calls:
+        function = _block_field(entry, "function")
+        if function is None:
+            continue
+        name = _block_field(function, "name")
+        if not name:
+            continue
+        arguments = _block_field(function, "arguments")
+        if isinstance(arguments, str):
+            try:
+                parsed_args = json.loads(arguments)
+            except (TypeError, ValueError, json.JSONDecodeError):
+                # Skip the malformed call rather than crashing the loop.
+                continue
+        elif isinstance(arguments, dict):
+            parsed_args = arguments
+        elif arguments is None:
+            parsed_args = {}
+        else:
+            continue
+        if not isinstance(parsed_args, dict):
+            continue
+        calls.append(
+            {
+                "id": _block_field(entry, "id"),
+                "name": name,
+                "input": parsed_args,
             }
         )
     return calls

@@ -125,11 +125,13 @@ export async function fetchSummary(
 export async function fetchQuery(
   query: string,
   mode: ApiMode = resolveApiMode(),
+  signal?: AbortSignal,
 ): Promise<QueryResult> {
   if (mode === 'live') {
     return jsonFetch<QueryResult>('/query', {
       method: 'POST',
       body: JSON.stringify({ query }),
+      signal,
     });
   }
   return { ...(demoQueryResult as unknown as QueryResult), query };

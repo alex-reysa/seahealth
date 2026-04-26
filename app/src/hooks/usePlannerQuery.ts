@@ -37,7 +37,7 @@ export function usePlannerQuery(initial?: QueryResult): PlannerQueryState {
     setStatus('loading');
     setError(undefined);
     try {
-      const result = await fetchQuery(q);
+      const result = await fetchQuery(q, undefined, controller.signal);
       if (controller.signal.aborted) return undefined;
       setData(result);
       setStatus(result.ranked_facilities.length === 0 ? 'empty' : 'success');

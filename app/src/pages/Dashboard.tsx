@@ -694,6 +694,24 @@ export function Dashboard() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [regionId]);
 
+  // Auto-run the planner query when ?q= is present on first mount, mirroring
+  // the PlannerQuery page so deep-links land on real results instead of an
+  // empty rail.
+  const didAutoRunRef = React.useRef(false);
+  React.useEffect(() => {
+    if (didAutoRunRef.current) return;
+    if (!initialQuery.trim()) return;
+    didAutoRunRef.current = true;
+    setIsAgentPanelOpen(true);
+    setAgentPanelView('trace');
+    plannerQuery.run(initialQuery).then((result) => {
+      setAgentPanelView('facilities');
+      const top = result?.ranked_facilities?.[0];
+      if (top) focusFacilityOnMap(top);
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const focusFacilityOnMap = (facility: RankedFacility) => {
     setSelectedDistrictProps(null);
     setIsAgentPanelOpen(true);
@@ -1298,7 +1316,25 @@ export function Dashboard() {
                   <span className="text-caption text-content-tertiary">{queryResult?.total_candidates ?? 0} candidates</span>
                 </div>
 
-                {rankedFacilities.length === 0 && !isRunning && (
+                {rankedFacilities.length === 0 && !isRunning && plannerQuery.status === 'error' && (
+                  <div className="mt-4 rounded-md border border-semantic-flagged/40 bg-semantic-flagged/5 p-3">
+                    <div className="text-caption font-semibold text-semantic-flagged">Query failed</div>
+                    <div className="mt-1 text-caption text-content-secondary">{plannerQuery.error?.detail ?? 'Unknown error.'}</div>
+                  </div>
+                )}
+                {rankedFacilities.length === 0 && !isRunning && plannerQuery.status === 'unavailable' && (
+                  <div className="mt-4 rounded-md border border-content-tertiary/30 bg-surface-sunken/30 p-3">
+                    <div className="text-caption font-semibold text-content-secondary">Service unavailable</div>
+                    <div className="mt-1 text-caption text-content-tertiary">The query service is offline. Try again shortly.</div>
+                  </div>
+                )}
+                {rankedFacilities.length === 0 && !isRunning && plannerQuery.status === 'empty' && (
+                  <div className="mt-4 rounded-md border border-border-subtle bg-surface-sunken/30 p-3">
+                    <div className="text-caption font-semibold text-content-secondary">No matches</div>
+                    <div className="mt-1 text-caption text-content-tertiary">No facilities matched. Try a different capability, a wider radius, or a nearby city.</div>
+                  </div>
+                )}
+                {rankedFacilities.length === 0 && !isRunning && plannerQuery.status === 'idle' && (
                   <p className="mt-4 text-caption text-content-tertiary">Run a query to see ranked facility results.</p>
                 )}
                 {isRunning && (

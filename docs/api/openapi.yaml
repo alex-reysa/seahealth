@@ -663,9 +663,13 @@ components:
     ParsedIntent:
       properties:
         capability_type:
-          $ref: '#/components/schemas/CapabilityType'
+          anyOf:
+          - $ref: '#/components/schemas/CapabilityType'
+          - type: 'null'
         location:
-          $ref: '#/components/schemas/GeoPoint'
+          anyOf:
+          - $ref: '#/components/schemas/GeoPoint'
+          - type: 'null'
         radius_km:
           type: number
           exclusiveMinimum: 0.0
@@ -685,8 +689,6 @@ components:
             Used as a soft tiebreaker on ranking; missing facility staffing data never drops a candidate.
       type: object
       required:
-      - capability_type
-      - location
       - radius_km
       title: ParsedIntent
       description: Structured query intent used by retrieval and ranking.

@@ -111,8 +111,8 @@ export interface RankedFacility {
 }
 
 export interface ParsedIntent {
-  capability_type: CapabilityType;
-  location: GeoPoint;
+  capability_type?: CapabilityType | null;
+  location?: GeoPoint | null;
   radius_km: number;
   staffing_qualifier?: 'parttime' | 'fulltime' | 'twentyfour_seven' | 'low_volume' | null;
 }

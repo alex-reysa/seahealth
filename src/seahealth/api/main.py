@@ -237,20 +237,6 @@ def post_query(body: QueryRequest, response: Response) -> QueryResult:
     return result
 
 
-@app.get("/facilities/{facility_id}", response_model=FacilityAudit)
-def get_facility(facility_id: str) -> FacilityAudit:
-    """Facility Audit page payload."""
-    try:
-        audit = data_access.load_facility_audit(facility_id)
-    except DataLayerError as exc:
-        raise _data_503(exc) from exc
-    if audit is None:
-        raise HTTPException(
-            status_code=404, detail=f"facility not found: {facility_id}"
-        )
-    return audit
-
-
 class FacilityLocationRow(BaseModel):
     """Lightweight geo marker returned by /facilities/geo."""
 
@@ -283,6 +269,20 @@ def get_facility_locations() -> list[FacilityLocationRow]:
             )
         )
     return rows
+
+
+@app.get("/facilities/{facility_id}", response_model=FacilityAudit)
+def get_facility(facility_id: str) -> FacilityAudit:
+    """Facility Audit page payload."""
+    try:
+        audit = data_access.load_facility_audit(facility_id)
+    except DataLayerError as exc:
+        raise _data_503(exc) from exc
+    if audit is None:
+        raise HTTPException(
+            status_code=404, detail=f"facility not found: {facility_id}"
+        )
+    return audit
 
 
 @app.get("/map/aggregates", response_model=list[MapRegionAggregate])
