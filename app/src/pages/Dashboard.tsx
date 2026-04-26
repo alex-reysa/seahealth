@@ -171,6 +171,12 @@ function getMapStyle(
         tileSize: 256,
         attribution: 'Carto',
       },
+      'place-labels': {
+        type: 'raster',
+        tiles: ['https://a.basemaps.cartocdn.com/light_only_labels/{z}/{x}/{y}@2x.png'],
+        tileSize: 256,
+        attribution: 'Carto',
+      },
       'india-districts': {
         type: 'geojson',
         data: indiaDistrictsGeoJson,
@@ -231,6 +237,16 @@ function getMapStyle(
         type: 'line',
         source: 'india-districts',
         paint: { 'line-color': '#176D6A', 'line-opacity': 0.18, 'line-width': 0.8 },
+      },
+      {
+        id: 'place-labels',
+        type: 'raster',
+        source: 'place-labels',
+        minzoom: 4,
+        paint: {
+          'raster-opacity': ['interpolate', ['linear'], ['zoom'], 4, 0.14, 7, 0.24, 11, 0.32],
+          'raster-saturation': -1,
+        },
       },
       {
         id: 'coverage-radius-fill',
