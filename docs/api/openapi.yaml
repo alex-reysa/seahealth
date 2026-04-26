@@ -1,9 +1,8 @@
 openapi: 3.1.0
 info:
   title: SeaHealth API
-  description: Phase-4 surface. Endpoints read through a unified data-access layer
-    that auto-detects DELTA -> PARQUET -> FIXTURE and falls back gracefully so the
-    demo never hard-stops.
+  description: Phase-4 surface. Endpoints read through a unified data-access layer that auto-detects DELTA
+    -> PARQUET -> FIXTURE and falls back gracefully so the demo never hard-stops.
   version: 0.2.0
 paths:
   /health:
@@ -73,7 +72,7 @@ paths:
 
         populated ranked list. ``use_llm`` is enabled only when
 
-        ``ANTHROPIC_API_KEY`` is present; otherwise the deterministic heuristic
+        ``DATABRICKS_TOKEN`` is present; otherwise the deterministic heuristic
 
         path runs (no network calls).'
       operationId: post_query_query_post
@@ -162,8 +161,7 @@ paths:
   /facilities:
     get:
       summary: List Facilities
-      description: Faceted facility list. ``limit`` is validated to ``1 <= limit <=
-        50``.
+      description: Faceted facility list. ``limit`` is validated to ``1 <= limit <= 50``.
       operationId: list_facilities_facilities_get
       parameters:
       - name: limit
@@ -223,6 +221,15 @@ components:
           type: string
           title: Extractor Model
           description: Model id used for extraction (e.g. 'databricks-meta-llama-3-1-70b-instruct').
+        mlflow_trace_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Mlflow Trace Id
+          description: MLflow trace id stamped at extraction time. Either a real MLflow trace id (when
+            MLFLOW_TRACKING_URI is configured) or a deterministic synthetic id of the form ``local::<facility_id>::<run_uuid>``
+            so a downstream UI can still link a Capability back to one extraction run. Older parquet rows
+            produced before the field existed deserialize to None and round-trip cleanly.
       type: object
       required:
       - facility_id
@@ -232,8 +239,7 @@ components:
       - extracted_at
       - extractor_model
       title: Capability
-      description: A single claimed-or-denied capability for one facility, with evidence
-        chain.
+      description: A single claimed-or-denied capability for one facility, with evidence chain.
     CapabilityType:
       type: string
       enum:
@@ -250,8 +256,7 @@ components:
       - PHARMACY
       - EMERGENCY_24_7
       title: CapabilityType
-      description: Closed set of facility capabilities considered in scope for the
-        hackathon demo.
+      description: Closed set of facility capabilities considered in scope for the hackathon demo.
     Contradiction:
       properties:
         contradiction_type:
@@ -301,8 +306,7 @@ components:
       - detected_by
       - detected_at
       title: Contradiction
-      description: 'A single detected contradiction tying a claim to the evidence
-        that contests it.
+      description: 'A single detected contradiction tying a claim to the evidence that contests it.
 
 
         Rendered as a flag in FacilityAudit and RankedFacility.'
@@ -316,8 +320,7 @@ components:
       - CONFLICTING_SOURCES
       - STALE_DATA
       title: ContradictionType
-      description: Closed taxonomy of validator-detectable contradictions for the
-        hackathon demo.
+      description: Closed taxonomy of validator-detectable contradictions for the hackathon demo.
     EvidenceRef:
       properties:
         source_doc_id:
@@ -366,8 +369,7 @@ components:
           - type: string
           - type: 'null'
           title: Source Observed At
-          description: When the source content was published, observed, or last updated;
-            used for STALE_DATA.
+          description: When the source content was published, observed, or last updated; used for STALE_DATA.
         retrieved_at:
           type: string
           title: Retrieved At
@@ -382,11 +384,53 @@ components:
       - source_type
       - retrieved_at
       title: EvidenceRef
-      description: 'A pointer to the exact span in a source document that supports
-        or refutes a claim.
+      description: 'A pointer to the exact span in a source document that supports or refutes a claim.
 
 
         Every UI citation chip resolves through this object.'
+    ExecutionStep:
+      properties:
+        name:
+          type: string
+          title: Name
+          description: Stable step identifier (parse_intent, retrieve, score, rank).
+        started_at:
+          type: string
+          title: Started At
+        finished_at:
+          type: string
+          title: Finished At
+        status:
+          type: string
+          enum:
+          - ok
+          - fallback
+          - error
+          title: Status
+          description: ok | fallback | error.
+        detail:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Detail
+          description: Optional human-readable detail line.
+      type: object
+      required:
+      - name
+      - started_at
+      - finished_at
+      - status
+      title: ExecutionStep
+      description: 'One step in the planner agent timeline.
+
+
+        The agent always emits a fixed set of step ``name`` values
+
+        (``parse_intent``, ``retrieve``, ``score``, ``rank``) so the UI can render
+
+        a stable timeline. ``status=''fallback''`` distinguishes the heuristic
+
+        path from a real LLM-driven step at the same name.'
     FacilityAudit:
       properties:
         facility_id:
@@ -414,8 +458,7 @@ components:
           type: integer
           minimum: 0.0
           title: Total Contradictions
-          description: Denormalized sum across trust_scores[*].contradictions; used
-            for UI sort/filter.
+          description: Denormalized sum across trust_scores[*].contradictions; used for UI sort/filter.
           default: 0
         last_audited_at:
           type: string
@@ -425,8 +468,8 @@ components:
           - type: string
           - type: 'null'
           title: Mlflow Trace Id
-          description: MLflow trace id linking to the agent run that produced this
-            audit (transparency view).
+          description: MLflow trace id linking to the agent run that produced this audit (transparency
+            view).
       type: object
       required:
       - facility_id
@@ -437,8 +480,7 @@ components:
       description: 'Canonical per-facility audit record.
 
 
-        The Planner Console, Facility Card, Trust Score drawer, and contradiction
-        list
+        The Planner Console, Facility Card, Trust Score drawer, and contradiction list
 
         all read from this shape.'
     GeoPoint:
@@ -491,16 +533,15 @@ components:
         retriever_mode:
           type: string
           title: Retriever Mode
-          description: vector_search | faiss_local | unknown.
         vs_endpoint:
           anyOf:
-            - type: string
-            - type: 'null'
+          - type: string
+          - type: 'null'
           title: Vs Endpoint
         vs_index:
           anyOf:
-            - type: string
-            - type: 'null'
+          - type: string
+          - type: 'null'
           title: Vs Index
       type: object
       required:
@@ -545,11 +586,22 @@ components:
           type: integer
           minimum: 0.0
           title: Gap Population
-          description: Population minus a coverage estimate for this capability (uncovered
-            population).
+          description: Population minus a coverage estimate for this capability (uncovered population).
+            Only meaningful when ``population_source != 'unavailable'``.
         centroid:
           $ref: '#/components/schemas/GeoPoint'
           description: Geographic centroid of the region.
+        population_source:
+          type: string
+          enum:
+          - delta
+          - fixture
+          - unavailable
+          title: Population Source
+          description: Provenance of the population denominator. ``delta`` = backed by the gold table;
+            ``fixture`` = bundled census snapshot; ``unavailable`` = no denominator. The UI MUST NOT compute
+            percent-of-population when this is ``unavailable``.
+          default: unavailable
       type: object
       required:
       - region_id
@@ -562,8 +614,7 @@ components:
       - gap_population
       - centroid
       title: MapRegionAggregate
-      description: Desert Map rollup for one region and capability, sized for the
-        UI map layer.
+      description: Desert Map rollup for one region and capability, sized for the UI map layer.
     ParsedIntent:
       properties:
         capability_type:
@@ -575,6 +626,18 @@ components:
           exclusiveMinimum: 0.0
           title: Radius Km
           description: Search radius around location in kilometers.
+        staffing_qualifier:
+          anyOf:
+          - type: string
+            enum:
+            - parttime
+            - fulltime
+            - twentyfour_seven
+            - low_volume
+          - type: 'null'
+          title: Staffing Qualifier
+          description: Optional staffing pattern qualifier extracted from the natural-language query.
+            Used as a soft tiebreaker on ranking; missing facility staffing data never drops a candidate.
       type: object
       required:
       - capability_type
@@ -613,7 +676,43 @@ components:
         query_trace_id:
           type: string
           title: Query Trace Id
-          description: MLflow trace id for the planner run.
+          description: Correlation id for this planner run. Always present. Format ``q_<uuid>`` for offline
+            / synthetic runs; reused in the X-Query-Trace-Id response header.
+        mlflow_trace_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Mlflow Trace Id
+          description: Real MLflow trace id when the run executed under MLFLOW_TRACKING_URI; otherwise
+            null.
+        mlflow_trace_url:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Mlflow Trace Url
+          description: Optional deep-link to the MLflow trace UI. Only populated when MLFLOW_HOST is set
+            alongside MLFLOW_TRACKING_URI.
+        execution_steps:
+          items:
+            $ref: '#/components/schemas/ExecutionStep'
+          type: array
+          title: Execution Steps
+          description: Timeline of agent steps (parse_intent, retrieve, score, rank). Always four entries
+            on success; fewer only when an early step errored.
+        retriever_mode:
+          type: string
+          enum:
+          - vector_search
+          - faiss_local
+          - fixture
+          title: Retriever Mode
+          description: Which retriever the run used (vector_search | faiss_local | fixture).
+          default: faiss_local
+        used_llm:
+          type: boolean
+          title: Used Llm
+          description: True when the LLM tool-loop ran; False when the heuristic path ran.
+          default: false
         generated_at:
           type: string
           title: Generated At
@@ -694,20 +793,19 @@ components:
           anyOf:
           - $ref: '#/components/schemas/CapabilityType'
           - type: 'null'
-          description: When set, all counts are restricted to this capability; otherwise
-            global.
+          description: When set, all counts are restricted to this capability; otherwise global.
         verified_count_ci:
           anyOf:
-          - type: array
-            prefixItems:
+          - prefixItems:
             - type: integer
             - type: integer
-            minItems: 2
+            type: array
             maxItems: 2
+            minItems: 2
           - type: 'null'
           title: Verified Count Ci
-          description: Optional 95% Wilson CI on verified_count, scaled back to integer
-            counts in [0, audited_count]. None when audited_count is 0.
+          description: Optional 95% Wilson CI on verified_count, scaled back to integer counts in [0,
+            audited_count]. None when audited_count is 0 or the caller asked for a point estimate.
       type: object
       required:
       - audited_count
@@ -762,8 +860,7 @@ components:
         reasoning:
           type: string
           title: Reasoning
-          description: Short paragraph, model-generated, shown in the Trust Score
-            drawer.
+          description: Short paragraph, model-generated, shown in the Trust Score drawer.
         computed_at:
           type: string
           title: Computed At
@@ -777,13 +874,11 @@ components:
       - reasoning
       - computed_at
       title: TrustScore
-      description: "Per-capability trust assessment. First-class structured object\
-        \ \u2014 never a bare float.\n\nScore derivation (deterministic, document\
-        \ the mapping here so downstream agents agree):\n  base        = round(confidence\
-        \ * 100)            # 0..100\n  penalty     = sum of severity weights across\
-        \ contradictions\n                (LOW=5, MEDIUM=15, HIGH=30)\n  score   \
-        \    = max(0, min(100, base - penalty))\n\nBands used by the UI:\n  80-100\
-        \ = green, 50-79 = amber, 0-49 = red."
+      description: "Per-capability trust assessment. First-class structured object — never a bare float.\n\
+        \nScore derivation (deterministic, document the mapping here so downstream agents agree):\n  base\
+        \        = round(confidence * 100)            # 0..100\n  penalty     = sum of severity weights\
+        \ across contradictions\n                (LOW=5, MEDIUM=15, HIGH=30)\n  score       = max(0, min(100,\
+        \ base - penalty))\n\nBands used by the UI:\n  80-100 = green, 50-79 = amber, 0-49 = red."
     ValidationError:
       properties:
         loc:

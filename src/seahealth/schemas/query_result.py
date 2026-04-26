@@ -53,6 +53,34 @@ class RankedFacility(BaseModel):
     rank: int = Field(..., ge=1, description="1-indexed rank in the result list.")
 
 
+# Closed taxonomy for execution-step status. ``ok`` covers the happy path,
+# ``fallback`` records that the heuristic / synthetic substitution kicked in
+# for that step, and ``error`` is reserved for unrecoverable failures.
+ExecutionStepStatus = Literal["ok", "fallback", "error"]
+
+
+# Closed taxonomy for the active retriever during a query run. ``vector_search``
+# is the Mosaic AI Vector Search path; ``faiss_local`` is the local FAISS /
+# BM25 fallback; ``fixture`` means the FIXTURE-mode bundled response was used.
+RetrieverMode = Literal["vector_search", "faiss_local", "fixture"]
+
+
+class ExecutionStep(BaseModel):
+    """One step in the planner agent timeline.
+
+    The agent always emits a fixed set of step ``name`` values
+    (``parse_intent``, ``retrieve``, ``score``, ``rank``) so the UI can render
+    a stable timeline. ``status='fallback'`` distinguishes the heuristic
+    path from a real LLM-driven step at the same name.
+    """
+
+    name: str = Field(..., description="Stable step identifier (parse_intent, retrieve, score, rank).")
+    started_at: AwareDatetime
+    finished_at: AwareDatetime
+    status: ExecutionStepStatus = Field(..., description="ok | fallback | error.")
+    detail: str | None = Field(default=None, description="Optional human-readable detail line.")
+
+
 class QueryResult(BaseModel):
     """Planner Console output for the appendectomy demo query."""
 
@@ -62,5 +90,46 @@ class QueryResult(BaseModel):
     total_candidates: int = Field(
         ..., ge=0, description="Candidates considered before ranking/cutoff."
     )
-    query_trace_id: str = Field(..., description="MLflow trace id for the planner run.")
+    # Always-present synthetic correlation id — `q_<uuid>` for live runs, used
+    # in logs, telemetry, and the X-Query-Trace-Id response header. NOT an
+    # MLflow trace id; that lives on ``mlflow_trace_id`` and is only set when
+    # MLFLOW_TRACKING_URI is configured.
+    query_trace_id: str = Field(
+        ...,
+        description=(
+            "Correlation id for this planner run. Always present. Format "
+            "``q_<uuid>`` for offline / synthetic runs; reused in the "
+            "X-Query-Trace-Id response header."
+        ),
+    )
+    mlflow_trace_id: str | None = Field(
+        default=None,
+        description=(
+            "Real MLflow trace id when the run executed under "
+            "MLFLOW_TRACKING_URI; otherwise null."
+        ),
+    )
+    mlflow_trace_url: str | None = Field(
+        default=None,
+        description=(
+            "Optional deep-link to the MLflow trace UI. Only populated when "
+            "MLFLOW_HOST is set alongside MLFLOW_TRACKING_URI."
+        ),
+    )
+    execution_steps: list[ExecutionStep] = Field(
+        default_factory=list,
+        description=(
+            "Timeline of agent steps (parse_intent, retrieve, score, rank). "
+            "Always four entries on success; fewer only when an early "
+            "step errored."
+        ),
+    )
+    retriever_mode: RetrieverMode = Field(
+        default="faiss_local",
+        description="Which retriever the run used (vector_search | faiss_local | fixture).",
+    )
+    used_llm: bool = Field(
+        default=False,
+        description="True when the LLM tool-loop ran; False when the heuristic path ran.",
+    )
     generated_at: AwareDatetime

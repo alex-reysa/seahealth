@@ -95,6 +95,8 @@ export interface SummaryMetrics {
   flagged_count: number;
   last_audited_at: string;
   capability_type?: CapabilityType | null;
+  /** 95% Wilson interval on verified_count / audited_count, or null when N=0. */
+  verified_count_ci?: [number, number] | null;
 }
 
 export interface RankedFacility {
@@ -115,14 +117,35 @@ export interface ParsedIntent {
   staffing_qualifier?: 'parttime' | 'fulltime' | 'twentyfour_seven' | 'low_volume' | null;
 }
 
+export type ExecutionStepStatus = 'ok' | 'fallback' | 'error';
+export type RetrieverMode = 'vector_search' | 'faiss_local' | 'fixture';
+
+export interface ExecutionStep {
+  name: string;
+  started_at: string;
+  finished_at: string;
+  status: ExecutionStepStatus;
+  detail?: string | null;
+}
+
 export interface QueryResult {
   query: string;
   parsed_intent: ParsedIntent;
   ranked_facilities: RankedFacility[];
   total_candidates: number;
+  /** Always-present synthetic correlation id (`q_<uuid>`). */
   query_trace_id: string;
+  /** Real MLflow trace id when MLFLOW_TRACKING_URI is configured; else null. */
+  mlflow_trace_id?: string | null;
+  /** Optional deep-link to the MLflow trace UI. */
+  mlflow_trace_url?: string | null;
+  execution_steps: ExecutionStep[];
+  retriever_mode: RetrieverMode;
+  used_llm: boolean;
   generated_at: string;
 }
+
+export type PopulationSource = 'delta' | 'fixture' | 'unavailable';
 
 export interface MapRegionAggregate {
   region_id: string;
@@ -134,6 +157,8 @@ export interface MapRegionAggregate {
   flagged_facilities_count: number;
   gap_population: number;
   centroid: GeoPoint;
+  /** Honest provenance of the population denominator. */
+  population_source: PopulationSource;
 }
 
 export interface HealthData {

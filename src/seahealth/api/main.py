@@ -102,6 +102,9 @@ app.add_middleware(
     allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
+    # Browsers can only read the body of /query; this lets the React client
+    # observe the trace id directly off the response header when needed.
+    expose_headers=["X-Query-Trace-Id"],
 )
 
 
@@ -196,7 +199,29 @@ def post_query(body: QueryRequest, response: Response) -> QueryResult:
             result = _query_fixture()
         except DataLayerError as exc:
             raise _data_503(exc) from exc
-        result = result.model_copy(update={"query": body.query or result.query})
+        # In FIXTURE mode the bundled snapshot is authoritative; we still want
+        # the response to advertise that it ran in fixture/heuristic mode so
+        # the UI badges stay honest.
+        update: dict[str, object] = {"query": body.query or result.query}
+        if not result.execution_steps:
+            from datetime import UTC, datetime as _dt
+
+            now = _dt.now(UTC)
+            from seahealth.schemas import ExecutionStep
+
+            update["execution_steps"] = [
+                ExecutionStep(name="parse_intent", started_at=now, finished_at=now, status="fallback",
+                              detail="fixture-mode: bundled response"),
+                ExecutionStep(name="retrieve", started_at=now, finished_at=now, status="fallback",
+                              detail="fixture-mode: no live retrieval"),
+                ExecutionStep(name="score", started_at=now, finished_at=now, status="fallback",
+                              detail="fixture-mode: pre-computed trust scores"),
+                ExecutionStep(name="rank", started_at=now, finished_at=now, status="fallback",
+                              detail="fixture-mode: ordering from snapshot"),
+            ]
+        update.setdefault("retriever_mode", "fixture")
+        update.setdefault("used_llm", False)
+        result = result.model_copy(update=update)
         response.headers["X-Query-Trace-Id"] = result.query_trace_id
         return result
 
