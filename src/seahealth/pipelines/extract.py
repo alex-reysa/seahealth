@@ -186,6 +186,9 @@ def main(
     subset: str = "demo",
     limit: int | None = None,
     *,
+    start_index: int = 0,
+    flush_every: int = 50,
+    resume: bool = False,
     tables_dir: str | Path | None = None,
     subset_path: str | Path | None = None,
     chunks_path: str | Path | None = None,
@@ -198,6 +201,13 @@ def main(
     Args:
         subset: Key into the subset JSON (``demo`` reads ``facility_ids``).
         limit: Cap the number of facilities processed.
+        start_index: Start at ``facility_ids[start_index:]`` — for batch /
+            resume runs over the 10k.
+        flush_every: Write the partial parquet every ``flush_every`` facilities
+            so a crash mid-run doesn't lose progress. Default 50.
+        resume: If True and the output parquet already exists, load already-
+            extracted facility_ids and skip them. Lets a crashed 10k run
+            pick up where it left off.
         tables_dir: Override the tables directory; ``subset_path`` /
             ``chunks_path`` / ``out_path`` default underneath it.
         extract_fn: Override the extractor (handy for tests).
@@ -212,17 +222,38 @@ def main(
     out_p = Path(out_path) if out_path is not None else tables / "capabilities.parquet"
 
     facility_ids = _load_subset(subset_p, subset)
+    if start_index:
+        facility_ids = facility_ids[start_index:]
     if limit is not None:
         facility_ids = facility_ids[:limit]
     chunks_df = _load_chunks(chunks_p)
 
+    # Resume support: pre-load already-extracted facility_ids and skip them.
     all_rows: list[dict[str, Any]] = []
+    already_done: set[str] = set()
+    if resume and out_p.exists():
+        try:
+            existing = pd.read_parquet(out_p)
+            all_rows = existing.to_dict(orient="records")
+            already_done = set(existing["facility_id"].astype(str).unique())
+            print(
+                f"[extract] resume: loaded {len(all_rows)} existing rows "
+                f"covering {len(already_done)} facilities",
+                flush=True,
+            )
+        except Exception as exc:  # pragma: no cover
+            logger.warning("resume failed (will overwrite): %s", exc)
+
     facility_count = 0
     capability_count = 0
     skipped_zero_chunk_count = 0
     failed_count = 0
+    skipped_done_count = 0
     total = len(facility_ids)
     for idx, facility_id in enumerate(facility_ids, start=1):
+        if facility_id in already_done:
+            skipped_done_count += 1
+            continue
         chunks = _chunks_for_facility(chunks_df, facility_id)
         if not chunks:
             skipped_zero_chunk_count += 1
@@ -251,10 +282,19 @@ def main(
             all_rows.append(_capability_to_row(cap))
             capability_count += 1
             new_caps += 1
+        already_done.add(facility_id)
         print(
             f"[extract {idx}/{total}] {facility_id} caps={new_caps}",
             flush=True,
         )
+
+        # Periodic atomic flush so a crash mid-10k doesn't blow up the spend.
+        if flush_every and (idx % flush_every == 0):
+            _write_parquet(all_rows, out_p)
+            print(
+                f"[extract {idx}/{total}] flushed {len(all_rows)} rows -> {out_p}",
+                flush=True,
+            )
 
     _write_parquet(all_rows, out_p)
     delta_written = _maybe_write_delta(all_rows)
@@ -264,6 +304,8 @@ def main(
         "facility_count": facility_count,
         "capability_count": capability_count,
         "skipped_zero_chunk_count": skipped_zero_chunk_count,
+        "skipped_already_done_count": skipped_done_count,
+        "failed_count": failed_count,
         "out_path": str(out_p),
         "delta_written": delta_written,
     }
@@ -283,6 +325,12 @@ def _build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(description="Run the SeaHealth extractor agent over a subset.")
     p.add_argument("--subset", type=str, default="demo")
     p.add_argument("--limit", type=int, default=None)
+    p.add_argument("--start-index", type=int, default=0,
+                   help="Start at facility_ids[start_index:] for batch / resume runs.")
+    p.add_argument("--flush-every", type=int, default=50,
+                   help="Write the partial parquet every N facilities so a crash mid-run doesn't lose progress (default: 50).")
+    p.add_argument("--resume", action="store_true",
+                   help="Skip facility_ids already present in the output parquet.")
     p.add_argument("--tables-dir", type=str, default=None)
     p.add_argument("--model", type=str, default=DEFAULT_EXTRACTOR_MODEL)
     return p
@@ -293,6 +341,9 @@ def _cli(argv: Iterable[str] | None = None) -> None:
     main(
         subset=args.subset,
         limit=args.limit,
+        start_index=args.start_index,
+        flush_every=args.flush_every,
+        resume=args.resume,
         tables_dir=args.tables_dir,
         model=args.model,
     )
