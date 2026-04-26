@@ -9,8 +9,8 @@ export interface PlannerQueryState {
   data: QueryResult | undefined;
   error: ApiError | undefined;
   status: FetchStatus;
-  /** Submit a new query. Cancels any in-flight call. */
-  run: (q: string) => Promise<void>;
+  /** Submit a new query. Cancels any in-flight call. Resolves with the result on success, or undefined on abort/error. */
+  run: (q: string) => Promise<QueryResult | undefined>;
   /** Reset to idle (clears data + error). */
   reset: () => void;
 }
@@ -30,7 +30,7 @@ export function usePlannerQuery(initial?: QueryResult): PlannerQueryState {
     return () => controllerRef.current?.abort();
   }, []);
 
-  const run = React.useCallback(async (q: string) => {
+  const run = React.useCallback(async (q: string): Promise<QueryResult | undefined> => {
     controllerRef.current?.abort();
     const controller = new AbortController();
     controllerRef.current = controller;
@@ -38,11 +38,12 @@ export function usePlannerQuery(initial?: QueryResult): PlannerQueryState {
     setError(undefined);
     try {
       const result = await fetchQuery(q);
-      if (controller.signal.aborted) return;
+      if (controller.signal.aborted) return undefined;
       setData(result);
       setStatus(result.ranked_facilities.length === 0 ? 'empty' : 'success');
+      return result;
     } catch (err) {
-      if (controller.signal.aborted) return;
+      if (controller.signal.aborted) return undefined;
       if (err instanceof ApiError) {
         setError(err);
         setStatus(err.status === 503 ? 'unavailable' : 'error');
@@ -50,6 +51,7 @@ export function usePlannerQuery(initial?: QueryResult): PlannerQueryState {
         setError(new ApiError(0, (err as Error)?.message ?? 'unknown error'));
         setStatus('error');
       }
+      return undefined;
     }
   }, []);
 

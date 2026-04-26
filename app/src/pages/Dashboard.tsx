@@ -588,6 +588,7 @@ export function Dashboard() {
   const [capabilityDetails, setCapabilityDetails] = React.useState('');
   const [agentPanelView, setAgentPanelView] = React.useState<AgentPanelView>('facilities');
   const [selectedFacilityId, setSelectedFacilityId] = React.useState<string | null>(null);
+  const [focusedFacilityId, setFocusedFacilityId] = React.useState<string | null>(null);
   const [desertRadius, setDesertRadius] = React.useState<DesertRadius>(60);
   const [isDesertPanelOpen, setIsDesertPanelOpen] = React.useState(false);
   const [showCoverageRadius, setShowCoverageRadius] = React.useState(false);
@@ -651,15 +652,30 @@ export function Dashboard() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [regionId]);
 
+  const focusFacilityOnMap = (facility: RankedFacility) => {
+    setSelectedDistrictProps(null);
+    setIsAgentPanelOpen(true);
+    setAgentPanelView('facilities');
+    setFocusedFacilityId(facility.facility_id);
+    mapRef.current?.getMap()?.flyTo({
+      center: [facility.location.lng, facility.location.lat],
+      zoom: 11,
+      duration: 800,
+    });
+  };
+
   const applyCommand = (nextCommand: string) => {
     setCommand(nextCommand);
     setIsAgentPanelOpen(true);
     setAgentPanelView('trace');
+    setFocusedFacilityId(null);
     const params = new URLSearchParams(searchParams);
     params.set('q', nextCommand);
     setSearchParams(params);
-    plannerQuery.run(nextCommand).then(() => {
+    plannerQuery.run(nextCommand).then((result) => {
       setAgentPanelView('facilities');
+      const top = result?.ranked_facilities?.[0];
+      if (top) focusFacilityOnMap(top);
     });
   };
 
@@ -670,6 +686,8 @@ export function Dashboard() {
   };
 
   const openFacilityDetail = (facilityId: string) => {
+    const facility = rankedFacilities.find((f) => f.facility_id === facilityId);
+    if (facility) focusFacilityOnMap(facility);
     setSelectedFacilityId(facilityId);
   };
 
@@ -699,6 +717,7 @@ export function Dashboard() {
     setRegionSearch('');
     setIsAgentPanelOpen(false);
     setSelectedDistrictProps(null);
+    setFocusedFacilityId(null);
     setSearchParams({});
     plannerQuery.reset();
     mapRef.current?.getMap()?.flyTo({ center: INDIA_CENTER, zoom: 4, duration: 1000 });
@@ -738,32 +757,42 @@ export function Dashboard() {
         }}
         mapStyle={getMapStyle(desertRadius, coverageFeatures, facilityLocationsGeoJson, showCoverageRadius)}
         style={{ width: '100%', height: '100%' }}
-        interactiveLayerIds={['india-fill', 'facility-dots', 'facility-clusters']}
+        interactiveLayerIds={['india-fill', 'facility-dots', 'facility-clusters', 'facility-cluster-count']}
         onClick={(event: any) => {
-          const feat = event.features?.[0];
-          const props = feat?.properties;
-          const layer = feat?.layer?.id;
+          const features = event.features ?? [];
+          const clusterFeature = features.find((f: any) => {
+            const layerId = f?.layer?.id;
+            return layerId === 'facility-clusters' || layerId === 'facility-cluster-count';
+          });
 
-          if (layer === 'facility-clusters' && props?.cluster_id != null) {
+          if (clusterFeature?.properties?.cluster_id != null) {
             const map = mapRef.current?.getMap();
-            if (map) {
-              const source = map.getSource('facility-dots');
-              source?.getClusterExpansionZoom?.(props.cluster_id, (_: any, zoom: number) => {
-                map.flyTo({ center: [event.lngLat.lng, event.lngLat.lat], zoom: zoom ?? 8, duration: 600 });
+            if (!map) return;
+            const source: any = map.getSource('facility-dots');
+            const clusterId = clusterFeature.properties.cluster_id;
+            const coords = clusterFeature.geometry?.type === 'Point'
+              ? (clusterFeature.geometry.coordinates as [number, number])
+              : ([event.lngLat.lng, event.lngLat.lat] as [number, number]);
+            Promise.resolve(source?.getClusterExpansionZoom?.(clusterId))
+              .then((zoom: number | undefined) => {
+                map.easeTo({ center: coords, zoom: zoom ?? 8, duration: 600 });
+              })
+              .catch(() => {
+                map.easeTo({ center: coords, zoom: 8, duration: 600 });
               });
-            }
             return;
           }
 
-          if (layer === 'facility-dots' && props?.id) {
-            navigate(`/facilities/${props.id}?from=map-workbench`);
+          const dotFeature = features.find((f: any) => f?.layer?.id === 'facility-dots');
+          if (dotFeature?.properties?.id) {
+            navigate(`/facilities/${dotFeature.properties.id}?from=map-workbench`);
             return;
           }
 
           // District click: show desert score info + zoom
-          const distName = props?.district;
-          const stateName = props?.state;
-          if (distName || stateName) {
+          const districtFeature = features.find((f: any) => f?.layer?.id === 'india-fill');
+          const props = districtFeature?.properties;
+          if (props?.district || props?.state) {
             setSelectedDistrictProps(props);
             const [lng, lat] = [event.lngLat.lng, event.lngLat.lat];
             mapRef.current?.getMap()?.flyTo({ center: [lng, lat], zoom: 7, duration: 800 });
@@ -783,7 +812,11 @@ export function Dashboard() {
               }}
               className={`pointer-events-auto relative flex h-9 w-9 items-center justify-center rounded-full border-2 text-caption font-semibold text-white shadow-elevation-3 transition-transform hover:scale-110 ${
                 index === 0 ? 'bg-semantic-critical' : 'bg-accent-primary'
-              } ${selectedFacilityId === facility.facility_id ? 'border-content-primary ring-4 ring-white/80' : 'border-white'}`}
+              } ${
+                selectedFacilityId === facility.facility_id || focusedFacilityId === facility.facility_id
+                  ? 'border-content-primary ring-4 ring-white/80'
+                  : 'border-white'
+              }`}
               aria-label={`Open ${facility.name}`}
             >
               {index + 1}
