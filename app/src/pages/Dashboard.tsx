@@ -235,9 +235,12 @@ function getMapStyle(
   facilityLocationsGeoJson: any,
 ) {
   const overlayVisible = isOverlayModeVisible(overlayMode, visibleLayers);
-  const fundingFillOpacity = overlayVisible
-    ? ['case', ['==', ['get', 'regionId'], regionId], 0.7, 0.5]
-    : ['case', ['==', ['get', 'regionId'], regionId], 0.34, 0.16];
+  const hasBiharRegion = regionId.startsWith('BR_');
+  const fundingFillOpacity = !hasBiharRegion
+    ? 0.12
+    : overlayVisible
+      ? ['case', ['==', ['get', 'regionId'], regionId], 0.7, 0.5]
+      : ['case', ['==', ['get', 'regionId'], regionId], 0.34, 0.16];
 
   return {
     version: 8,
@@ -265,6 +268,9 @@ function getMapStyle(
       'facility-dots': {
         type: 'geojson',
         data: facilityLocationsGeoJson,
+        cluster: true,
+        clusterMaxZoom: 10,
+        clusterRadius: 40,
       },
     },
     layers: [
@@ -368,20 +374,48 @@ function getMapStyle(
         },
       },
       {
+        id: 'facility-clusters',
+        type: 'circle',
+        source: 'facility-dots',
+        filter: ['has', 'point_count'],
+        paint: {
+          'circle-color': ['step', ['get', 'point_count'], '#72B7A8', 20, '#3D9D89', 100, '#176D6A'],
+          'circle-radius': ['step', ['get', 'point_count'], 16, 20, 22, 100, 30],
+          'circle-opacity': 0.85,
+          'circle-stroke-color': '#ffffff',
+          'circle-stroke-width': 2,
+        },
+      },
+      {
+        id: 'facility-cluster-count',
+        type: 'symbol',
+        source: 'facility-dots',
+        filter: ['has', 'point_count'],
+        layout: {
+          'text-field': ['get', 'point_count_abbreviated'],
+          'text-font': ['Open Sans Bold'],
+          'text-size': 12,
+        },
+        paint: {
+          'text-color': '#ffffff',
+        },
+      },
+      {
         id: 'facility-dots',
         type: 'circle',
         source: 'facility-dots',
+        filter: ['!', ['has', 'point_count']],
         paint: {
-          'circle-radius': ['interpolate', ['linear'], ['zoom'], 3, 1.5, 7, 3.5, 10, 6],
+          'circle-radius': ['interpolate', ['linear'], ['zoom'], 3, 2, 7, 4, 10, 7],
           'circle-color': [
             'case',
             ['==', ['get', 'flagged'], 1],
             '#C56556',
             '#3D9D89',
           ],
-          'circle-opacity': 0.7,
+          'circle-opacity': 0.8,
           'circle-stroke-color': '#ffffff',
-          'circle-stroke-width': 0.5,
+          'circle-stroke-width': 1,
         },
       },
     ],
@@ -481,12 +515,13 @@ export function Dashboard() {
   const hoveredFeatureId = React.useRef<string | number | null>(null);
   const timersRef = React.useRef<number[]>([]);
 
-  const initialQuery = searchParams.get('q') || CHALLENGE_QUERY;
-  const [command, setCommand] = React.useState(initialQuery);
-  const [activeResult, setActiveResult] = React.useState(() => getQueryResultForCommand(initialQuery));
+  const initialQuery = searchParams.get('q') || '';
+  const hasInitialQuery = Boolean(searchParams.get('q'));
+  const [command, setCommand] = React.useState(initialQuery || CHALLENGE_QUERY);
+  const [activeResult, setActiveResult] = React.useState(() => getQueryResultForCommand(hasInitialQuery ? initialQuery : ''));
   const [activeStep, setActiveStep] = React.useState<number | null>(null);
   const [regionSearch, setRegionSearch] = React.useState(searchParams.get('pin_code') || '');
-  const [isAgentPanelOpen, setIsAgentPanelOpen] = React.useState(true);
+  const [isAgentPanelOpen, setIsAgentPanelOpen] = React.useState(hasInitialQuery);
   const [searchMode, setSearchMode] = React.useState<SearchMode>('semantic');
   const [capabilityDetails, setCapabilityDetails] = React.useState('');
   const [agentPanelView, setAgentPanelView] = React.useState<AgentPanelView>('facilities');
@@ -500,7 +535,7 @@ export function Dashboard() {
   const parsed = parseDemoCommand(command);
   const capability = (searchParams.get('capability') as CapabilityType) || activeResult.parsedIntent.capability || parsed.capability;
   const radiusKm = Number(searchParams.get('radius_km') || activeResult.parsedIntent.radiusKm || parsed.radiusKm);
-  const regionId = searchParams.get('region_id') || parsed.regionId;
+  const regionId = searchParams.get('region_id') || '';
   const pinCode = searchParams.get('pin_code') || parsed.pinCode;
   const fundingRegion = getFundingPriorityRegion(regionId, capability);
 
@@ -745,20 +780,44 @@ export function Dashboard() {
         }}
         mapStyle={getMapStyle(regionId, overlayMode, visibleLayers, coverageFeatures, fundingRegionsGeoJson, facilityLocationsGeoJson)}
         style={{ width: '100%', height: '100%' }}
-        interactiveLayerIds={['funding-fill', 'india-fill']}
+        interactiveLayerIds={['funding-fill', 'india-fill', 'facility-dots', 'facility-clusters']}
         onClick={(event: any) => {
-          const props = event.features?.[0]?.properties;
+          const feat = event.features?.[0];
+          const props = feat?.properties;
+          const layer = feat?.layer?.id;
+
+          // Cluster click: zoom in
+          if (layer === 'facility-clusters' && props?.cluster_id != null) {
+            const map = mapRef.current?.getMap();
+            if (map) {
+              const source = map.getSource('facility-dots');
+              source?.getClusterExpansionZoom?.(props.cluster_id, (_: any, zoom: number) => {
+                map.flyTo({ center: [event.lngLat.lng, event.lngLat.lat], zoom: zoom ?? 8, duration: 600 });
+              });
+            }
+            return;
+          }
+
+          // Facility dot click: open the facility audit
+          if (layer === 'facility-dots' && props?.id) {
+            navigate(`/facilities/${props.id}?from=map-workbench`);
+            return;
+          }
+
+          // Bihar funding region click
           const clickedRegionId = props?.regionId;
           if (clickedRegionId) {
             selectPriorityRegion(clickedRegionId);
             return;
           }
+
+          // India district click: zoom into district centroid
           const stateName = props?.ST_NM;
           const distName = props?.Dist_name;
           if (stateName || distName) {
             const label = distName ? `${distName}, ${stateName}` : stateName;
             const [lng, lat] = [event.lngLat.lng, event.lngLat.lat];
-            mapRef.current?.getMap()?.flyTo({ center: [lng, lat], zoom: 7, duration: 800 });
+            mapRef.current?.getMap()?.flyTo({ center: [lng, lat], zoom: 8, duration: 800 });
             const params = new URLSearchParams(searchParams);
             params.set('region_id', distName || stateName);
             params.set('region_name', label);
