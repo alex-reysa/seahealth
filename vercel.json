@@ -4,7 +4,15 @@
   "installCommand": "cd app && npm install",
   "buildCommand": "cd app && npx vite build --config vite.config.ts",
   "outputDirectory": "app/dist",
+  "functions": {
+    "api/index.py": {
+      "memory": 1024,
+      "maxDuration": 300,
+      "includeFiles": "{src/seahealth/**,tables/facility_audits.parquet,tables/facilities_index.parquet}"
+    }
+  },
   "rewrites": [
-    { "source": "/(.*)", "destination": "/index.html" }
+    { "source": "/api/:path*", "destination": "/api/index" },
+    { "source": "/((?!api/).*)", "destination": "/index.html" }
   ]
 }
