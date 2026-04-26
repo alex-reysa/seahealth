@@ -416,3 +416,49 @@ def test_build_audits_respects_limit(tmp_path: Path):
     assert summary["audit_count"] == 1
     df = pq.read_table(tables_dir / build_audits.AUDITS_FILE).to_pandas()
     assert df["facility_id"].tolist() == ["vf_00042_janta_hospital_patna"]
+
+
+def test_build_audits_summary_breaks_down_trace_classes(tmp_path: Path):
+    """The summary surfaces live / synthetic / missing trace counts so the
+    pipeline can assert MLflow coverage without re-reading the parquet."""
+    tables_dir = tmp_path / "tables"
+    tables_dir.mkdir()
+
+    live_fid = "vf_00001_live_trace"
+    syn_fid = "vf_00002_synthetic_trace"
+    missing_fid = "vf_00003_missing_trace"
+    caps = [
+        _capability(live_fid, CapabilityType.LAB).model_copy(
+            update={"mlflow_trace_id": "tr-live-real"}
+        ),
+        _capability(syn_fid, CapabilityType.ICU).model_copy(
+            update={"mlflow_trace_id": f"local::{syn_fid}::run-uuid"}
+        ),
+        _capability(missing_fid, CapabilityType.RADIOLOGY),
+    ]
+    _write_capabilities(tables_dir / build_audits.CAPABILITIES_FILE, caps)
+    _write_facilities_index(
+        tables_dir / build_audits.FACILITIES_INDEX_FILE,
+        [
+            {
+                "facility_id": fid,
+                "name": fid,
+                "latitude": 25.0,
+                "longitude": 85.0,
+                "pin_code": None,
+            }
+            for fid in (live_fid, syn_fid, missing_fid)
+        ],
+    )
+
+    summary = build_audits.main(tables_dir=tables_dir)
+
+    assert summary["live_trace_count"] == 1
+    assert summary["synthetic_trace_count"] == 1
+    assert summary["missing_trace_count"] == 1
+    assert (
+        summary["live_trace_count"]
+        + summary["synthetic_trace_count"]
+        + summary["missing_trace_count"]
+        == summary["audit_count"]
+    )

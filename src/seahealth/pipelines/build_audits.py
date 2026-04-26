@@ -32,7 +32,10 @@ import pandas as pd
 import pyarrow as pa
 import pyarrow.parquet as pq
 
-from seahealth.agents.facility_audit_builder import build_facility_audit
+from seahealth.agents.facility_audit_builder import (
+    build_facility_audit,
+    classify_trace_id,
+)
 from seahealth.agents.trust_scorer import score_capability
 from seahealth.schemas import (
     Capability,
@@ -502,18 +505,38 @@ def main(
     _write_parquet(rows, audits_path)
     _best_effort_delta_mirror(audits_path)
 
+    trace_breakdown = {"live": 0, "synthetic": 0, "missing": 0}
+    for audit in audits:
+        trace_breakdown[classify_trace_id(audit.mlflow_trace_id)] += 1
+    if audits and trace_breakdown["live"] == 0:
+        log.warning(
+            "build_audits: no live MLflow trace ids on %d audits "
+            "(synthetic=%d, missing=%d). Re-run extraction with "
+            "MLFLOW_TRACKING_URI=databricks to populate.",
+            len(audits),
+            trace_breakdown["synthetic"],
+            trace_breakdown["missing"],
+        )
+
     summary = {
         "facility_count": len(facility_ids),
         "capability_count": len(capabilities),
         "contradiction_count": len(contradictions),
         "audit_count": len(audits),
+        "live_trace_count": trace_breakdown["live"],
+        "synthetic_trace_count": trace_breakdown["synthetic"],
+        "missing_trace_count": trace_breakdown["missing"],
     }
     print(
-        "[build_audits] facilities={f} capabilities={c} contradictions={x} audits={a}".format(
+        "[build_audits] facilities={f} capabilities={c} contradictions={x} "
+        "audits={a} traces=(live={tl}, synthetic={ts}, missing={tm})".format(
             f=summary["facility_count"],
             c=summary["capability_count"],
             x=summary["contradiction_count"],
             a=summary["audit_count"],
+            tl=summary["live_trace_count"],
+            ts=summary["synthetic_trace_count"],
+            tm=summary["missing_trace_count"],
         )
     )
     return summary
