@@ -108,6 +108,35 @@ export interface DemoQueryResult {
   spans: DemoTraceSpan[];
 }
 
+export interface DemoFundingCandidateRecommendation {
+  facilityId: string;
+  whyFund: string;
+  trustRisk: string;
+  missingResource: string;
+  recommendedNextStep: string;
+}
+
+export interface DemoFundingPriorityRegion {
+  regionId: string;
+  name: string;
+  capability: CapabilityType;
+  priorityScore: number;
+  needSignal: number;
+  verifiedAccessScore: number;
+  contradictionRisk: number;
+  ruralityWeight: number;
+  gapPopulation: number;
+  nearestVerifiedKm: number;
+  needLayerLabel: string;
+  supplyLayerLabel: string;
+  riskLayerLabel: string;
+  regionSummary: string;
+  fundingRationale: string;
+  recommendedAction: string;
+  recommendedFacilities: string[];
+  candidateRecommendations: DemoFundingCandidateRecommendation[];
+}
+
 export const DEMO_QUERY = 'Which facilities within 50km of Patna can perform an appendectomy?';
 export const CHALLENGE_QUERY =
   'Find the nearest facility in rural Bihar that can perform an emergency appendectomy and typically leverages part-time doctors.';
@@ -450,6 +479,164 @@ export const REGION_AGGREGATES: DemoRegionAggregate[] = [
   },
 ];
 
+export const FUNDING_PRIORITY_REGIONS: DemoFundingPriorityRegion[] = [
+  {
+    regionId: 'BR_PATNA',
+    name: 'Patna Appendectomy Catchment',
+    capability: 'SURGERY_APPENDECTOMY',
+    priorityScore: 68,
+    needSignal: 0.74,
+    verifiedAccessScore: 0.46,
+    contradictionRisk: 0.66,
+    ruralityWeight: 1.18,
+    gapPopulation: 45000000,
+    nearestVerifiedKm: 12,
+    needLayerLabel: 'High emergency surgery burden',
+    supplyLayerLabel: 'Mixed verified surgical access',
+    riskLayerLabel: 'Staffing contradictions visible',
+    regionSummary:
+      'A dense catchment where surgical need is high, but verified emergency appendectomy capacity depends on resolving staffing contradictions.',
+    fundingRationale:
+      'High catchment population with several surgical claims, but audited supply is weakened by staffing contradictions and uneven verified coverage.',
+    recommendedAction:
+      'Prioritize facilities with verified surgical throughput, then fund staffing or anesthesia gaps before counting them as reliable emergency surgery capacity.',
+    recommendedFacilities: [
+      'facility_patna_medical',
+      'facility_nalanda_surgical',
+      'facility_vaishali_community',
+      'facility_bihar_state_care',
+    ],
+    candidateRecommendations: [
+      {
+        facilityId: 'facility_patna_medical',
+        whyFund: 'Closest high-volume surgical hub in the priority catchment.',
+        trustRisk: 'Trust Score 72; one HIGH staffing contradiction remains visible.',
+        missingResource: 'Verified anesthesia coverage for emergency appendectomy.',
+        recommendedNextStep: 'Audit staffing before funding emergency surgery readiness.',
+      },
+      {
+        facilityId: 'facility_nalanda_surgical',
+        whyFund: 'Strong audited appendectomy evidence can anchor catchment referrals.',
+        trustRisk: 'Trust Score 91 with no current contradiction flags.',
+        missingResource: 'Referral and transport coverage for rural patients.',
+        recommendedNextStep: 'Fund referral linkage if service volumes can absorb demand.',
+      },
+      {
+        facilityId: 'facility_vaishali_community',
+        whyFund: 'Adds secondary access within the Patna corridor.',
+        trustRisk: 'Trust Score 66; evidence is present but not strong enough for sole reliance.',
+        missingResource: 'Recent emergency surgery volume confirmation.',
+        recommendedNextStep: 'Verify procedure logs before using as backup capacity.',
+      },
+      {
+        facilityId: 'facility_bihar_state_care',
+        whyFund: 'Could close a local access pocket if contradictions are resolved.',
+        trustRisk: 'Trust Score 58 with two contradiction flags.',
+        missingResource: 'Clean staff and equipment evidence for current capability.',
+        recommendedNextStep: 'Hold capital funding until audit contradictions are cleared.',
+      },
+    ],
+  },
+  {
+    regionId: 'BR_MADHUBANI',
+    name: 'Rural Bihar Neonatal Priority Zone',
+    capability: 'NEONATAL',
+    priorityScore: 86,
+    needSignal: 0.91,
+    verifiedAccessScore: 0.18,
+    contradictionRisk: 0.82,
+    ruralityWeight: 1.34,
+    gapPopulation: 312000,
+    nearestVerifiedKm: 94,
+    needLayerLabel: 'High newborn mortality burden',
+    supplyLayerLabel: 'Very low verified neonatal access',
+    riskLayerLabel: 'NICU readiness contradictions',
+    regionSummary:
+      'A high-priority neonatal gap where newborn need is high, verified local access is low, and nearby claims need equipment and staffing validation.',
+    fundingRationale:
+      'High newborn need signal with very low verified neonatal access. Local facilities either lack confirming NICU evidence or carry staffing and equipment gaps.',
+    recommendedAction:
+      'Treat this as a high-priority neonatal funding zone; validate equipment readiness and fund neonatal stabilization capacity before referral distance becomes fatal.',
+    recommendedFacilities: [
+      'facility_madhubani_mission',
+      'facility_muzaffarpur_general',
+      'facility_samastipur_care',
+    ],
+    candidateRecommendations: [
+      {
+        facilityId: 'facility_madhubani_mission',
+        whyFund: 'Closest local facility in the neonatal priority zone.',
+        trustRisk: 'Trust Score 24; neonatal claim has two contradictions.',
+        missingResource: 'Verified NICU equipment and staffed neonatal coverage.',
+        recommendedNextStep: 'Audit before funding; fund equipment only if staffing is confirmed.',
+      },
+      {
+        facilityId: 'facility_muzaffarpur_general',
+        whyFund: 'Nearest broader referral option for the rural catchment.',
+        trustRisk: 'No verified neonatal audit in this mock result; surgical contradiction history remains relevant.',
+        missingResource: 'Neonatal-specific audit evidence and referral capacity.',
+        recommendedNextStep: 'Use as referral comparison, not as proof of local gap closure.',
+      },
+      {
+        facilityId: 'facility_samastipur_care',
+        whyFund: 'Potential support node for nearby rural clinics.',
+        trustRisk: 'Current mock evidence verifies other capabilities, not neonatal readiness.',
+        missingResource: 'Documented neonatal stabilization staff and equipment.',
+        recommendedNextStep: 'Request neonatal audit before ranking as fundable capacity.',
+      },
+    ],
+  },
+  {
+    regionId: 'BR_STATE',
+    name: 'Bihar State Background',
+    capability: 'NEONATAL',
+    priorityScore: 52,
+    needSignal: 0.62,
+    verifiedAccessScore: 0.44,
+    contradictionRisk: 0.48,
+    ruralityWeight: 1.08,
+    gapPopulation: 12800000,
+    nearestVerifiedKm: 47,
+    needLayerLabel: 'Moderate statewide newborn burden',
+    supplyLayerLabel: 'Uneven verified neonatal access',
+    riskLayerLabel: 'Mixed self-report reliability',
+    regionSummary:
+      'A statewide context layer showing mixed access: urban corridors look stronger while rural districts still require contradiction-aware drilldown.',
+    fundingRationale:
+      'Statewide access is mixed: urban corridors show stronger verified care, while rural districts remain sensitive to staffing and equipment contradictions.',
+    recommendedAction:
+      'Use district-level drilldown to separate credible referral hubs from facilities that only self-report capabilities.',
+    recommendedFacilities: [
+      'facility_patna_medical',
+      'facility_vaishali_community',
+      'facility_madhubani_mission',
+    ],
+    candidateRecommendations: [
+      {
+        facilityId: 'facility_patna_medical',
+        whyFund: 'Reliable referral benchmark for statewide neonatal access.',
+        trustRisk: 'Trust Score 95 for neonatal care with no contradictions.',
+        missingResource: 'Rural reach and transport linkage, not core capability.',
+        recommendedNextStep: 'Use as verified supply anchor when comparing district gaps.',
+      },
+      {
+        facilityId: 'facility_vaishali_community',
+        whyFund: 'Credible secondary corridor capacity.',
+        trustRisk: 'Trust Score 75 with no current contradiction flags.',
+        missingResource: 'Expanded rural referral coverage.',
+        recommendedNextStep: 'Validate catchment coverage before assigning grant impact.',
+      },
+      {
+        facilityId: 'facility_madhubani_mission',
+        whyFund: 'Shows where local rural capacity could reduce referral distance.',
+        trustRisk: 'Trust Score 24; contradiction risk is high.',
+        missingResource: 'Verified NICU readiness.',
+        recommendedNextStep: 'Treat as an audit-first opportunity.',
+      },
+    ],
+  },
+];
+
 export const APPENDECTOMY_QUERY_RESULT: DemoQueryResult = {
   query: DEMO_QUERY,
   queryTraceId: 'query_appendectomy_patna_50km',
@@ -723,6 +910,18 @@ export function getRegionAggregate(regionId = 'BR_PATNA', capability: Capability
     REGION_AGGREGATES.find((region) => region.id === regionId) ??
     REGION_AGGREGATES[0]
   );
+}
+
+export function getFundingPriorityRegion(regionId = 'BR_PATNA', capability?: CapabilityType) {
+  return (
+    FUNDING_PRIORITY_REGIONS.find((region) => region.regionId === regionId && (!capability || region.capability === capability)) ??
+    FUNDING_PRIORITY_REGIONS.find((region) => region.regionId === regionId) ??
+    FUNDING_PRIORITY_REGIONS[0]
+  );
+}
+
+export function getFundingCandidateRecommendation(region: DemoFundingPriorityRegion, facilityId: string) {
+  return region.candidateRecommendations.find((candidate) => candidate.facilityId === facilityId);
 }
 
 export function parseDemoCommand(input: string) {
