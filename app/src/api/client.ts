@@ -13,11 +13,11 @@
  * Each fetcher returns `Promise<T>` and throws an `ApiError` on non-2xx.
  * Callers should pair this with their own loading / error states.
  *
- * Validation note: we deliberately keep runtime validation light — the
- * Pydantic backend is the source of truth, and shape mismatches surface
- * as TypeScript errors at compile time. We do, however, narrow the
- * `mode` and `retriever_mode` enums on `/health/data` so the UI can rely
- * on them.
+ * Validation note: there is no runtime validation. The Pydantic backend
+ * is the source of truth; the TypeScript types in `@/src/types/api` are
+ * a compile-time mirror that callers are responsible for updating
+ * alongside the openapi yaml. JSON responses are cast `as T`. Treat
+ * unexpected shapes as bugs in the contract sync, not silent recoveries.
  */
 
 import type {

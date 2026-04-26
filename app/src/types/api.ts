@@ -1,9 +1,12 @@
 /**
  * Typed shapes for SeaHealth API responses. Mirror src/seahealth/schemas.
  *
- * These types are intentionally a *subset* of the Pydantic schemas — only
- * the fields the UI consumes today. Drift is caught at runtime by the
- * `validateApiResponse` helpers in `src/api/client.ts`.
+ * These types are a compile-time subset of the Pydantic schemas — only the
+ * fields the UI consumes today. There is no runtime validation: a shape
+ * mismatch will surface as a TypeScript error during build or as `undefined`
+ * at the call site. Treat the canonical contract in
+ * `docs/api/openapi.yaml` as the source of truth and keep this file in
+ * sync by hand.
  */
 
 export type CapabilityType =

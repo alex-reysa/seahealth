@@ -20,7 +20,7 @@ export function TraceClassBadge({ traceId }: TraceClassBadgeProps) {
   if (klass === 'live') {
     return (
       <span
-        title="Live MLflow trace — click to open the span timeline."
+        title="Live MLflow trace — copy the id to open the span timeline in MLflow."
         className="inline-flex items-center gap-1 rounded px-2 py-0.5 text-xs font-medium bg-emerald-100 text-emerald-800"
       >
         <span aria-hidden>●</span> live trace

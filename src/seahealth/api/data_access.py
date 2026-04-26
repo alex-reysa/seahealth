@@ -490,7 +490,11 @@ def _summary_from_audits(
             if ts.contradictions:
                 flagged += 1
 
-    if audits:
+    # Use the filtered ``rows`` so a capability filter never reports a
+    # timestamp from a facility outside the slice.
+    if rows:
+        last_at = max(a.last_audited_at for a in rows)
+    elif audits:
         last_at = max(a.last_audited_at for a in audits)
     else:
         from datetime import UTC, datetime

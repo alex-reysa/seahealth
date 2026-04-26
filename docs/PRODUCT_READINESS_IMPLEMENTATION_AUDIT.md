@@ -1,0 +1,148 @@
+# Product Readiness Implementation Audit
+
+Date: 2026-04-26
+Branch: `worktree-product-readiness-execution`
+Head: `0b0d615` (`submission-20260426`)
+Scope: review of the Phase 0-7 implementation in the isolated worktree.
+
+## Verdict
+
+**Yellow / not merge-ready without follow-up.**
+
+The branch contains real improvements: citation QA exists, `detect_vague_claim` is implemented and tested, `/health/data` exposes retriever state, `verified_count_ci` is present in the Python summary schema, and the release tag exists. The main risk is not that nothing landed; it is that the release story, API contracts, and visible demo path are not aligned tightly enough for a judged product-readiness submission.
+
+The highest-priority fixes are:
+
+1. Regenerate or hand-update `docs/api/openapi.yaml` and frontend API types for the new response fields.
+2. Align the demo script, one-pager, fixtures, and actual React screens around one locked facility and one contradiction story.
+3. Decide whether the UI is a static `demoData.ts` app or an API-client-backed app, then remove the contradictory documentation.
+4. Harden public API defaults before any internet-facing deployment.
+
+## Audit Method
+
+- Reviewed implementation and docs in the worktree directly.
+- Ran four parallel read-only review passes: backend/eval, frontend/API, docs/submission, and security/config.
+- Verified key claims by reading changed files and searching tracked files.
+- Attempted local gates:
+  - `pytest -q` did not run in this shell because Python dependencies were not installed (`fastapi`, `pandas`, `databricks`, `openai`, `pyarrow` missing).
+  - `cd app && npm run build` did not run because `vite` was not installed in `node_modules`.
+
+The reported "306 tests passing" claim is therefore plausible from the commit message, but not independently reproduced in this environment.
+
+## Findings
+
+### High: OpenAPI is stale relative to runtime responses
+
+Runtime `/health/data` returns `retriever_mode`, `vs_endpoint`, and `vs_index`, but `docs/api/openapi.yaml` only documents `mode`, `facility_audits_path`, and `delta_reachable`.
+
+Runtime `/summary` can return `verified_count_ci`, but the OpenAPI `SummaryMetrics` schema does not include it. This will mislead reviewers and any generated clients.
+
+Evidence:
+- `src/seahealth/api/main.py` defines the expanded `HealthDataResponse`.
+- `src/seahealth/schemas/summary.py` defines `verified_count_ci`.
+- `docs/api/openapi.yaml` lacks both contract updates.
+
+Recommended fix: regenerate `docs/api/openapi.yaml` from the FastAPI app after the schema changes, then add a small contract test that asserts the committed OpenAPI contains the new fields.
+
+### High: The demo narrative and visible UI disagree
+
+`docs/demo/script.md` locks the facility as **CIMS Hospital Patna** and tells a `vague_claim` / short-snippet contradiction story with a `TraceClassBadge` close-up.
+
+The visible planner flow still imports `app/src/data/demoData.ts` directly. Its challenge query path promotes `facility_patna_medical` / **Patna Medical College** and shows a `MISSING_STAFF` anesthesiologist-gap contradiction. `TraceClassBadge` is present as a component but is not wired into the visible pages that use `TracePanel`.
+
+Evidence:
+- `docs/demo/script.md` names CIMS and `vague_claim`.
+- `app/src/pages/PlannerQuery.tsx` imports from `demoData.ts` and special-cases `facility_patna_medical`.
+- `app/src/data/demoData.ts` defines the top appendectomy result as Patna Medical College with `MISSING_STAFF`.
+- `app/src/components/domain/TraceClassBadge.tsx` exists, but tracked imports only find the component definition.
+
+Recommended fix: choose one canonical demo target. Either update `demoData.ts` and pages to use the CIMS fixture path, or rewrite the demo script and one-pager around Patna Medical College / `MISSING_STAFF`.
+
+### High: The new API client is not the app's data spine
+
+Phase 3 adds `app/src/api/client.ts` and fixtures under `app/src/data/fixtures`, but primary pages still read `demoData.ts` directly. The audit prompt itself says no page should import `demoData.ts` directly except through the provider, and that is not satisfied.
+
+This means `VITE_SEAHEALTH_API_MODE=demo/live` does not actually control the main planner/map/facility pages. It also means fields such as `retriever_mode`, `verified_count_ci`, and API-backed query responses are not exercised by the UI.
+
+Evidence:
+- `app/src/pages/Dashboard.tsx`, `PlannerQuery.tsx`, `DesertMap.tsx`, and `FacilityAudit.tsx` import `demoData.ts`.
+- `app/src/api/client.ts` exposes fetchers, but tracked usage of those fetchers is absent outside the client file.
+
+Recommended fix: introduce a single data-access/provider layer used by the pages, then route demo mode through fixtures and live mode through `client.ts`.
+
+### High: Public-facing statistics claims are mixed
+
+The one-pager says `TrustScore` uses a deterministic 95% Wilson CI, but `trust_scorer.py` uses a score confidence interval generated by the trust scorer, while the new Wilson helper is used for aggregate count intervals such as `verified_count_ci`.
+
+The demo script also claims the map tooltip shows a Wilson interval, but `MapRegionAggregate` in the Python and TypeScript API contracts does not include a CI field. The static demo model has its own camelCase CI concept, creating another split.
+
+Recommended fix: document the distinction explicitly:
+
+- Trust score confidence interval: trust-scorer output.
+- Summary verified-count interval: Wilson count interval.
+- Map interval: either implement it in `MapRegionAggregate` or remove the claim from submission docs.
+
+### Medium: Filtered summary can report the wrong `last_audited_at`
+
+When `capability_type` is set, `_summary_from_audits` filters `rows` for counts but computes `last_audited_at` from all `audits`. A filtered summary can therefore show a newer audit timestamp from a facility that is not in the filtered slice.
+
+Evidence:
+- `src/seahealth/api/data_access.py` computes `rows` for the filter, then uses `max(a.last_audited_at for a in audits)`.
+
+Recommended fix: compute `last_audited_at` from `rows`, and add a test with two facilities where the excluded facility has the newest timestamp.
+
+### Medium: Security defaults are demo-friendly, not production-ready
+
+The API defaults CORS to `*`, allows all methods and headers, exposes `/query` without authentication or rate limiting, returns internal data path and Vector Search endpoint/index names from `/health/data`, and includes raw exception details in some 503 bodies.
+
+Evidence:
+- `src/seahealth/api/main.py` reads `CORS_ALLOW_ORIGINS` with default `*`.
+- `POST /query` enables the LLM path when `DATABRICKS_TOKEN` exists, without auth or throttling.
+- `/health/data` returns `facility_audits_path`, `vs_endpoint`, and `vs_index`.
+- `_data_503` formats exception text into client-visible response bodies.
+
+Recommended fix: keep permissive defaults only for local demo mode. For deployed mode, require explicit CORS origins, hide infrastructure identifiers from unauthenticated health checks, and place `/query` behind auth/rate limiting or a trusted gateway.
+
+### Medium: Environment docs omit an important production control
+
+`.env.example` does not document `CORS_ALLOW_ORIGINS`, even though the runtime reads it. It also includes a specific-looking Databricks host and token-shaped placeholders (`dapi_REPLACE_ME`, `sk-or-v1-REPLACE_ME`), which are not secrets but can still confuse scanners and reviewers.
+
+Recommended fix: add `CORS_ALLOW_ORIGINS=http://localhost:3000` or an explicit production placeholder, and use obviously fake example host/token values.
+
+### Medium: Frontend contracts overclaim runtime validation
+
+`app/src/types/api.ts` says drift is caught by `validateApiResponse` helpers in `client.ts`, but no such helpers exist. `client.ts` casts JSON with `as T`. It also says `/health/data` enum fields are narrowed, but no runtime narrowing occurs.
+
+Recommended fix: either add real lightweight validation for the few fields the UI depends on, or remove the comments and treat the file as compile-time TypeScript only.
+
+### Low: `TraceClassBadge` has misleading affordance
+
+The `live` badge title says "click to open the span timeline", but the component is a non-interactive `<span>` with no click handler, link, or keyboard affordance.
+
+Recommended fix: either make it a real link/button when a trace URL is available, or change the tooltip copy to avoid promising an action.
+
+### Low: Dependency hygiene
+
+`app/package.json` lists `vite` in both `dependencies` and `devDependencies`. This is not a runtime bug, but it is unnecessary dependency drift.
+
+Recommended fix: keep `vite` in `devDependencies` only unless there is a specific runtime reason.
+
+## What Looks Solid
+
+- The release branch and tag exist: `0b0d615` with tag `submission-20260426`.
+- `docs/PRODUCT_READINESS_REPORT.md` exists in the worktree.
+- `seahealth.eval.citations_qa` exists with tests and README references.
+- `detect_vague_claim` exists and is covered by unit tests.
+- `verified_count_ci` is implemented in the Python summary model and computed for generated summaries.
+- `/health/data` runtime model includes retriever mode and Vector Search metadata.
+
+## Merge Recommendation
+
+Do not merge directly into the release branch as-is. Treat this as a strong implementation draft that needs a short hardening pass:
+
+1. Fix API contract drift (`openapi.yaml`, TS types, fixtures).
+2. Reconcile demo docs with the actual UI path.
+3. Route pages through the new API client or remove claims that env-driven API mode controls the app.
+4. Patch summary timestamp filtering and add the targeted regression test.
+5. Add production-safe CORS and health/error behavior, at least documented and gated by environment.
+6. Re-run Python tests and frontend build in a fully provisioned environment, then update the report with actual outputs.

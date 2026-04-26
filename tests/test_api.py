@@ -206,6 +206,38 @@ def test_health_data_reports_vector_search_mode_when_env_set(monkeypatch):
     assert body["vs_index"] == "workspace.seahealth_silver.chunks_index"
 
 
+def test_health_data_redacts_infra_under_production_cors_posture(monkeypatch):
+    """When CORS_ALLOW_ORIGINS is restricted (production posture), the
+    health endpoint must redact filesystem path and VS identifiers so an
+    unauthenticated probe doesn't leak infrastructure details."""
+    # Re-import the app with restricted CORS so module-scope CORS detection
+    # picks up the production posture.
+    import importlib
+
+    monkeypatch.setenv("CORS_ALLOW_ORIGINS", "https://app.seahealth.example")
+    monkeypatch.setenv("SEAHEALTH_VS_ENDPOINT", "seahealth-vs")
+    monkeypatch.setenv("SEAHEALTH_VS_INDEX", "workspace.seahealth_silver.chunks_index")
+    monkeypatch.delenv("DATABRICKS_SQL_HTTP_PATH", raising=False)
+    monkeypatch.delenv("SEAHEALTH_API_MODE", raising=False)
+    data_access.reset_mode_cache()
+
+    import seahealth.api.main as api_main
+    api_main = importlib.reload(api_main)
+    from fastapi.testclient import TestClient as _TC
+
+    prod_client = _TC(api_main.app)
+    body = prod_client.get("/health/data").json()
+    assert body["retriever_mode"] == "vector_search"
+    assert body["vs_endpoint"] is None
+    assert body["vs_index"] is None
+    assert body["facility_audits_path"] == "<redacted>"
+
+    # Restore the demo-posture module so subsequent tests get the
+    # permissive config.
+    monkeypatch.setenv("CORS_ALLOW_ORIGINS", "*")
+    importlib.reload(api_main)
+
+
 # ---------------------------------------------------------------------------
 # AUD-07 hardening — error-path + pagination + content-type + fixture-503
 # ---------------------------------------------------------------------------

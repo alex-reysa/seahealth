@@ -188,6 +188,86 @@ def test_parquet_mode_summary_filtered_by_capability(tmp_path, monkeypatch):
     assert (summary.verified_count + summary.flagged_count) >= 0
 
 
+def test_summary_filtered_last_audited_at_uses_filtered_slice() -> None:
+    """A capability filter must never report a last_audited_at from an
+    excluded facility. Phase 7 audit fix.
+    """
+    from datetime import UTC, datetime
+
+    from seahealth.api.data_access import _summary_from_audits
+    from seahealth.schemas import (
+        Capability,
+        CapabilityType,
+        EvidenceRef,
+        FacilityAudit,
+        GeoPoint,
+        TrustScore,
+    )
+
+    earlier = datetime(2026, 4, 1, tzinfo=UTC)
+    later = datetime(2026, 4, 25, tzinfo=UTC)
+
+    def _ev(fid: str) -> EvidenceRef:
+        return EvidenceRef(
+            source_doc_id=f"doc_{fid}",
+            facility_id=fid,
+            chunk_id="c1",
+            row_id=None,
+            span=(0, 5),
+            snippet="hello",
+            source_type="facility_note",
+            source_observed_at=earlier,
+            retrieved_at=earlier,
+        )
+
+    def _cap(fid: str, cap: CapabilityType) -> Capability:
+        return Capability(
+            facility_id=fid,
+            capability_type=cap,
+            claimed=True,
+            evidence_refs=[_ev(fid)],
+            source_doc_id=f"doc_{fid}",
+            extracted_at=earlier,
+            extractor_model="test",
+        )
+
+    def _ts(cap: CapabilityType, when: datetime) -> TrustScore:
+        return TrustScore(
+            capability_type=cap,
+            claimed=True,
+            evidence=[],
+            contradictions=[],
+            confidence=0.9,
+            confidence_interval=(0.85, 0.95),
+            score=90,
+            reasoning="n/a",
+            computed_at=when,
+        )
+
+    icu_audit = FacilityAudit(
+        facility_id="vf_icu",
+        name="ICU House",
+        location=GeoPoint(lat=25.6, lng=85.1),
+        capabilities=[_cap("vf_icu", CapabilityType.ICU)],
+        trust_scores={CapabilityType.ICU: _ts(CapabilityType.ICU, earlier)},
+        total_contradictions=0,
+        last_audited_at=earlier,
+    )
+    onc_audit = FacilityAudit(
+        facility_id="vf_onc",
+        name="Onc House",
+        location=GeoPoint(lat=25.6, lng=85.2),
+        capabilities=[_cap("vf_onc", CapabilityType.ONCOLOGY)],
+        trust_scores={CapabilityType.ONCOLOGY: _ts(CapabilityType.ONCOLOGY, later)},
+        total_contradictions=0,
+        last_audited_at=later,
+    )
+
+    s = _summary_from_audits([icu_audit, onc_audit], CapabilityType.ICU)
+    assert s.audited_count == 1
+    assert s.last_audited_at == earlier  # not the newer ONCOLOGY timestamp
+
+
 def test_parquet_mode_map_aggregates_falls_back_to_runtime_groupby(
     tmp_path, monkeypatch
 ):

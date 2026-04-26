@@ -20,7 +20,7 @@ Map, a Planner Query Console, and a Facility Audit View. No chat UI.
 [ Validator ]──→ Contradictions (closed taxonomy + heuristics + LLM)
        │
        ▼
-[ Trust Scorer ]──→ TrustScore (deterministic 0–100, 95% Wilson CI)
+[ Trust Scorer ]──→ TrustScore (deterministic 0–100 score + bootstrap CI on confidence)
        │
        ▼
 [ FacilityAudit Builder ]──→ FacilityAudit (gold Delta, gold Vector index)
@@ -50,6 +50,14 @@ Best per-capability: ONCOLOGY (F1=0.769), DIALYSIS (F1=0.667),
 NEONATAL (F1=0.571). Phase 1C lifted contradiction recall from 0 by
 fixing the audits-shape parser and adding a `vague_claim` heuristic;
 re-run pending live audits.
+
+## Three different intervals — what we ship vs. what we don't
+
+| Interval | Where | Implementation |
+|---|---|---|
+| Per-capability confidence interval | `TrustScore.confidence_interval` | Bootstrap CI in `seahealth.agents.trust_scorer`, deterministic given an rng seed. Pre-existing, schema-locked. |
+| Aggregate verified-count CI | `SummaryMetrics.verified_count_ci` | Wilson 95% score interval scaled to integer counts, computed in `seahealth.api.data_access._summary_from_audits`. Phase 4B. |
+| Map region CI | not shipped | `MapRegionAggregate` deliberately has no CI field in the API shape today. The Wilson helper exists, so wiring it onto `/map/aggregates` is a follow-up — we list this as an explicit gap rather than overclaim it on the demo. |
 
 ## What's real vs. fixture
 
