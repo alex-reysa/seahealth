@@ -60,3 +60,14 @@ def test_fixture_matches_module_table() -> None:
     payload = json.loads(FIXTURE.read_text(encoding="utf-8"))
     cities = {c["name"] for c in payload["cities"]}
     assert cities <= set(INDIA_CITIES.keys())
+
+
+def test_state_level_bihar_resolves_for_locked_demo_query() -> None:
+    """The locked demo query reads "rural Bihar" with no city. The state-
+    level fallback must resolve so the planner can geocode and produce
+    candidates instead of returning the empty-intent sentinel."""
+    point = geocode("Find the nearest facility in rural Bihar that can perform an emergency appendectomy.")
+    assert point is not None
+    # Bihar's state capital coordinates.
+    assert pytest.approx(point.lat, abs=0.5) == 25.6
+    assert pytest.approx(point.lng, abs=0.5) == 85.1
